@@ -7,6 +7,7 @@ on:
       - 'src/Build/Include/Makefile.inc'
       - 'src/Build/CMakeLists.txt'
       - 'src/Build/build_cmake_deb.sh'
+      - 'src/Build/Tools/private_tmp_dir.sh'
       - 'src/Common/*.h'
       - 'src/Common/*.cpp'
       - 'src/Common/*.c'
@@ -44,6 +45,7 @@ on:
       - 'src/Build/Include/Makefile.inc'
       - 'src/Build/CMakeLists.txt'
       - 'src/Build/build_cmake_deb.sh'
+      - 'src/Build/Tools/private_tmp_dir.sh'
       - 'src/Common/*.h'
       - 'src/Common/*.cpp'
       - 'src/Common/*.c'
@@ -76,12 +78,20 @@ on:
       - 'Tests/smartcard_parser_test.cpp'
       - '.github/workflows/build-linux.yml'
 
+# The cache-cleanup step deletes old Actions caches; nothing else writes.
+permissions:
+  contents: read
+  actions: write
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
   WXWIDGETS_VERSION: 3.2.5
+  # SHA-256 of wxWidgets-3.2.5.tar.bz2 (its SHA-1 matches the release notes).
+  # Update together with WXWIDGETS_VERSION.
+  WXWIDGETS_SHA256: 0ad86a3ad3e2e519b6a705248fc9226e3a09bbf069c6c692a02acf7c2d1c6b51
 
 jobs:
   ubuntu-build:
@@ -149,6 +159,7 @@ jobs:
       if: steps.cache-wxbuildconsole.outputs.cache-hit != 'true' || (matrix.os == 'ubuntu-24.04' && steps.cache-wxbuildgui.outputs.cache-hit != 'true') || steps.cache-wxwidgets.outputs.cache-hit != 'true'
       run: |
         wget https://github.com/wxWidgets/wxWidgets/releases/download/v${{ env.WXWIDGETS_VERSION }}/wxWidgets-${{ env.WXWIDGETS_VERSION }}.tar.bz2 -O /tmp/wxWidgets-${{ env.WXWIDGETS_VERSION }}.tar.bz2
+        echo "${{ env.WXWIDGETS_SHA256 }}  /tmp/wxWidgets-${{ env.WXWIDGETS_VERSION }}.tar.bz2" | sha256sum -c -
         mkdir -p /tmp/wxWidgets-${{ env.WXWIDGETS_VERSION }}
         tar -xjf /tmp/wxWidgets-${{ env.WXWIDGETS_VERSION }}.tar.bz2 -C /tmp/wxWidgets-${{ env.WXWIDGETS_VERSION }} --strip-components=1
 

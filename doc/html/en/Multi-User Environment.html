@@ -42,7 +42,9 @@
  accessible to them at the file-system level).<br>
 <br>
 Moreover, on Windows, the password cache is shared by all logged on users (for more information, please see the section
-<em>Settings -&gt; Preferences</em>, subsection <em>Cache passwords in driver memory</em>).<br>
+<em>Settings -&gt; Preferences</em>, subsection <em>Cache passwords in driver memory</em>).
+Any of these users can mount a volume they are able to read with a password that another user cached, and any of them can wipe the cache.
+On a computer used by several people, do not enable password caching.<br>
 <br>
 Also note that switching users in Windows XP or later (<em>Fast User Switching</em> functionality) does
 <em>not</em> unmount a successfully mounted VeraCrypt volume (unlike system restart, which unmounts all mounted VeraCrypt volumes).<br>

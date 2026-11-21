@@ -510,6 +510,8 @@ namespace VeraCrypt
 		{
 			try
 			{
+				if (!StringConverter::IsDecimalNumber (wstring (str)))
+					throw ParameterIncorrect (SRC_POS);
 				ArgNewPim = StringConverter::ToInt32 (wstring (str));
 			}
 			catch (...)
@@ -548,6 +550,8 @@ namespace VeraCrypt
 		{
 			try
 			{
+				if (!StringConverter::IsDecimalNumber (wstring (str)))
+					throw ParameterIncorrect (SRC_POS);
 				ArgPim = StringConverter::ToInt32 (wstring (str));
 			}
 			catch (...)
@@ -591,6 +595,8 @@ namespace VeraCrypt
 			int pim = -1;
 			try
 			{
+				if (!StringConverter::IsDecimalNumber (wstring (str)))
+					throw ParameterIncorrect (SRC_POS);
 				pim = StringConverter::ToInt32 (wstring (str));
 				if (pim < 0 || pim > (ArgMountOptions.PartitionInSystemEncryptionScope? MAX_BOOT_PIM_VALUE: MAX_PIM_VALUE))
 					throw_err (LangString["PARAMETER_INCORRECT"] + L": " + str);
@@ -680,7 +686,12 @@ namespace VeraCrypt
 					multiplier = 1;
 				try
 				{
-					ArgSize = multiplier * StringConverter::ToUInt64 (wstring (str));
+					uint64 value = StringConverter::ToUInt64 (wstring (str));
+					// Same limit as the GUI wizard: reject a product that would
+					// not fit a signed 64-bit file offset instead of wrapping.
+					if (value > TC_MAX_VOLUME_SIZE_GENERAL / multiplier)
+						throw ParameterIncorrect (SRC_POS);
+					ArgSize = multiplier * value;
 				}
 				catch (...)
 				{

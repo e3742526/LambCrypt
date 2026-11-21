@@ -67,6 +67,9 @@ concurrency:
 
 env:
   WXWIDGETS_VERSION: 3.2.5
+  # SHA-256 of wxWidgets-3.2.5.tar.bz2 (its SHA-1 matches the release notes).
+  # Update together with WXWIDGETS_VERSION.
+  WXWIDGETS_SHA256: 0ad86a3ad3e2e519b6a705248fc9226e3a09bbf069c6c692a02acf7c2d1c6b51
   # The same condition is repeated in the build matrix and the job "if"s,
   # where the env context is not available.
   FULL: ${{ github.event_name == 'workflow_dispatch' && inputs.full }}
@@ -109,6 +112,7 @@ jobs:
     - name: Download and extract wxWidgets
       run: |
         wget -q https://github.com/wxWidgets/wxWidgets/releases/download/v${{ env.WXWIDGETS_VERSION }}/wxWidgets-${{ env.WXWIDGETS_VERSION }}.tar.bz2 -O /tmp/wxWidgets.tar.bz2
+        echo "${{ env.WXWIDGETS_SHA256 }}  /tmp/wxWidgets.tar.bz2" | sha256sum -c -
         mkdir -p /tmp/wxWidgets-${{ env.WXWIDGETS_VERSION }}
         tar -xjf /tmp/wxWidgets.tar.bz2 -C /tmp/wxWidgets-${{ env.WXWIDGETS_VERSION }} --strip-components=1
 

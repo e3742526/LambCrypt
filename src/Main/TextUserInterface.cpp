@@ -244,6 +244,8 @@ namespace VeraCrypt
 			{
 				try
 				{
+					if (!StringConverter::IsDecimalNumber (pimStr))
+						throw ParameterIncorrect (SRC_POS);
 					pim = (int) StringConverter::ToUInt32 (pimStr);
 					if (pim > MAX_PIM_VALUE)
 					{
@@ -275,6 +277,8 @@ namespace VeraCrypt
 
 			try
 			{
+				if (!StringConverter::IsDecimalNumber (selectionStr))
+					continue;
 				selection = StringConverter::ToUInt32 (selectionStr);
 			}
 			catch (...)
@@ -816,7 +820,12 @@ namespace VeraCrypt
 
 			uint32 sectorSizeRem = options->Size % options->SectorSize;
 			if (sectorSizeRem != 0)
+			{
+				// Rounding a size near 2^64 up would wrap it to a small value.
+				if (options->Size > TC_MAX_VOLUME_SIZE_GENERAL)
+					throw_err (_("Incorrect volume size"));
 				options->Size += options->SectorSize - sectorSizeRem;
+			}
 
 			while (options->Size == 0)
 			{
@@ -824,7 +833,7 @@ namespace VeraCrypt
 					throw MissingArgument (SRC_POS);
 
 				uint64 multiplier = 1024 * 1024;
-				wxString sizeStr = AskString (options->Type == VolumeType::Hidden ? _("\nEnter hidden volume size (sizeK/size[M]/sizeG/sizeT): ") : _("\nEnter volume size (sizeK/size[M]/sizeG.sizeT/max): "));
+				wxString sizeStr = AskString (options->Type == VolumeType::Hidden ? _("\nEnter hidden volume size (sizeK/size[M]/sizeG/sizeT): ") : _("\nEnter volume size (sizeK/size[M]/sizeG/sizeT/max): "));
 				if (sizeStr.CmpNoCase(wxT("max")) == 0)
 				{
 					multiplier = 1;
@@ -869,10 +878,21 @@ namespace VeraCrypt
 
 					try
 					{
+						if (!StringConverter::IsDecimalNumber (wstring (sizeStr)))
+							throw ParameterIncorrect (SRC_POS);
 						options->Size = StringConverter::ToUInt64 (wstring(sizeStr));
 					}
 					catch (...)
 					{
+						options->Size = 0;
+						continue;
+					}
+
+					// Same limit as the GUI wizard: a product that does not fit a
+					// signed 64-bit file offset would wrap and pass the size checks.
+					if (options->Size > TC_MAX_VOLUME_SIZE_GENERAL / multiplier)
+					{
+						ShowError (StringFormatter (_("Maximum volume size is {0}."), SizeToString (maxVolumeSize)));
 						options->Size = 0;
 						continue;
 					}

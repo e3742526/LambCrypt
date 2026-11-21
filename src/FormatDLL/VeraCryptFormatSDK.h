@@ -45,19 +45,21 @@ extern "C" {
  */
 typedef struct _VeraCryptFormatOptions
 {
-	/** The full path to the file container to be created, or the device path (e.g., "\Device\Harddisk1\Partition1"). */
+	/** The full path to the file container to be created, or the device path (e.g., "\Device\Harddisk1\Partition1").
+	 *  A file container must not exist yet (VCF_ERROR_ALREADY_EXISTS); if formatting fails, the new file is deleted.
+	 *  A device whose filesystem is in use (cannot be opened exclusively) is not formatted. */
 	const wchar_t* path;
 
 	/** Set to TRUE if the path points to a device/partition, FALSE for a file container. */
 	BOOL isDevice;
 
-	/** The password for the new volume. Can be NULL if keyfiles are used. Must be UTF-8 encoded. */
+	/** The password for the new volume. Can be NULL if keyfiles are used. Must be UTF-8 encoded, at most VC_MAX_PASSWORD bytes. */
 	const char* password;
 
 	/** A NULL-terminated array of wide-char strings, each being a full path to a keyfile. Set to NULL if no keyfiles are used. */
 	const wchar_t** keyfiles;
 
-	/** The Personal Iterations Multiplier (PIM). Use 0 for default PIM. */
+	/** The Personal Iterations Multiplier (PIM). Use 0 for default PIM. Valid range: 0 to VC_MAX_PIM_VALUE. */
 	int pim;
 
 	/** The size of the volume in bytes. This is only used for file containers (when isDevice is FALSE). Must be a multiple of 512. */
@@ -125,6 +127,7 @@ typedef BOOL (CALLBACK *VeraCrypt_Progress_Callback)(int percentComplete, void* 
 #define VCF_ERROR_FILESYSTEM_INVALID_FOR_SIZE   21  // The selected filesystem cannot be used for the given volume size.
 #define VCF_ERROR_CONTAINER_TOO_LARGE_FOR_HOST  22  // The file container is larger than the available free space.
 #define VCF_ERROR_ACCESS_DENIED                 23  // The target path is read-only or cannot be created.
+#define VCF_ERROR_ALREADY_EXISTS                24  // A file already exists at the container path; it is never overwritten.
 
 
 // --- Public API Functions ---
@@ -142,6 +145,8 @@ VCF_API int __cdecl VeraCryptFormat_Initialize();
 /**
  * @brief Shuts down the VeraCrypt Format SDK.
  * Call this function when the SDK is no longer needed to release resources.
+ * Call it before FreeLibrary: while the SDK is initialized it holds a reference
+ * to its own DLL, so FreeLibrary alone does not unload it.
  */
 VCF_API void __cdecl VeraCryptFormat_Shutdown();
 

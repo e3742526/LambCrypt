@@ -609,9 +609,15 @@ namespace VeraCrypt
 		class TaskBarIcon : public wxTaskBarIcon
 		{
 		public:
-			TaskBarIcon (MainFrame *frame) : Busy (false), Frame (frame)
+			TaskBarIcon (MainFrame *frame) :
+#ifdef TC_MACOSX
+				wxTaskBarIcon (wxTBI_CUSTOM_STATUSITEM),
+#endif
+				Busy (false), Frame (frame)
 			{
+#ifndef TC_MACOSX
 				Connect (wxEVT_TASKBAR_LEFT_DOWN, wxTaskBarIconEventHandler (TaskBarIcon::OnLeftButtonDown));
+#endif
 			}
 
 			wxMenu *CreatePopupMenu ()
@@ -619,11 +625,24 @@ namespace VeraCrypt
 				unique_ptr <wxMenu> popup (new wxMenu);
 				const bool operationsEnabled = !Busy && !Gui->GetWaitDialog();
 
-				Gui->AppendToMenu (*popup, LangString[Gui->IsInBackgroundMode() ? "SHOW_TC" : "HIDE_TC"], this, wxCommandEventHandler (TaskBarIcon::OnShowHideMenuItemSelected));
+				// On macOS the native menu is recreated on every click. Bind to its
+				// lifetime rather than accumulating command IDs on the status icon.
+				auto appendCommand = [&] (const wxString &label, void (TaskBarIcon::*handler) (wxCommandEvent&), int id = wxID_ANY)
+				{
+#ifdef TC_MACOSX
+					auto *item = popup->Append (id, label);
+					popup->Bind (wxEVT_MENU, [this, handler] (wxCommandEvent& event) { (this->*handler) (event); }, item->GetId());
+					return item;
+#else
+					return Gui->AppendToMenu (*popup, label, this, wxEVENT_HANDLER_CAST (wxCommandEventFunction, handler), id);
+#endif
+				};
+
+				appendCommand (LangString[Gui->IsInBackgroundMode() ? "SHOW_TC" : "HIDE_TC"], &TaskBarIcon::OnShowHideMenuItemSelected);
 
 				popup->AppendSeparator();
-				Gui->AppendToMenu (*popup, LangString["IDM_MOUNT_FAVORITE_VOLUMES"], this, wxCommandEventHandler (TaskBarIcon::OnMountAllFavoritesMenuItemSelected))->Enable (operationsEnabled);
-				Gui->AppendToMenu (*popup, LangString["HK_UNMOUNT_ALL"], this, wxCommandEventHandler (TaskBarIcon::OnDismountAllMenuItemSelected))->Enable (operationsEnabled);
+				appendCommand (LangString["IDM_MOUNT_FAVORITE_VOLUMES"], &TaskBarIcon::OnMountAllFavoritesMenuItemSelected)->Enable (operationsEnabled);
+				appendCommand (LangString["HK_UNMOUNT_ALL"], &TaskBarIcon::OnDismountAllMenuItemSelected)->Enable (operationsEnabled);
 
 				// Favorite volumes
 				if (Gui->GetPreferences().BackgroundTaskMenuMountItemsEnabled && !Frame->FavoriteVolumesMenuMap.empty())
@@ -633,11 +652,62 @@ namespace VeraCrypt
 					foreach (FavMapPair fp, Frame->FavoriteVolumesMenuMap)
 					{
 						//TBH Gui->AppendToMenu (*popup, LangString["MOUNT"] + L" " + wstring (fp.second.Path) + (fp.second.MountPoint.IsEmpty() ? L"" : L"  " + wstring (fp.second.MountPoint)),
-						Gui->AppendToMenu (*popup, LangString["MOUNT_BUTTON"] + L" " + wstring (fp.second.Path) + (fp.second.MountPoint.IsEmpty() ? L"" : L"  " + wstring (fp.second.MountPoint)),
-							this, wxCommandEventHandler (TaskBarIcon::OnFavoriteVolumeMenuItemSelected), fp.first)->Enable (operationsEnabled);
+						appendCommand (LangString["MOUNT_BUTTON"] + L" " + wstring (fp.second.Path) + (fp.second.MountPoint.IsEmpty() ? L"" : L"  " + wstring (fp.second.MountPoint)), &TaskBarIcon::OnFavoriteVolumeMenuItemSelected, fp.first)->Enable (operationsEnabled);
 					}
 				}
 
+#ifdef TC_MACOSX
+				// Use the same asynchronously refreshed snapshot as the main window.
+				// An unverified empty list must not imply that the volumes are locked.
+				popup->AppendSeparator();
+				const bool fresh = Frame->VolumeSnapshot.IsFresh();
+				const auto volumes = Frame->GetDisplayedVolumes();
+				if (!fresh || !Frame->VolumeSnapshot.IsComplete() || Gui->HasUnconfirmedCleanupWarnings())
+					popup->Append (wxID_ANY, LangString[fresh && !Gui->HasUnconfirmedCleanupWarnings() ? "VOLUME_DISCOVERY_PARTIAL" : "VOLUME_STATUS_UNKNOWN"])->Enable (false);
+				else if (Frame->CanConfirmNoMountedVolumes())
+					popup->Append (wxID_ANY, LangString["NO_VOLUMES_MOUNTED"])->Enable (false);
+
+				for (const auto &volume : volumes)
+				{
+					wxString label { wstring (volume->Path) };
+					label.Replace (L"\t", L" "); // wx treats tabs as accelerator separators.
+					label.Replace (L"\n", L" ");
+					label.Replace (L"\r", L" ");
+					label.Replace (L"&", L"&&");
+					if (volume->Protection == VolumeProtection::ReadOnly)
+						label += L" (" + LangString["READ_ONLY"] + L")";
+					if (volume->Discovery == VolumeInfo::ImageAbsent)
+						label += L" — " + LangString["VOLUME_IMAGE_ABSENT"];
+					else if (volume->Discovery != VolumeInfo::ImageAttached)
+						label += L" — " + LangString["VOLUME_STATUS_UNKNOWN"];
+
+					unique_ptr <wxMenu> actions (new wxMenu);
+					if (Gui->GetPreferences().BackgroundTaskMenuOpenItemsEnabled && !volume->MountPoint.IsEmpty())
+					{
+						auto *item = actions->Append (wxID_ANY, LangString["MACOSX_OPEN_IN_FINDER"]);
+						item->Enable (operationsEnabled && fresh && volume->Discovery == VolumeInfo::ImageAttached);
+						actions->Bind (wxEVT_MENU, [this, volume] (wxCommandEvent&) { OpenMountedVolume (volume); }, item->GetId());
+					}
+					if (Gui->GetPreferences().BackgroundTaskMenuDismountItemsEnabled)
+					{
+						auto *item = actions->Append (wxID_ANY, LangString["UNMOUNT"]);
+						item->Enable (operationsEnabled);
+						actions->Bind (wxEVT_MENU, [this, volume] (wxCommandEvent&)
+						{
+							if (!Busy && !Gui->GetWaitDialog())
+							{
+								Busy = true;
+								Frame->DismountVolume (volume);
+								Busy = false;
+							}
+						}, item->GetId());
+					}
+					if (actions->GetMenuItemCount())
+						popup->AppendSubMenu (actions.release(), label);
+					else
+						popup->Append (wxID_ANY, label)->Enable (false);
+				}
+#else
 				// Mounted volumes
 				VolumeInfoList mountedVolumes = Gui->GetMountedVolumesForUI();
 				if (!mountedVolumes.empty())
@@ -677,14 +747,32 @@ namespace VeraCrypt
 					}
 				}
 
+#endif
 				popup->AppendSeparator();
-				Gui->AppendToMenu (*popup, LangString["IDM_PREFERENCES"], this, wxCommandEventHandler (TaskBarIcon::OnPreferencesMenuItemSelected))->Enable (operationsEnabled);
+				appendCommand (LangString["IDM_PREFERENCES"], &TaskBarIcon::OnPreferencesMenuItemSelected)->Enable (operationsEnabled);
 #ifndef TC_MACOSX
 				popup->AppendSeparator();
-				Gui->AppendToMenu (*popup, LangString["EXIT"], this, wxCommandEventHandler (TaskBarIcon::OnExitMenuItemSelected))->Enable (!Busy && Frame->CanExit());
+				appendCommand (LangString["EXIT"], &TaskBarIcon::OnExitMenuItemSelected)->Enable (!Busy && Frame->CanExit());
 #endif
 				return popup.release();
 			}
+
+#ifdef TC_MACOSX
+			void OpenMountedVolume (const shared_ptr <VolumeInfo> &selected)
+			{
+				if (Busy || Gui->GetWaitDialog()) return;
+				if (Frame->VolumeSnapshot.IsFresh())
+					for (const auto &current : Frame->GetDisplayedVolumes())
+						if (current->SerialInstanceNumber == selected->SerialInstanceNumber
+							&& current->SlotNumber == selected->SlotNumber && current->Path == selected->Path
+							&& current->Discovery == VolumeInfo::ImageAttached && !current->MountPoint.IsEmpty())
+						{
+							Gui->OpenExplorerWindow (current->MountPoint);
+							return;
+						}
+				Gui->ShowWarning (LangString["MACOSX_REOPEN_VOLUME_MENU"]);
+			}
+#endif
 
 			void OnDismountAllMenuItemSelected (wxCommandEvent& event) { Busy = true; Frame->OnDismountAllButtonClick (event); Busy = false; }
 			void OnDismountMenuItemSelected (wxCommandEvent& event) { Busy = true; Frame->DismountVolume (DismountMap[event.GetId()]); Busy = false; }
@@ -1726,10 +1814,8 @@ namespace VeraCrypt
 		}
 		else if (show && !mTaskBarIcon->IsIconInstalled())
 		{
-#ifndef TC_MACOSX
 #ifndef HAVE_INDICATORS
 			mTaskBarIcon->SetIcon (Resources::GetVeraCryptIcon(), L"VeraCrypt");
-#endif
 #endif
 #ifdef HAVE_INDICATORS
 			if (indicator == NULL) {

@@ -84,6 +84,24 @@ confirmed, a warning keeps the background application from exiting silently.
 That warning stays on screen until the test ends. Failed-run artifacts are
 retained for diagnosis; use `--keep-artifacts` to retain successful runs as well.
 
+## Menu-bar smoke check (manual)
+
+Launch the candidate app in a logged-in session with isolated preferences and
+only disposable containers. With **Background Task** enabled, click the
+VeraCrypt icon in the macOS menu bar. Check that it reports no mounted volumes
+after discovery finishes. Mount a disposable volume read-only and reopen the
+menu: the entry should match the main window, be labeled read-only, and its
+**Open in Finder** action should open the mounted filesystem, not the container.
+Unmount it from its submenu and verify that both views drop the entry. Repeat
+with an external CLI unmount: reopen the menu after the list refreshes and verify
+that it no longer offers actions for the old mount.
+
+For an in-use test, keep a file on a disposable volume open in another process.
+Use **Unmount** from the menu. If the filesystem reports it is busy, decline
+any force prompt and verify the volume remains listed; close the file and retry.
+Check that disabling **Background Task** removes the icon. These manual checks
+exercise the native menu; the automated lifecycle test does not click it.
+
 Use disposable containers for ordinary create/write/fsync/unmount/remount checks,
 released-client compatibility, and user/root ownership combinations. Keep logs
 private and verify service exit, closed backing-file handles, removed auxiliary

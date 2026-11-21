@@ -392,7 +392,14 @@ class DismountChecks:
             held.read(1)
             self.vc("busy-unmount-refused", "--unmount", self.volume, expected=1)
             os.kill(self.active["pid"], 0)
+            listing = self.vc("busy-still-listed", "--list", self.volume).stdout
+            if str(self.volume) not in listing:
+                raise AssertionError("Busy dismount hid the still-mounted container")
         self.unmount("busy-release-retry")
+        self.mount("busy-readonly-remount", options=("--mount-options=ro",))
+        if hashlib.sha256((self.mountpoint / "payload.bin").read_bytes()).hexdigest() != self.digest:
+            raise AssertionError("Payload failed verification after busy dismount retry")
+        self.unmount("busy-readonly-unmount")
 
         self.mount("force-mount")
         with (self.active["aux"] / "control").open("rb") as held:

@@ -59,6 +59,11 @@ else
     fi
 fi
 
+# /tmp is shared with other users: accept only entries owned by this user and
+# create the directories the build writes to before anyone else can.
+. "$SCRIPTPATH/Tools/private_tmp_dir.sh"
+vc_secure_tmp_parentdir --existing wxWidgets-3.2.5 --create wxBuildConsole wxBuildGUI VeraCrypt_Setup VeraCrypt_Packaging || exit 1
+
 # The sources of wxWidgets 3.2.5 must be extracted to the parent directory
 export WX_ROOT=$PARENTDIR/wxWidgets-3.2.5
 
@@ -176,7 +181,8 @@ echo "Creating VeraCrypt DEB packages"
 # -DCPACK_RPM_PACKAGE_DEBUG=TRUE for debugging cpack DEB
 
 # remove old packages
-rm -rf $PARENTDIR/VeraCrypt_Packaging
+rm -rf "$PARENTDIR/VeraCrypt_Packaging"
+vc_secure_tmp_parentdir --create VeraCrypt_Packaging || exit 1
 
 mkdir -p $PARENTDIR/VeraCrypt_Packaging/GUI
 mkdir -p $PARENTDIR/VeraCrypt_Packaging/Console

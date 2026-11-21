@@ -78,6 +78,20 @@ void cleanup ();
 static std::mutex g_sdkMutex;
 static std::atomic<bool> g_isInitialized = false;
 static HINSTANCE g_hDllInstance = NULL;
+// Extra reference held while initialized. FreeLibrary without Shutdown then
+// leaves the DLL loaded instead of running cleanup under the loader lock,
+// where waiting for the random pool thread to exit would deadlock.
+static HMODULE g_hSelfReference = NULL;
+
+static void ShutdownLocked()
+{
+	if (g_isInitialized)
+	{
+		RandStop(TRUE);
+		cleanup();
+		g_isInitialized = false;
+	}
+}
 
 // Helper to map string representations to internal VeraCrypt EA IDs
 static int MapEncryptionAlgorithm(const wchar_t* algoName)
@@ -158,8 +172,13 @@ static int CreateVolumeInternal(const VeraCryptFormatOptions* options)
 	// --- Parameter validation ---
 	if (!options || !options->path || wcslen(options->path) == 0) return VCF_ERROR_INVALID_PARAMETER;
 	if (!options->password && (options->keyfiles == nullptr || options->keyfiles[0] == nullptr)) return VCF_ERROR_PASSWORD_OR_KEYFILE_REQUIRED;
-	if (!options->isDevice && (options->dynamicFormat || options->fastCreateFile) && options->quickFormat == FALSE) return VCF_ERROR_INVALID_PARAMETER;
-    if (options->isDevice && (options->dynamicFormat || options->fastCreateFile)) return VCF_ERROR_INVALID_PARAMETER;
+	// dynamicFormat and fastCreateFile imply quickFormat (see the header); that is applied below.
+	if (options->isDevice && (options->dynamicFormat || options->fastCreateFile)) return VCF_ERROR_INVALID_PARAMETER;
+	// Every other entry point rejects these. A negative PIM would derive the header key
+	// with a single PBKDF2 round and the volume could not be opened with any valid PIM.
+	if (options->pim < 0 || options->pim > VC_MAX_PIM_VALUE) return VCF_ERROR_INVALID_PARAMETER;
+	// strcpy_s below would terminate the calling process on a longer password.
+	if (options->password && strlen(options->password) > MAX_PASSWORD) return VCF_ERROR_PASSWORD_POLICY;
 
 	// Lock the mutex to protect the global state used by VeraCrypt's format code
 	std::lock_guard<std::mutex> lock(g_sdkMutex);
@@ -246,6 +265,11 @@ static int CreateVolumeInternal(const VeraCryptFormatOptions* options)
 	// --- Prepare for TCFormatVolume ---
 	StringCbCopyW(szDiskFile, sizeof(szDiskFile), options->path);
 
+	// TCFormatVolume opens file containers with CREATE_ALWAYS and, if formatting fails,
+	// truncates the file. Never let a wrong path destroy an existing file.
+	if (!bDevice && GetFileAttributesW(szDiskFile) != INVALID_FILE_ATTRIBUTES)
+		return VCF_ERROR_ALREADY_EXISTS;
+
 	// --- Perform Validation (ported from Tcformat.c) ---
 	if (bDevice)
 	{
@@ -299,7 +323,9 @@ static int CreateVolumeInternal(const VeraCryptFormatOptions* options)
 	volParams.pim = volumePim;
 	volParams.bGuiMode = FALSE;
 	volParams.hwndDlg = NULL;
-	volParams.bForceOperation = TRUE;
+	// Without a user to confirm, refuse to format a device that is in use (its
+	// filesystem is mounted) instead of formatting it in shared mode.
+	volParams.bForceOperation = FALSE;
 
 	// Setup progress callback
 	SdkProgressContext progressCtx = { 0 };
@@ -319,14 +345,19 @@ static int CreateVolumeInternal(const VeraCryptFormatOptions* options)
 
 	// --- Return result ---
 	if (status == ERR_SUCCESS) return VCF_SUCCESS;
-	
+
+	DWORD lastError = GetLastError();
+
+	// The file did not exist before this call, so remove what is left of it.
+	if (!bDevice)
+		DeleteFileW(szDiskFile);
+
 	// Map internal errors to public SDK errors
 	switch (status)
 	{
 		case ERR_OUTOFMEMORY: return VCF_ERROR_OUT_OF_MEMORY;
 		case ERR_OS_ERROR:
 		{
-			DWORD lastError = GetLastError();
 			if (lastError == ERROR_ACCESS_DENIED) return VCF_ERROR_ACCESS_DENIED;
 			return VCF_ERROR_OS_ERROR;
 		}
@@ -355,19 +386,27 @@ extern "C"
 		if (!AutoTestAlgorithms()) { cleanup(); return VCF_ERROR_SELF_TEST_FAILED; }
 		if (Randinit()) { cleanup(); return VCF_ERROR_RNG_INIT_FAILED; }
 
+		if (!g_hSelfReference)
+			GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCWSTR) &ShutdownLocked, &g_hSelfReference);
+
 		g_isInitialized = true;
 		return VCF_SUCCESS;
 	}
 
 	VCF_API void __cdecl VeraCryptFormat_Shutdown()
 	{
-		std::lock_guard<std::mutex> lock(g_sdkMutex);
-        if (g_isInitialized)
-        {
-		    RandStop(TRUE);
-            cleanup();
-		    g_isInitialized = false;
-        }
+		HMODULE selfReference;
+		{
+			std::lock_guard<std::mutex> lock(g_sdkMutex);
+			ShutdownLocked();
+			selfReference = g_hSelfReference;
+			g_hSelfReference = NULL;
+		}
+
+		// The caller still holds its own reference while calling into the DLL,
+		// so this never unloads the code that is running.
+		if (selfReference)
+			FreeLibrary(selfReference);
 	}
 
 	VCF_API int __cdecl VeraCryptFormat(const VeraCryptFormatOptions* options)
@@ -394,9 +433,14 @@ extern "C"
 			break;
 
 		case DLL_PROCESS_DETACH:
-			if (g_isInitialized)
+			// lpvReserved != NULL: the process is exiting and its other threads are
+			// already gone, so RandStop does not wait. A FreeLibrary detach cannot
+			// happen while initialized because of g_hSelfReference. A thread that
+			// was killed inside a call may still own the mutex, so do not block on it.
+			if (lpvReserved != NULL && g_isInitialized && g_sdkMutex.try_lock())
 			{
-				VeraCryptFormat_Shutdown();
+				ShutdownLocked();
+				g_sdkMutex.unlock();
 			}
 			break;
 		}

@@ -271,6 +271,20 @@ namespace VeraCrypt
 		return n;
 	}
 
+	bool StringConverter::IsDecimalNumber (const wstring &str)
+	{
+		if (str.empty())
+			return false;
+
+		for (size_t i = 0; i < str.size(); ++i)
+		{
+			if (str[i] < L'0' || str[i] > L'9')
+				return false;
+		}
+
+		return true;
+	}
+
 	uint32 StringConverter::ToUInt32 (const wstring &str)
 	{
 		uint32 n;

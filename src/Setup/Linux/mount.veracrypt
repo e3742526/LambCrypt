@@ -4,6 +4,10 @@
 # Options (comma-separated, as in fstab): ro/rw, fs=, keyfiles=, password=,
 # pim=, protect-hidden=, slot=, system, nokernelcrypto, headerbak,
 # timestamp; anything else goes to the filesystem.
+#
+# password= is passed to veracrypt on standard input, not on its command line.
+# /etc/fstab is normally readable by every user, so prefer keyfiles= pointing
+# to a root-only file over writing a password there.
 DEV=$1
 MNTPT=$2
 MOUNTOPTS=
@@ -11,6 +15,8 @@ OPTIONS=
 OPTSTR=
 FAKE=
 READONLY=
+PASSWORD=
+HAVEPASSWORD=
 
 die() {
 	echo "mount.veracrypt: $1" >&2
@@ -63,7 +69,7 @@ for arg in $OPTSTR; do
 			die "TrueCrypt mode is no longer supported" ;;
 		fs=*)             set -- "$@" "--filesystem=${arg#*=}" ;;
 		keyfiles=*)       set -- "$@" "--keyfiles=${arg#*=}" ;;
-		password=*)       set -- "$@" "--password=${arg#*=}" ;;
+		password=*)       PASSWORD=${arg#*=}; HAVEPASSWORD=1 ;;
 		pim=*)            set -- "$@" "--pim=${arg#*=}" ;;
 		protect-hidden=*) set -- "$@" "--protect-hidden=${arg#*=}" ;;
 		slot=*)           set -- "$@" "--slot=${arg#*=}" ;;
@@ -85,5 +91,13 @@ set -- "$@" --fs-options="${OPTIONS%,}" "$DEV" "$MNTPT"
 
 # -f (fake): the options are checked, nothing is mounted.
 [ -n "$FAKE" ] && exit 0
+
+if [ -n "$HAVEPASSWORD" ]; then
+	# On the command line the password would be visible to every local user
+	# (ps, /proc/<pid>/cmdline). printf is a shell builtin, so it never appears
+	# as a process argument; veracrypt reads the first line of standard input.
+	printf '%s\n' "$PASSWORD" | /usr/bin/veracrypt --text --non-interactive --stdin "$@"
+	exit $?
+fi
 
 exec /usr/bin/veracrypt --text --non-interactive "$@"

@@ -30,6 +30,9 @@ namespace VeraCrypt
 		static wstring FromNumber (uint64 number);
 		static string GetTrailingNumber (const string &str);
 		static string GetTypeName (const type_info &typeInfo);
+		// True when str is one or more ASCII digits and nothing else. The To*
+		// conversions stop at the first non-digit, so check typed numbers first.
+		static bool IsDecimalNumber (const wstring &str);
 		static wstring QuoteSpaces (const wstring &str);
 		static vector <string> Split (const string &str, const string &separators = " \t\r\n", bool returnEmptyFields = false);
 		static string StripTrailingNumber (const string &str);

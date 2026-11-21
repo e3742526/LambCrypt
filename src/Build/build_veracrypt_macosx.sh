@@ -136,6 +136,11 @@ else
     fi
 fi
 
+# /tmp is shared with other users: accept only entries owned by this user and
+# create the directories the build writes to before anyone else can.
+. "$SCRIPTPATH/Tools/private_tmp_dir.sh"
+vc_secure_tmp_parentdir --existing "wxWidgets-$WX_VERSION" wxBuildConsole --create "wxBuild-$WX_VERSION" || exit 1
+
 # The sources of wxWidgets $WX_VERSION must be extracted to the parent directory
 export WX_ROOT="$PARENTDIR/wxWidgets-$WX_VERSION"
 

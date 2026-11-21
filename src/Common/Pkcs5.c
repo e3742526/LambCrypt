@@ -1453,14 +1453,10 @@ void get_argon2_params(int pim, int* pIterations, int* pMemcost)
 		pim = 12;
 	}
 
-    // Compute the memory cost (m_cost) in MiB
-    int m_cost_mib = 64 + (pim - 1) * 32;
-
-    // Cap the memory cost at 1024 MiB
-    if (m_cost_mib > 1024)
-    {
-        m_cost_mib = 1024;
-    }
+    // Compute the memory cost (m_cost) in MiB, capped at 1024 MiB.
+    // PIM 31 already reaches the cap; testing first keeps (pim - 1) * 32 from
+    // overflowing for a very large PIM.
+    int m_cost_mib = (pim >= 31) ? 1024 : 64 + (pim - 1) * 32;
 
     // Convert memory cost to KiB for Argon2
     *pMemcost = m_cost_mib * 1024; // m_cost in KiB

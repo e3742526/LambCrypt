@@ -1700,6 +1700,8 @@
     <entry lang="en" key="OPERATION_TIMED_OUT">The operation did not finish in time. Check the volume's status before retrying.</entry>
     <entry lang="en" key="VOLUME_STATUS_UNKNOWN">Status unavailable</entry>
     <entry lang="en" key="VOLUME_IMAGE_ABSENT">Image detached; unmount to finish</entry>
+    <entry lang="en" key="MACOSX_OPEN_IN_FINDER">Open in Finder</entry>
+    <entry lang="en" key="MACOSX_REOPEN_VOLUME_MENU">The volume or its mount point could not be verified. Reopen the VeraCrypt menu to refresh its status.</entry>
     <entry lang="en" key="VOLUME_DISCOVERY_PENDING">Refreshing volume status…</entry>
     <entry lang="en" key="VOLUME_DISCOVERY_STALLED">Volume status unavailable; retrying…</entry>
     <entry lang="en" key="VOLUME_DISCOVERY_PARTIAL">Some volume information is unavailable; retrying…</entry>
