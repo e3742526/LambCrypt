@@ -217,7 +217,8 @@ namespace VeraCrypt
 		return false;
 	}
 
-#ifdef TC_LINUX
+	// Used on every Unix platform for programs that may run with elevated
+	// privileges or receive the administrator password (sudo, mount, losetup...).
 	static bool IsTrustedSystemPathEntry (const string &path, const struct stat &info)
 	{
 		if (info.st_uid != 0)
@@ -225,6 +226,10 @@ namespace VeraCrypt
 		if (S_ISLNK (info.st_mode) || !(info.st_mode & (S_IWGRP | S_IWOTH)))
 			return true;
 
+#ifndef TC_LINUX
+		(void) path;
+		return false;
+#else
 		// NixOS exposes its store read-only, but the directory retains group
 		// write permission for the build users. Its sticky bit protects existing
 		// root-owned entries in the daemon's writable view. All children still
@@ -234,6 +239,7 @@ namespace VeraCrypt
 			return false;
 		struct statvfs filesystem;
 		return statvfs (path.c_str(), &filesystem) == 0 && (filesystem.f_flag & ST_RDONLY);
+#endif
 	}
 
 	// Walk from the root before following each link. Checking only realpath's
@@ -300,6 +306,15 @@ namespace VeraCrypt
 		return true;
 	}
 
+	static bool IsTrustedSystemExecutable (const string &path)
+	{
+		string resolved;
+		struct stat info;
+		return ResolveTrustedSystemPath (path, resolved, info)
+			&& S_ISREG (info.st_mode) && (info.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH));
+	}
+
+#ifdef TC_LINUX
 	static bool IsNixOS ()
 	{
 		string path;
@@ -339,7 +354,7 @@ namespace VeraCrypt
 #endif
 
 	// Find executable in system paths
-	std::string Process::FindSystemBinary(const char* name, std::string& errorMsg) {
+	std::string Process::FindSystemBinary(const char* name, std::string& errorMsg, bool requireTrustedPath) {
 		if (!name) {
 			errno = EINVAL; // Invalid argument
 			errorMsg = "Invalid input: name or paths is NULL";
@@ -377,10 +392,7 @@ namespace VeraCrypt
 				for (size_t i = 0; i < sizeof (nixDirs) / sizeof (nixDirs[0]); ++i)
 				{
 					string candidate = string (nixDirs[i]) + "/" + currentPath;
-					string resolved;
-					struct stat info;
-					if (ResolveTrustedSystemPath (candidate, resolved, info)
-						&& S_ISREG (info.st_mode) && (info.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)))
+					if (IsTrustedSystemExecutable (candidate))
 						// Preserve argv[0] for helpers such as true that link to a multicall binary.
 						return candidate;
 				}
@@ -388,7 +400,10 @@ namespace VeraCrypt
 #endif
 			for (size_t i = 0; i < defaultDirCount; ++i) {
 				std::string combinedPath = std::string(defaultDirs[i]) + "/" + currentPath;
-				if (IsExecutable(combinedPath)) {
+				// Skip, rather than fail on, a candidate that a non-root user could
+				// have planted or replaced (e.g. a user-owned or group-writable
+				// /usr/local/bin). A trusted copy later in the list is still found.
+				if (requireTrustedPath ? IsTrustedSystemExecutable(combinedPath) : IsExecutable(combinedPath)) {
 					return combinedPath;
 				}
 			}
@@ -398,8 +413,14 @@ namespace VeraCrypt
 
 		// Prepare error message
 		errno = ENOENT; // No such file or directory
-		errorMsg = std::string(name) + " not found in system directories";
+		errorMsg = std::string(name) + (requireTrustedPath
+			? " not found in system directories (only root-owned paths that are not group- or world-writable are used)"
+			: " not found in system directories");
 		return "";
+	}
+
+	std::string Process::FindUserBinary(const char* name, std::string& errorMsg) {
+		return FindSystemBinary (name, errorMsg, false);
 	}
 
 	string Process::Execute (const string &processNameArg, const list <string> &arguments, int timeOut, ProcessExecFunctor *execFunctor, const Buffer *inputData)

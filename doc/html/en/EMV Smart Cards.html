@@ -72,6 +72,16 @@
           while keeping his denial plausible.
         </p>
         <p>
+          <strong>Important:</strong> the data that VeraCrypt reads from an EMV
+          card (the public key certificates and the card production life cycle
+          data) is not secret. It never changes and any card reader or payment
+          terminal the card is inserted into, or held near if it is contactless,
+          can read it. An EMV keyfile therefore proves that you have the card
+          (or a copy of its data); it does not add a secret. Always use a strong
+          password together with an EMV keyfile, and do not rely on the card
+          alone to protect a volume.
+        </p>
+        <p>
           For more technical information, please see the section
           <em style="text-align: left">EMV Smart Cards</em> in the chapter
           <a

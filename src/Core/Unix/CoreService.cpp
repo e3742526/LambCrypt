@@ -196,6 +196,31 @@ namespace VeraCrypt
 	}
 #endif
 
+#ifndef TC_MACOSX
+	// The elevated SetFileOwner exists only so a non-administrator can briefly
+	// own a device while creating a volume on it (VolumeCreator). Never let it
+	// change the owner of an arbitrary file such as /etc/shadow: resolve the
+	// path once, require a block/character device node under /dev (non-root
+	// users cannot create device nodes or replace /dev entries), and chown the
+	// resolved node so a symlink cannot be swapped in after the check.
+	static FilesystemPath ResolveUnixSetFileOwnerTarget (const FilesystemPath &path)
+	{
+		char *resolved = realpath (string (path).c_str(), NULL);
+		if (!resolved)
+			throw ParameterIncorrect (SRC_POS);
+		const string resolvedPath (resolved);
+		free (resolved);
+
+		struct stat sb;
+		if (resolvedPath.compare (0, 5, "/dev/") != 0
+			|| lstat (resolvedPath.c_str(), &sb) != 0
+			|| (!S_ISBLK (sb.st_mode) && !S_ISCHR (sb.st_mode)))
+			throw ParameterIncorrect (SRC_POS);
+
+		return FilesystemPath (resolvedPath);
+	}
+#endif
+
 	static void CheckPrivilegeElevationAllowed ()
 	{
 #ifdef TC_LINUX
@@ -1359,8 +1384,10 @@ namespace VeraCrypt
 #ifdef TC_MACOSX
 						// Restrict the root-privileged chown to real disk device nodes.
 						ValidateMacOSXSetFileOwnerTarget (setFileOwnerRequest->Path);
-#endif
 						coreUnix->SetFileOwner (setFileOwnerRequest->Path, setFileOwnerRequest->Owner);
+#else
+						coreUnix->SetFileOwner (ResolveUnixSetFileOwnerTarget (setFileOwnerRequest->Path), setFileOwnerRequest->Owner);
+#endif
 						SetFileOwnerResponse().Serialize (outputStream);
 						continue;
 					}

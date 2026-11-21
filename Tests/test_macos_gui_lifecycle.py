@@ -19,9 +19,14 @@ import time
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", required=True, type=Path)
+    parser.add_argument("--release-binary", type=Path,
+                        help="Create and verify the container with this released FUSE-T client")
+    parser.add_argument("--cli-only", action="store_true",
+                        help="Verify the container round trip without launching the background GUI")
     parser.add_argument("--keep-artifacts", action="store_true")
     args = parser.parse_args()
     binary = args.binary.resolve(strict=True)
+    release = args.release_binary.resolve(strict=True) if args.release_binary else binary
     mounts = lambda: subprocess.check_output(["/sbin/mount"], text=True)
     if ".veracrypt_aux_mnt" in mounts():
         raise RuntimeError("Dismount existing VeraCrypt volumes before this isolated GUI test")
@@ -45,32 +50,40 @@ def main():
         f'<config key="{key}">{value}</config>' for key, value in prefs.items()
     ) + "</configuration></VeraCrypt>")
     env = dict(os.environ, TMPDIR=str(temporary) + "/", XDG_CONFIG_HOME=str(root / "config"))
-    contents = root / "VeraCryptTest.app" / "Contents"
-    executable = contents / "MacOS" / "VeraCrypt"
-    executable.parent.mkdir(parents=True)
-    shutil.copy2(binary, executable)
-    (contents / "Info.plist").write_bytes(plistlib.dumps(dict(
-        CFBundleExecutable="VeraCrypt", CFBundleName="VeraCrypt Lifecycle Test",
-        CFBundleIdentifier=f"org.idrix.veracrypt.lifecycle-test.{os.getpid()}",
-        CFBundlePackageType="APPL", NSHighResolutionCapable=True)))
+    executable = binary
+    if not args.cli_only:
+        contents = binary.parent.parent
+        in_app_bundle = (binary.parent.name == "MacOS" and contents.name == "Contents"
+                         and contents.parent.suffix == ".app" and (contents / "Info.plist").is_file())
+        if not in_app_bundle:
+            contents = root / "VeraCryptTest.app" / "Contents"
+            executable = contents / "MacOS" / "VeraCrypt"
+            executable.parent.mkdir(parents=True)
+            shutil.copy2(binary, executable)
+            (contents / "Info.plist").write_bytes(plistlib.dumps(dict(
+                CFBundleExecutable="VeraCrypt", CFBundleName="VeraCrypt Lifecycle Test",
+                CFBundleIdentifier=f"org.idrix.veracrypt.lifecycle-test.{os.getpid()}",
+                CFBundlePackageType="APPL", NSHighResolutionCapable=True)))
     volume = root / "ordinary.hc"
     password = "Disposable-normal-lifecycle-only"
     gui = None
     active = None
+    mount_client = binary
     succeeded = False
 
-    def vc(label, *options):
-        result = subprocess.run([str(binary), "--text", "--non-interactive", *map(str, options)],
+    def vc(label, *options, client=binary):
+        result = subprocess.run([str(client), "--text", "--non-interactive", *map(str, options)],
                                 env=env, capture_output=True, text=True, timeout=90)
         (root / (label + ".log")).write_text(result.stdout + result.stderr)
         if result.returncode:
             raise RuntimeError(f"{label} failed; see {root / (label + '.log')}")
 
-    def mount(read_only=False):
-        nonlocal active
+    def mount(read_only=False, client=binary):
+        nonlocal active, mount_client
+        mount_client = client
         vc("mount", "--mount", volume, mountpoint, "--password=" + password,
            "--pim=1", "--keyfiles=", "--protect-hidden=no",
-           *(["--mount-options=ro"] if read_only else []))
+           *(["--mount-options=ro"] if read_only else []), client=client)
         identities = list(temporary.glob("**/.veracrypt_aux_mnt*/shutdown"))
         assert len(identities) == 1, "Expected one disposable FUSE-T service"
         aux = identities[0].parent
@@ -94,7 +107,7 @@ def main():
     try:
         vc("create", "--create", volume, "--size=33554432", "--volume-type=normal",
            "--encryption=AES", "--hash=sha512", "--filesystem=FAT", "--password=" + password,
-           "--pim=1", "--keyfiles=", "--random-source=/dev/urandom")
+           "--pim=1", "--keyfiles=", "--random-source=/dev/urandom", client=release)
         mount()
         payload = bytes(range(256)) * 4096
         with (mountpoint / "payload.bin").open("wb") as stream:
@@ -103,6 +116,15 @@ def main():
             os.fsync(stream.fileno())
         vc("unmount-write", "--unmount", volume)
         confirm_closed()
+        if args.release_binary or args.cli_only:
+            mount(read_only=True, client=release)
+            assert hashlib.sha256((mountpoint / "payload.bin").read_bytes()).digest() == hashlib.sha256(payload).digest()
+            vc("unmount-release", "--unmount", volume, client=release)
+            confirm_closed()
+            print("PASS: create, write/fsync, read-only remount, payload integrity, service/file cleanup", flush=True)
+        if args.cli_only:
+            succeeded = True
+            return
         mount(read_only=True)
         assert hashlib.sha256((mountpoint / "payload.bin").read_bytes()).digest() == hashlib.sha256(payload).digest()
         with (root / "gui.log").open("w") as log:
@@ -120,7 +142,7 @@ def main():
             gui.terminate()
             gui.wait(timeout=10)
         if str(root) in mounts():
-            vc("test-cleanup", "--unmount", volume)
+            vc("test-cleanup", "--unmount", volume, client=mount_client)
         if succeeded and not args.keep_artifacts:
             confirm_closed()
             shutil.rmtree(root)

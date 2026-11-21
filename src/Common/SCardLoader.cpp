@@ -79,12 +79,15 @@ namespace VeraCrypt
 #elif TC_MACOSX
 		return "/System/Library/Frameworks/PCSC.framework/PCSC";
 #else
+		// Fallback for systems without the "libpcsclite.so.1" soname (e.g.
+		// OpenBSD's libpcsclite.so.X.Y). Use an absolute path so the lookup
+		// cannot be redirected through PATH.
 		string pcscPath = "";
 		FILE* pipe = 
 #ifdef TC_LINUX
-			popen("ldconfig -p 2>&1", "r");
+			popen("/sbin/ldconfig -p 2>/dev/null", "r");
 #else
-			popen("ldconfig -r 2>&1", "r"); // FreeBSD
+			popen("/sbin/ldconfig -r 2>/dev/null", "r"); // FreeBSD, OpenBSD
 #endif
 		if (pipe)
 		{
@@ -125,6 +128,12 @@ namespace VeraCrypt
 		if (bInitialized)
 			return;
 
+#if !defined(TC_WINDOWS) && !defined(TC_MACOSX)
+		// Prefer the stable versioned soname, resolved by the dynamic loader from
+		// its own cache and default directories, without running any program.
+		hScardModule = LoadLibrary("libpcsclite.so.1");
+		if (!hScardModule)
+#endif
 		hScardModule = LoadLibrary(GetSCardPath().c_str());
 		if (hScardModule)
 		{

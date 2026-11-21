@@ -36,6 +36,7 @@ on:
       - 'Tests/test_linux_mount_points.py'
       - 'Tests/linux_mount_points_test.cpp'
       - 'Tests/response_apdu_test.cpp'
+      - 'Tests/smartcard_parser_test.cpp'
       - '.github/workflows/build-linux.yml'
   pull_request:
     branches: [ "master" ]
@@ -72,6 +73,7 @@ on:
       - 'Tests/test_linux_mount_points.py'
       - 'Tests/linux_mount_points_test.cpp'
       - 'Tests/response_apdu_test.cpp'
+      - 'Tests/smartcard_parser_test.cpp'
       - '.github/workflows/build-linux.yml'
 
 concurrency:
@@ -131,6 +133,13 @@ jobs:
       run: |
         c++ -std=c++11 -O2 -Isrc Tests/response_apdu_test.cpp src/Common/ResponseAPDU.cpp src/Common/TLVParser.cpp -o /tmp/response_apdu_test
         /tmp/response_apdu_test
+
+    # Checks with synthetic data that hostile card responses cannot exhaust the
+    # stack through TLV nesting and that parsed APDUs keep their bytes.
+    - name: Check smart card parser limits
+      run: |
+        c++ -std=c++11 -O2 -Isrc Tests/smartcard_parser_test.cpp src/Common/CommandAPDU.cpp src/Common/TLVParser.cpp -o /tmp/smartcard_parser_test
+        /tmp/smartcard_parser_test
 
     - name: Install system wxWidgets for GUI
       if: matrix.os == 'ubuntu-26.04'

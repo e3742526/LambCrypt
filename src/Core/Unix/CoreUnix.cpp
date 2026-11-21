@@ -75,6 +75,35 @@ namespace VeraCrypt
 		return result;
 	}
 
+#ifndef VC_MACOSX_FUSET
+	// The elevated service creates the auxiliary FUSE mountpoint by pathname
+	// and mounts on it afterwards. No directory on that path may be replaceable
+	// by a non-root user in the meantime: each must be root-owned and either not
+	// writable by others or sticky (others cannot rename root's entries in /tmp).
+	// A user-owned TMPDIR, including a pam_tmpdir per-user directory, fails this.
+	static bool IsTrustedElevatedTempDirectory (const string &path)
+	{
+		char *canonical = realpath (path.c_str(), NULL);
+		if (!canonical)
+			return false;
+		string current (canonical);
+		free (canonical);
+
+		for (;;)
+		{
+			struct stat info;
+			if (lstat (current.c_str(), &info) != 0 || !S_ISDIR (info.st_mode) || info.st_uid != 0)
+				return false;
+			if ((info.st_mode & (S_IWGRP | S_IWOTH)) && !(info.st_mode & S_ISVTX))
+				return false;
+			if (current == "/")
+				return true;
+			const size_t separator = current.find_last_of ('/');
+			current = (separator == 0 || separator == string::npos) ? "/" : current.substr (0, separator);
+		}
+	}
+#endif
+
 #if defined(TC_MACOSX) && defined(VC_MACOSX_FUSET)
 	static string CreateFuseTAuxiliaryDirectory (const string &tempDirectory, uid_t userId)
 	{
@@ -256,13 +285,13 @@ namespace VeraCrypt
 		// Try each terminal
 		for (const TerminalInfo* term = TERMINALS; term->name != NULL; ++term) {
 			errno = 0;
-			std::string termPath = Process::FindSystemBinary(term->name, errorMsg);
+			std::string termPath = Process::FindUserBinary(term->name, errorMsg);
 			if (termPath.length() > 0) {
 				// check dependencies
 				if (term->dependency_path) {
 					bool depFound = true;
 					for (const char** dep = term->dependency_path; *dep != NULL; ++dep) {
-						string depPath = Process::FindSystemBinary(*dep, errorMsg);
+						string depPath = Process::FindUserBinary(*dep, errorMsg);
 						if (depPath.empty()) {
 							depFound = false;
 							break;
@@ -1331,19 +1360,31 @@ namespace VeraCrypt
 		throw_sys_if (mkdtemp (&mountDirectory[0]) == NULL);
 		fuseMountPoint = &mountDirectory[0];
 #else
+		string tempDirectory = GetTempDirectory();
+		if (geteuid() == 0 && !IsTrustedElevatedTempDirectory (tempDirectory))
+		{
+			// A caller-influenced TMPDIR would let its owner swap the mountpoint
+			// for a symlink before FUSE mounts on it. /tmp is root-owned and
+			// sticky, and every user can still traverse it to reach the control file.
+			tempDirectory = "/tmp";
+			if (!IsTrustedElevatedTempDirectory (tempDirectory))
+				throw TemporaryDirectoryFailure (SRC_POS, StringConverter::ToWide (tempDirectory)
+					+ L"\nThe temporary directory must be owned by root and not writable by other users unless sticky.");
+		}
+
 		// Find a free mount point for FUSE service
 		MountedFilesystemList mountedFilesystems = GetMountedFilesystems ();
 		for (int i = 1; true; i++)
 		{
 			stringstream path;
-			path << GetTempDirectory() << "/" << GetFuseMountDirPrefix() << i;
-			FilesystemPath fsPath (path.str());
+			path << tempDirectory << "/" << GetFuseMountDirPrefix() << i;
+			const string pathStr = path.str();
 
 			bool inUse = false;
 
 			foreach_ref (const MountedFilesystem &mf, mountedFilesystems)
 			{
-				if (mf.MountPoint == path.str())
+				if (mf.MountPoint == pathStr)
 				{
 					inUse = true;
 					break;
@@ -1354,18 +1395,42 @@ namespace VeraCrypt
 			{
 				try
 				{
-					if (fsPath.IsDirectory())
-						fsPath.Delete();
+					// Reuse only a stale, empty directory of our own. Never follow or
+					// remove another user's object, such as a symlink planted in /tmp.
+					struct stat existing;
+					if (lstat (pathStr.c_str(), &existing) == 0
+						&& (!S_ISDIR (existing.st_mode) || existing.st_uid != geteuid() || rmdir (pathStr.c_str()) != 0))
+						throw TemporaryDirectoryFailure (SRC_POS, StringConverter::ToWide (pathStr));
 
-					throw_sys_sub_if (mkdir (path.str().c_str(), S_IRUSR | S_IXUSR) == -1, path.str());
+					throw_sys_sub_if (mkdir (pathStr.c_str(), S_IRUSR | S_IXUSR) == -1, pathStr);
 
-					fuseMountPoint = fsPath;
+					struct stat created;
+					if (lstat (pathStr.c_str(), &created) != 0 || !S_ISDIR (created.st_mode) || created.st_uid != geteuid())
+						throw TemporaryDirectoryFailure (SRC_POS, StringConverter::ToWide (pathStr));
+
+					fuseMountPoint = pathStr;
 					break;
 				}
 				catch (...)
 				{
 					if (i > 255)
-						throw TemporaryDirectoryFailure (SRC_POS, StringConverter::ToWide (path.str()));
+					{
+						// Every numbered name is taken (possibly pre-created by another
+						// user in a shared /tmp). Fall back to an unpredictable name;
+						// auxiliary mount discovery only depends on the name prefix.
+						string mountTemplate = tempDirectory + "/" + GetFuseMountDirPrefix() + "-XXXXXXXXXXXX";
+						vector <char> mountDirectory (mountTemplate.begin(), mountTemplate.end());
+						mountDirectory.push_back ('\0');
+						if (mkdtemp (&mountDirectory[0]) == NULL)
+							throw TemporaryDirectoryFailure (SRC_POS, StringConverter::ToWide (pathStr));
+						fuseMountPoint = &mountDirectory[0];
+						if (chmod (fuseMountPoint.c_str(), S_IRUSR | S_IXUSR) == -1)
+						{
+							rmdir (fuseMountPoint.c_str());
+							throw TemporaryDirectoryFailure (SRC_POS, StringConverter::ToWide (fuseMountPoint));
+						}
+						break;
+					}
 				}
 			}
 		}

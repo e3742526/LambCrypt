@@ -66,8 +66,12 @@ python3 Tests/test_macos_gui_inactivity.py --binary "$VC_TEST_BUILD_SRC/Main/Ver
 python3 Tests/test_macos_gui_teardown.py --binary "$VC_TEST_BUILD_SRC/Main/VeraCrypt"
 ```
 
-These use isolated preferences and disposable file containers. The lifecycle
-check verifies write/fsync/remount integrity, background startup with a mounted
+These use isolated preferences and disposable file containers. When testing a
+packaged app with the lifecycle check, pass its executable inside
+`VeraCrypt.app/Contents/MacOS/` so the check launches it in its original bundle.
+A standalone executable still uses a minimal test bundle, which does not
+reproduce all packaged-app behavior. The lifecycle check verifies
+write/fsync/remount integrity, background startup with a mounted
 volume, refresh after a CLI dismount, and automatic GUI exit. It checks service
 exit, closed backing-file handles, and removal of the auxiliary mount and
 shutdown endpoint. The inactivity check takes about two minutes: it verifies
@@ -84,3 +88,17 @@ Use disposable containers for ordinary create/write/fsync/unmount/remount checks
 released-client compatibility, and user/root ownership combinations. Keep logs
 private and verify service exit, closed backing-file handles, removed auxiliary
 mounts and endpoints, and payload integrity after remounting.
+
+To exercise release compatibility without launching the background GUI:
+
+```sh
+python3 Tests/test_macos_gui_lifecycle.py --cli-only \
+  --binary "$VC_TEST_BUILD_SRC/Main/VeraCrypt" \
+  --release-binary /Applications/VeraCrypt.app/Contents/MacOS/VeraCrypt
+```
+
+Use FUSE-T builds for both binaries. The released client creates a fresh normal
+container, the candidate writes and syncs data, and the released client remounts
+it read-only and verifies the payload. Both dismounts are checked for cleanup.
+Point both arguments at the installed release to check the test setup before
+building a candidate. Do not use an existing container as test input.

@@ -2943,6 +2943,16 @@ NTSTATUS ProcessMainDeviceControlIrp (PDEVICE_OBJECT DeviceObject, PEXTENSION Ex
 				break;
 			}
 
+			// SystemFavorite opts a volume out of per-user isolation in
+			// IsVolumeAccessibleByCurrentUser. Only the system favorites service
+			// (running as SYSTEM) or an administrator may request it.
+			if (mount->SystemFavorite && !UserCanAccessDriveDevice())
+			{
+				Irp->IoStatus.Status = STATUS_ACCESS_DENIED;
+				Irp->IoStatus.Information = 0;
+				break;
+			}
+
 			EnsureNullTerminatedString (mount->wszVolume, sizeof (mount->wszVolume));
 			EnsureNullTerminatedString (mount->wszLabel, sizeof (mount->wszLabel));
 

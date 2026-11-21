@@ -110,7 +110,9 @@ namespace VeraCrypt
 		}
 
 	success:
+		// Keep the parsed bytes: only a failed parse is cleared.
 		m_parsedSuccessfully = true;
+		return;
 
 	failure:
 		clear();
@@ -302,22 +304,26 @@ namespace VeraCrypt
 
 	uint8 CommandAPDU::getCLA()
 	{
-		return m_apdu[0] & 0xff;
+		// An invalid or cleared APDU has no header bytes.
+		return m_apdu.size() > 0 ? (m_apdu[0] & 0xff) : 0;
 	}
 
 	uint8 CommandAPDU::getINS()
 	{
-		return m_apdu[1] & 0xff;
+		// An invalid or cleared APDU has no header bytes.
+		return m_apdu.size() > 1 ? (m_apdu[1] & 0xff) : 0;
 	}
 
 	uint8 CommandAPDU::getP1()
 	{
-		return m_apdu[2] & 0xff;
+		// An invalid or cleared APDU has no header bytes.
+		return m_apdu.size() > 2 ? (m_apdu[2] & 0xff) : 0;
 	}
 
 	uint8 CommandAPDU::getP2()
 	{
-		return m_apdu[3] & 0xff;
+		// An invalid or cleared APDU has no header bytes.
+		return m_apdu.size() > 3 ? (m_apdu[3] & 0xff) : 0;
 	}
 
 	uint32 CommandAPDU::getNc()
@@ -329,7 +335,7 @@ namespace VeraCrypt
 	{
 		vector<uint8> data;
 
-		if (m_nc > 0)
+		if (m_nc > 0 && m_dataOffset <= m_apdu.size() && m_nc <= m_apdu.size() - m_dataOffset)
 		{
 			data.resize(m_nc, 0);
 			memcpy(data.data(), m_apdu.data() + m_dataOffset, data.size());

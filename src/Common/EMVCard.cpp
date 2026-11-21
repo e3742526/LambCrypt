@@ -328,8 +328,15 @@ namespace VeraCrypt
 						}
 					}
 				}
+				catch (PCSCException &)
+				{
+					// Reader or card communication failed: report it instead of
+					// misreporting the card as having no supported application.
+					throw;
+				}
 				catch (...)
 				{
+					// Malformed or unexpected card data: no AID can be selected.
 				}
 			}
 		}

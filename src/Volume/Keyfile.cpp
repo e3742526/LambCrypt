@@ -24,6 +24,11 @@ namespace VeraCrypt
 		if (Path.IsDirectory())
 			throw ParameterIncorrect (SRC_POS);
 
+		// The mixing loops below write four bytes before checking the position,
+		// which stays in bounds only for a non-empty pool whose size is a multiple of 4.
+		if (pool.Size() == 0 || pool.Size() % 4 != 0)
+			throw ParameterIncorrect (SRC_POS);
+
 		File file;
 
 		Crc32 crc32;

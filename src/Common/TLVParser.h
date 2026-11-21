@@ -49,7 +49,15 @@ namespace VeraCrypt
 		static int TLV_Parse_All(shared_ptr<TLVNode> parent);
 
 		/* Recursive function to parse all nodes starting from a root parent node */
-		static void TLV_Parse_Sub(shared_ptr<TLVNode> parent);
+		static void TLV_Parse_Sub(shared_ptr<TLVNode> parent, size_t depth = 0);
+
+		/* Recursive helper of TLV_Find */
+		static shared_ptr<TLVNode> TLV_Find(shared_ptr<TLVNode> node, uint16 tag, size_t depth);
+
+	public:
+		/* Card data is untrusted: bound nesting so a crafted response cannot
+		   exhaust the stack (EMV templates nest only a few levels deep). */
+		static const size_t MaxNestingDepth = 32;
 
 	public:
 

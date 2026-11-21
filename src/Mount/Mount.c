@@ -10952,14 +10952,8 @@ void ExtractCommandLine (HWND hwndDlg, wchar_t *lpszCommandLine)
 
 	burn (CmdRawPassword, sizeof (CmdRawPassword));
 
-	/* Free up the command line arguments */
-	while (--nNoCommandLineArgs >= 0)
-	{
-		free (lpszCommandLineArgs[nNoCommandLineArgs]);
-	}
-
-	if (lpszCommandLineArgs)
-		free (lpszCommandLineArgs);
+	/* Wipe and free the command line arguments (they may contain a password) */
+	FreeCommandLineArguments (lpszCommandLineArgs, nNoCommandLineArgs);
 }
 
 

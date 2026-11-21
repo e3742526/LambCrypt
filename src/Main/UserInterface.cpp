@@ -1160,7 +1160,7 @@ const FileManager fileManagers[] = {
 
 		// Primary attempt: Use xdg-open
 		string errorMsg;
-		string binPath = Process::FindSystemBinary("xdg-open", errorMsg);
+		string binPath = Process::FindUserBinary("xdg-open", errorMsg);
 		if (!binPath.empty())
 		{
 			try
@@ -1177,7 +1177,7 @@ const FileManager fileManagers[] = {
 		const size_t numFileManagers = sizeof(fileManagers) / sizeof(fileManagers[0]);
 		for (size_t i = 0; i < numFileManagers; ++i) {
 			const FileManager& fm = fileManagers[i];
-			string fmPath = Process::FindSystemBinary(fm.name, errorMsg);
+			string fmPath = Process::FindUserBinary(fm.name, errorMsg);
 			if (!fmPath.empty()) {
 				args.clear();
 				

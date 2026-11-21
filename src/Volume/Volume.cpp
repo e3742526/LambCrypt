@@ -235,6 +235,17 @@ namespace VeraCrypt
 						mode.SetSectorOffset (partitionStartOffset / ENCRYPTION_DATA_UNIT_SIZE);
 					}
 
+					// The data area comes from the decrypted header. If it is not
+					// contained in the host, writes could land outside the area the
+					// volume was created with. Keep it readable (e.g. a truncated
+					// container) but never write to it. Drive-header layouts are
+					// validated against the partition above.
+					if (!layout->HasDriveHeader() && VolumeHostSize > 0
+						&& (VolumeDataOffset > VolumeHostSize || VolumeDataSize > VolumeHostSize - VolumeDataOffset))
+					{
+						Protection = VolumeProtection::ReadOnly;
+					}
+
 					// Volume protection
 					if (Protection == VolumeProtection::HiddenVolumeReadOnly)
 					{
@@ -326,7 +337,10 @@ namespace VeraCrypt
 
 		// first sector can be unencrypted in some cases (e.g. windows repair)
 		// detect this case by looking for NTFS header
-		if (SystemEncryption && (hostOffset == 0) && ((BE64 (*(uint64 *) buffer.Get ())) == 0xEB52904E54465320ULL))
+		uint64 firstBytes = 0;
+		if (SystemEncryption && (hostOffset == 0) && length >= sizeof (firstBytes))
+			memcpy (&firstBytes, buffer.Get(), sizeof (firstBytes));	// the buffer need not be 8-byte aligned
+		if (SystemEncryption && (hostOffset == 0) && (BE64 (firstBytes) == 0xEB52904E54465320ULL))
 		{
 			bufferOffset = (size_t) SectorSize;
 			hostOffset += SectorSize;

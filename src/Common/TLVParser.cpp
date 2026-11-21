@@ -161,7 +161,7 @@ namespace VeraCrypt
 	/* Parsing all sub-nodes (in width not in depth) of a given parent node */
 	int TLVParser::TLV_Parse_SubNodes(shared_ptr<TLVNode> parent)
 	{
-		uint16 sublen = 0;
+		size_t sublen = 0;	// size_t: a uint16 sum wraps for large values and re-parses forever
 		size_t i;
 
 		//No sub-nodes
@@ -186,11 +186,14 @@ namespace VeraCrypt
 	}
 
 	/* Recursive function to parse all nodes starting from a root parent node */
-	void TLVParser::TLV_Parse_Sub(shared_ptr<TLVNode> parent)
+	void TLVParser::TLV_Parse_Sub(shared_ptr<TLVNode> parent, size_t depth)
 	{
 		size_t i;
 		if (parent->SubFlag != 0)
 		{
+			if (depth >= MaxNestingDepth)
+				throw TLVException("Parse Error! TLV nesting exceeds " + to_string(static_cast<long long>(MaxNestingDepth)) + " levels");
+
 			// Parse all sub nodes.
 			while (TLV_Parse_SubNodes(parent) != 0);
 
@@ -198,7 +201,7 @@ namespace VeraCrypt
 			{
 				if (parent->Subs->at(i)->SubFlag != 0)
 				{
-					TLV_Parse_Sub(parent->Subs->at(i));
+					TLV_Parse_Sub(parent->Subs->at(i), depth + 1);
 				}
 			}
 		}
@@ -216,15 +219,29 @@ namespace VeraCrypt
 	/* Finding a TLV node with a particular tag */
 	shared_ptr<TLVNode> TLVParser::TLV_Find(shared_ptr<TLVNode> node, uint16 tag)
 	{
+		return TLV_Find(node, tag, 0);
+	}
+
+	shared_ptr<TLVNode> TLVParser::TLV_Find(shared_ptr<TLVNode> node, uint16 tag, size_t depth)
+	{
 		size_t i = 0;
 		shared_ptr<TLVNode> tmpnode;
+		if (!node)
+		{
+			return shared_ptr<TLVNode>();
+		}
 		if (node->Tag == tag)
 		{
 			return node;
 		}
+		// Trees built by TLV_Parse never exceed this; stop anyway for any other tree.
+		if (depth >= MaxNestingDepth)
+		{
+			return shared_ptr<TLVNode>();
+		}
 		for (i = 0; i < node->Subs->size(); i++)
 		{
-			tmpnode = TLV_Find(node->Subs->at(i),tag);
+			tmpnode = TLV_Find(node->Subs->at(i), tag, depth + 1);
 			if (tmpnode)
 			{
 				return tmpnode;

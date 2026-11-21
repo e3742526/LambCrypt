@@ -230,7 +230,9 @@ BOOL KeyFilesApply (HWND hwndDlg, Password *password, KeyFile *firstKeyFile, con
 	KeyFile kfSubStruct;
 	KeyFile *kf;
 	KeyFile *kfSub = &kfSubStruct;
-	static unsigned __int8 keyPool [KEYFILE_POOL_SIZE];
+	// Per call, not static: mount, favorite and hotkey worker threads may apply
+	// keyfiles concurrently and must not share (or wipe) each other's pool.
+	unsigned __int8 keyPool [KEYFILE_POOL_SIZE];
 	size_t i;
 	struct stat statStruct;
 	wchar_t searchPath [TC_MAX_PATH*2];
@@ -243,7 +245,7 @@ BOOL KeyFilesApply (HWND hwndDlg, Password *password, KeyFile *firstKeyFile, con
 	if (firstKeyFile == NULL) return TRUE;
 
 	VirtualLock (keyPool, sizeof (keyPool));
-	finally_do_arg (unsigned __int8 *, keyPool, { burn (finally_arg, KEYFILE_POOL_SIZE); });
+	finally_do_arg (unsigned __int8 *, keyPool, { burn (finally_arg, KEYFILE_POOL_SIZE); VirtualUnlock (finally_arg, KEYFILE_POOL_SIZE); });
 	memset (keyPool, 0, sizeof (keyPool));
 
 	for (kf = firstKeyFile; kf != NULL; kf = kf->Next)

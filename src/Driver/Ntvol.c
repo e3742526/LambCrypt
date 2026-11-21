@@ -803,6 +803,19 @@ NTSTATUS TCOpenVolume (PDEVICE_OBJECT DeviceObject,
 				continue;
 			}
 
+			// The data area comes from the decrypted header. If it is not
+			// contained in the host, writes could land outside the area the volume
+			// was created with. Keep the volume readable (e.g. a truncated
+			// container) but never write to it.
+			if (!mount->bPartitionInInactiveSysEncScope
+				&& (Extension->DiskLength < 0
+					|| Extension->cryptoInfo->volDataAreaOffset > (uint64) lDiskLength.QuadPart
+					|| (uint64) Extension->DiskLength > (uint64) lDiskLength.QuadPart - Extension->cryptoInfo->volDataAreaOffset))
+			{
+				Dump ("Volume data area exceeds host size; mounting read-only\n");
+				Extension->bReadOnly = mount->bMountReadOnly = TRUE;
+			}
+
 			// If this is a hidden volume, make sure we are supposed to actually
 			// mount it (i.e. not just to protect it)
 			if (volumeType == TC_VOLUME_TYPE_NORMAL || !mount->bProtectHiddenVolume)

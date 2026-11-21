@@ -44,6 +44,8 @@ static VC_INLINE void ChaCha20RngReKey (ChaCha20RngCtx* pCtx, int useCallBack)
 		unsigned char dat[CHACHA20RNG_KEYSZ + CHACHA20RNG_IVSZ];
 		size_t i;
 
+		/* The callback cannot report failure; never mix in uninitialized memory. */
+		memset (dat, 0, sizeof (dat));
 		pCtx->m_getRandSeedCallback (dat, sizeof (dat));
 
 		for (i = 0; i < (CHACHA20RNG_KEYSZ + CHACHA20RNG_IVSZ); i++)

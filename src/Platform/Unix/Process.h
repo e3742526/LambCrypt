@@ -32,7 +32,13 @@ namespace VeraCrypt
 		virtual ~Process ();
 
 		static bool IsExecutable(const std::string& path);
-		static std::string FindSystemBinary(const char* name, std::string& errorMsg);
+		// Resolves a program name against fixed system directories. By default only
+		// candidates whose whole path is root-owned and not group/world-writable are
+		// accepted, because results are executed with elevated privileges or are
+		// given the administrator password.
+		static std::string FindSystemBinary(const char* name, std::string& errorMsg, bool requireTrustedPath = true);
+		// For unprivileged desktop helpers (terminals, file managers) only.
+		static std::string FindUserBinary(const char* name, std::string& errorMsg);
 		static string Execute (const string &processName, const list <string> &arguments, int timeOut = -1, ProcessExecFunctor *execFunctor = nullptr, const Buffer *inputData = nullptr);
 #ifdef TC_MACOSX
 		static uint64 GetProcessStartTime (pid_t processId);

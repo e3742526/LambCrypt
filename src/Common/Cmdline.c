@@ -121,8 +121,34 @@ int Win32CommandLine (wchar_t ***lpszArgs)
 		(*lpszArgs)[i] = arg;
 	}
 
+	// The arguments may contain a password (/password). Wipe the shell copy.
+	for (i = 0; i <= argumentCount; ++i)
+	{
+		if (arguments[i])
+			burn (arguments[i], wcslen (arguments[i]) * sizeof (wchar_t));
+	}
+
 	LocalFree (arguments);
 	return argumentCount;
+}
+
+void FreeCommandLineArguments (wchar_t **lpszArgs, int argumentCount)
+{
+	int i;
+
+	if (!lpszArgs)
+		return;
+
+	for (i = 0; i < argumentCount; ++i)
+	{
+		if (lpszArgs[i])
+		{
+			burn (lpszArgs[i], wcslen (lpszArgs[i]) * sizeof (wchar_t));
+			free (lpszArgs[i]);
+		}
+	}
+
+	free (lpszArgs);
 }
 
 int GetArgSepPosOffset (wchar_t *lpszArgument)

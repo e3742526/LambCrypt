@@ -55,7 +55,7 @@ extern "C" string WrapExecute (const string &program, const list<string> &args,
     return "";
 }
 
-extern "C" string WrapFindBinary (const char *, string &) { return "/test/dmsetup"; }
+extern "C" string WrapFindBinary (const char *, string &, bool) { return "/test/dmsetup"; }
 extern "C" FilesystemPathType::Enum WrapGetType (const FilesystemPath *path)
 {
     if (MountFlow && string (*path).find ("/dev/loop") != 0)

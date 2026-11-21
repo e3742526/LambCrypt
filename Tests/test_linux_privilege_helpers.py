@@ -142,7 +142,8 @@ static int FakeStatvfs(const char *path, struct statvfs *result) {
 class Process {
 public:
     static bool IsExecutable(const std::string &);
-    static std::string FindSystemBinary(const char *, std::string &);
+    static std::string FindSystemBinary(const char *, std::string &, bool requireTrustedPath = true);
+    static std::string FindUserBinary(const char *, std::string &);
 };
 
 struct ElevationBlocked : std::runtime_error {
@@ -185,7 +186,7 @@ static void NixFixture() {
     Files.clear();
     StoreReadOnly = true;
     StatvfsFails = false;
-    for (const char *path : {"/", "/etc", "/run", "/run/wrappers", "/run/wrappers/wrappers.test",
+    for (const char *path : {"/", "/etc", "/usr", "/usr/bin", "/run", "/run/wrappers", "/run/wrappers/wrappers.test",
             "/nix", "/nix/store", "/nix/store/system", "/nix/store/profile", "/nix/store/profile/bin",
             "/nix/store/tools", "/nix/store/tools/bin"})
         Files[path] = Entry(S_IFDIR | 0755);
@@ -243,8 +244,45 @@ int main(int argc, char **argv) {
         Files["/home/test/.nix-profile/bin/sudo"] = executable;
         ExpectPath("sudo", "");
 
+        // Every component of a privileged helper's path must be trusted.
         Files["/usr/bin/sudo"] = executable;
+        ExpectPath("sudo", "");
+        for (const char *path : {"/", "/usr", "/usr/bin"})
+            Files[path] = Entry(S_IFDIR | 0755);
         ExpectPath("sudo", "/usr/bin/sudo");
+
+        // A planted helper in a directory that a non-root user controls is
+        // skipped in favor of the trusted system copy (Linux searches
+        // /usr/local/bin first). Desktop helpers keep the plain lookup.
+        Files["/usr/local"] = Entry(S_IFDIR | 0755);
+        Files["/usr/local/bin"] = Entry(S_IFDIR | 0755, 1000);
+        Files["/usr/local/bin/sudo"] = Entry(executable, 1000);
+        ExpectPath("sudo", "/usr/bin/sudo");
+        Files["/usr/local/bin"] = Entry(S_IFDIR | 02775);
+        Files["/usr/local/bin/sudo"] = Entry(executable);
+        ExpectPath("sudo", "/usr/bin/sudo");
+        Files["/usr/local/bin"] = Entry(S_IFDIR | 0755);
+        Files["/usr/local/bin/sudo"] = Entry(executable, 1000);
+        ExpectPath("sudo", "/usr/bin/sudo");
+        Files["/usr/local/bin/sudo"] = Entry(S_IFREG | 0775);
+        ExpectPath("sudo", "/usr/bin/sudo");
+        Files["/usr/local/bin/sudo"] = Entry(executable);
+#ifdef TC_LINUX
+        ExpectPath("sudo", "/usr/local/bin/sudo");
+#else
+        ExpectPath("sudo", "/usr/bin/sudo");
+#endif
+        Files["/usr/local/bin/sudo"] = Entry(executable, 1000);
+        {
+            std::string error;
+#ifdef TC_LINUX
+            Require(Process::FindUserBinary("sudo", error) == "/usr/local/bin/sudo", "desktop helper lookup changed");
+#else
+            Require(Process::FindUserBinary("sudo", error) == "/usr/bin/sudo", "desktop helper lookup changed");
+#endif
+        }
+        for (const char *path : {"/usr/local", "/usr/local/bin", "/usr/local/bin/sudo"})
+            Files.erase(path);
         NixFixture();
 #ifdef TC_LINUX
         ExpectPath("sudo", "/run/wrappers/bin/sudo");
@@ -282,15 +320,17 @@ int main(int argc, char **argv) {
         ExpectNoNixLookup();
 
         // Reject control by any non-root owner, or write access for group/other.
+        // An untrusted root directory leaves no trusted helper at all.
         for (const char *path : {"/", "/etc", "/etc/os-release", "/nix", "/nix/store", "/nix/store/os-release"}) {
+            const bool root = string(path) == "/";
             NixFixture();
             Files[path].Owner = 1000;
-            ExpectNoNixLookup();
+            if (root) ExpectPath("sudo", ""); else ExpectNoNixLookup();
             if (S_ISLNK(Files[path].Mode)) continue;
             for (mode_t mode : {S_IWGRP, S_IWOTH}) {
                 NixFixture();
                 Files[path].Mode |= mode;
-                ExpectNoNixLookup();
+                if (root) ExpectPath("sudo", ""); else ExpectNoNixLookup();
             }
         }
         for (const char *path : {"/run", "/run/wrappers", "/run/wrappers/bin",

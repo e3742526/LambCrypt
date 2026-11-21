@@ -34,6 +34,8 @@ typedef struct argumentspec_t
 
 BOOL CALLBACK CommandHelpDlgProc ( HWND hwndDlg , UINT msg , WPARAM wParam , LPARAM lParam );
 int Win32CommandLine ( wchar_t ***lpszArgs );
+/* Wipes (arguments may contain /password) and frees the array returned by Win32CommandLine. */
+void FreeCommandLineArguments ( wchar_t **lpszArgs, int argumentCount );
 int GetArgSepPosOffset ( wchar_t *lpszArgument );
 int GetArgumentID ( argumentspec *as , wchar_t *lpszArgument );
 int GetArgumentValue ( wchar_t **lpszCommandLineArgs , int *nArgIdx , int nNoCommandLineArgs , wchar_t *lpszValue , int nValueSize );

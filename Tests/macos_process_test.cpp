@@ -82,7 +82,16 @@ int main (int argc, char **argv)
 		Require (waitpid (-1, &status, WNOHANG) == -1 && errno == ECHILD, "output-limited child not reaped");
 		Require (DescriptorCount() == before, "descriptor leak");
 		close (80);
-		std::cout << "PASS: output, errors, descriptor isolation, silent/closed/stream deadlines, output cap, reaping\n";
+		std::cout << "process: trusted lookup" << std::endl;
+		{
+			// Privileged helpers must come from the sealed system volume, never from
+			// a user-writable /usr/local/bin (Homebrew on Intel Macs).
+			std::string error;
+			Require (Process::FindSystemBinary ("sudo", error) == "/usr/bin/sudo", "sudo not resolved to /usr/bin/sudo");
+			Require (Process::FindSystemBinary ("mount", error) == "/sbin/mount", "mount not resolved to /sbin/mount");
+			Require (Process::FindSystemBinary ("veracrypt-no-such-tool", error).empty() && !error.empty(), "missing tool resolved");
+		}
+		std::cout << "PASS: output, errors, descriptor isolation, silent/closed/stream deadlines, output cap, reaping, trusted lookup\n";
 	}
 	catch (std::exception &e) { std::cerr << e.what() << '\n'; return 1; }
 	return 0;
