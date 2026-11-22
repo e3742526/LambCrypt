@@ -37,7 +37,7 @@
 
 #------ Build configuration ------
 
-export APPNAME := veracrypt
+export APPNAME := lambcrypt
 export BASE_DIR := $(CURDIR)
 export BUILD_INC := $(BASE_DIR)/Build/Include
 
@@ -307,7 +307,7 @@ endif
 ifeq "$(shell uname -s)" "Darwin"
 
 	PLATFORM := MacOSX
-	APPNAME := VeraCrypt
+	APPNAME := LambCrypt
 
 	export VC_OSX_TARGET ?= 12
 	# use the output of the command "xcrun --show-sdk-version" to set the SDK version if not set

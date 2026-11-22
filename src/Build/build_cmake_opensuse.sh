@@ -18,7 +18,7 @@ export SCRIPT=$(readlink -f "$0")
 export SCRIPTPATH=$(dirname "$SCRIPT")
 # Source directory which contains the Makefile
 export SOURCEPATH=$(readlink -f "$SCRIPTPATH/..")
-# Directory where the VeraCrypt has been checked out
+# Directory where the LambCrypt has been checked out
 export PARENTDIR=$(readlink -f "$SCRIPTPATH/../../..")
 
 # Compute and export SOURCE_DATE_EPOCH so make/cmake/cpack/rpmbuild inherit
@@ -58,7 +58,7 @@ fi
 # /tmp is shared with other users: accept only entries owned by this user and
 # create the directories the build writes to before anyone else can.
 . "$SCRIPTPATH/Tools/private_tmp_dir.sh"
-vc_secure_tmp_parentdir --existing wxWidgets-3.2.5 --create wxBuildConsole wxBuildGui VeraCrypt_Setup VeraCrypt_Packaging || exit 1
+vc_secure_tmp_parentdir --existing wxWidgets-3.2.5 --create wxBuildConsole wxBuildGui LambCrypt_Setup LambCrypt_Packaging || exit 1
 
 # The sources of wxWidgets 3.2.5 must be extracted to the parent directory
 export WX_ROOT=$PARENTDIR/wxWidgets-3.2.5
@@ -98,11 +98,11 @@ done
 if [ "$build_with_fuse3" = "1" ]; then
     FUSE3_MAKE_FLAG="WITHFUSE3=1"
     FUSE3_CMAKE_FLAG="-DVC_WITH_FUSE3=TRUE"
-    echo "Building VeraCrypt packages against FUSE3"
+    echo "Building LambCrypt packages against FUSE3"
 else
     FUSE3_MAKE_FLAG=""
     FUSE3_CMAKE_FLAG="-DVC_WITH_FUSE3=FALSE"
-    echo "Building VeraCrypt packages against FUSE2"
+    echo "Building LambCrypt packages against FUSE2"
 fi
 
 if [ -n "$INDICATOR_MAKE_FLAG" ]; then
@@ -118,7 +118,7 @@ if [ -n "$INDICATOR_MAKE_FLAG" ]; then
     echo "Enabling Ayatana AppIndicator support for the GUI ($indicator_module)"
 fi
 
-echo "Building GUI version of VeraCrypt for RPM using wxWidgets static libraries"
+echo "Building GUI version of LambCrypt for RPM using wxWidgets static libraries"
 
 # This will be the temporary wxWidgets directory
 export WX_BUILD_DIR=$PARENTDIR/wxBuildGui
@@ -132,12 +132,12 @@ else
     ln -s $WX_BUILD_DIR/lib  $WX_BUILD_DIR/lib64
 fi
 
-rm -rf "$PARENTDIR/VeraCrypt_Setup/GUI"
+rm -rf "$PARENTDIR/LambCrypt_Setup/GUI"
 make WXSTATIC=1 $INDICATOR_MAKE_FLAG $FUSE3_MAKE_FLAG clean 				|| exit 1
 make WXSTATIC=1 $INDICATOR_MAKE_FLAG $FUSE3_MAKE_FLAG 					|| exit 1
-make WXSTATIC=1 $INDICATOR_MAKE_FLAG $FUSE3_MAKE_FLAG install DESTDIR="$PARENTDIR/VeraCrypt_Setup/GUI"	|| exit 1
+make WXSTATIC=1 $INDICATOR_MAKE_FLAG $FUSE3_MAKE_FLAG install DESTDIR="$PARENTDIR/LambCrypt_Setup/GUI"	|| exit 1
 
-echo "Building console version of VeraCrypt for RPM using wxWidgets static libraries"
+echo "Building console version of LambCrypt for RPM using wxWidgets static libraries"
 
 # This is to avoid " Error: Unable to initialize GTK+, is DISPLAY set properly?" 
 # when building over SSH without X11 Forwarding
@@ -155,22 +155,22 @@ else
     ln -s $WX_BUILD_DIR/lib  $WX_BUILD_DIR/lib64
 fi
 
-rm -rf "$PARENTDIR/VeraCrypt_Setup/Console"
+rm -rf "$PARENTDIR/LambCrypt_Setup/Console"
 make WXSTATIC=1 NOGUI=1 $FUSE3_MAKE_FLAG clean 				|| exit 1
 make WXSTATIC=1 NOGUI=1 $FUSE3_MAKE_FLAG 					|| exit 1
-make WXSTATIC=1 NOGUI=1 $FUSE3_MAKE_FLAG install DESTDIR="$PARENTDIR/VeraCrypt_Setup/Console"	|| exit 1
+make WXSTATIC=1 NOGUI=1 $FUSE3_MAKE_FLAG install DESTDIR="$PARENTDIR/LambCrypt_Setup/Console"	|| exit 1
 
-echo "Creating VeraCrypt RPM packages "
+echo "Creating LambCrypt RPM packages "
 
 # -DCPACK_RPM_PACKAGE_DEBUG=TRUE for debugging cpack RPM
 # -DCPACK_RPM_PACKAGE_DEBUG=TRUE for debugging cpack RPM
 
 # remove old packages
-rm -rf "$PARENTDIR/VeraCrypt_Packaging"
-vc_secure_tmp_parentdir --create VeraCrypt_Packaging || exit 1
+rm -rf "$PARENTDIR/LambCrypt_Packaging"
+vc_secure_tmp_parentdir --create LambCrypt_Packaging || exit 1
 
-mkdir -p $PARENTDIR/VeraCrypt_Packaging/GUI
-mkdir -p $PARENTDIR/VeraCrypt_Packaging/Console
+mkdir -p $PARENTDIR/LambCrypt_Packaging/GUI
+mkdir -p $PARENTDIR/LambCrypt_Packaging/Console
 
 # Pin the RPM header BuildTime/BuildHost on rpm versions that predate the
 # SOURCE_DATE_EPOCH/_buildhost macros (CentOS/RHEL <= 7, rpm < 4.14). A tiny
@@ -186,7 +186,7 @@ mkdir -p $PARENTDIR/VeraCrypt_Packaging/Console
 # we never enable a shim we have not verified.
 RPM_REPRO_SHIM=""
 _shim_src="$SOURCEPATH/Build/Tools/repro_buildstamp.c"
-_shim_so="$PARENTDIR/VeraCrypt_Packaging/repro_buildstamp.so"
+_shim_so="$PARENTDIR/LambCrypt_Packaging/repro_buildstamp.so"
 _cc="${CC:-cc}"
 if command -v "$_cc" >/dev/null 2>&1 &&
     "$_cc" -shared -fPIC -O2 -o "$_shim_so" "$_shim_src" -ldl 2>/dev/null &&
@@ -207,7 +207,7 @@ run_cpack() {
 }
 
 # wxWidgets was built using native GTK version
-cmake -H$SCRIPTPATH -B$PARENTDIR/VeraCrypt_Packaging/GUI -DVERACRYPT_BUILD_DIR="$PARENTDIR/VeraCrypt_Setup/GUI" -DNOGUI=FALSE -DSOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH $FUSE3_CMAKE_FLAG $INDICATOR_CMAKE_FLAG || exit 1
-run_cpack --config $PARENTDIR/VeraCrypt_Packaging/GUI/CPackConfig.cmake || exit 1
-cmake -H$SCRIPTPATH -B$PARENTDIR/VeraCrypt_Packaging/Console -DVERACRYPT_BUILD_DIR="$PARENTDIR/VeraCrypt_Setup/Console" -DNOGUI=TRUE -DSOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH $FUSE3_CMAKE_FLAG -DVC_WITH_INDICATOR=FALSE || exit 1
-run_cpack --config $PARENTDIR/VeraCrypt_Packaging/Console/CPackConfig.cmake || exit 1
+cmake -H$SCRIPTPATH -B$PARENTDIR/LambCrypt_Packaging/GUI -DLAMBCRYPT_BUILD_DIR="$PARENTDIR/LambCrypt_Setup/GUI" -DNOGUI=FALSE -DSOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH $FUSE3_CMAKE_FLAG $INDICATOR_CMAKE_FLAG || exit 1
+run_cpack --config $PARENTDIR/LambCrypt_Packaging/GUI/CPackConfig.cmake || exit 1
+cmake -H$SCRIPTPATH -B$PARENTDIR/LambCrypt_Packaging/Console -DLAMBCRYPT_BUILD_DIR="$PARENTDIR/LambCrypt_Setup/Console" -DNOGUI=TRUE -DSOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH $FUSE3_CMAKE_FLAG -DVC_WITH_INDICATOR=FALSE || exit 1
+run_cpack --config $PARENTDIR/LambCrypt_Packaging/Console/CPackConfig.cmake || exit 1

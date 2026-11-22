@@ -3,7 +3,7 @@
 Run these checks on macOS with Xcode Command Line Tools and Python 3. They do not
 require administrator privileges, mounted containers, or an installed test app.
 
-Build the matching VeraCrypt sources first. Use a clean build after changing
+Build the matching LambCrypt sources first. Use a clean build after changing
 headers: the current makefiles do not track every header dependency. The archive
 architecture must match the compiler's default architecture.
 
@@ -57,18 +57,18 @@ leaves the legacy `/control` bytes unchanged.
 These tests exercise state and serialization contracts. They do not establish
 real backend timing, GUI rendering, or filesystem behavior under forced unmount.
 
-For an ordinary integration check with a FUSE-T GUI build, close other VeraCrypt
+For an ordinary integration check with a FUSE-T GUI build, close other LambCrypt
 processes and dismount their volumes first. In a logged-in macOS desktop session:
 
 ```sh
-python3 Tests/test_macos_gui_lifecycle.py --binary "$VC_TEST_BUILD_SRC/Main/VeraCrypt"
-python3 Tests/test_macos_gui_inactivity.py --binary "$VC_TEST_BUILD_SRC/Main/VeraCrypt"
-python3 Tests/test_macos_gui_teardown.py --binary "$VC_TEST_BUILD_SRC/Main/VeraCrypt"
+python3 Tests/test_macos_gui_lifecycle.py --binary "$VC_TEST_BUILD_SRC/Main/LambCrypt"
+python3 Tests/test_macos_gui_inactivity.py --binary "$VC_TEST_BUILD_SRC/Main/LambCrypt"
+python3 Tests/test_macos_gui_teardown.py --binary "$VC_TEST_BUILD_SRC/Main/LambCrypt"
 ```
 
 These use isolated preferences and disposable file containers. When testing a
 packaged app with the lifecycle check, pass its executable inside
-`VeraCrypt.app/Contents/MacOS/` so the check launches it in its original bundle.
+`LambCrypt.app/Contents/MacOS/` so the check launches it in its original bundle.
 A standalone executable still uses a minimal test bundle, which does not
 reproduce all packaged-app behavior. The lifecycle check verifies
 write/fsync/remount integrity, background startup with a mounted
@@ -88,7 +88,7 @@ retained for diagnosis; use `--keep-artifacts` to retain successful runs as well
 
 Launch the candidate app in a logged-in session with isolated preferences and
 only disposable containers. With **Background Task** enabled, click the
-VeraCrypt icon in the macOS menu bar. Check that it reports no mounted volumes
+LambCrypt icon in the macOS menu bar. Check that it reports no mounted volumes
 after discovery finishes. Mount a disposable volume read-only and reopen the
 menu: the entry should match the main window, be labeled read-only, and its
 **Open in Finder** action should open the mounted filesystem, not the container.
@@ -111,8 +111,8 @@ To exercise release compatibility without launching the background GUI:
 
 ```sh
 python3 Tests/test_macos_gui_lifecycle.py --cli-only \
-  --binary "$VC_TEST_BUILD_SRC/Main/VeraCrypt" \
-  --release-binary /Applications/VeraCrypt.app/Contents/MacOS/VeraCrypt
+  --binary "$VC_TEST_BUILD_SRC/Main/LambCrypt" \
+  --release-binary /Applications/LambCrypt.app/Contents/MacOS/LambCrypt
 ```
 
 Use FUSE-T builds for both binaries. The released client creates a fresh normal

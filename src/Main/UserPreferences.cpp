@@ -96,7 +96,6 @@ namespace VeraCrypt
 			TC_CONFIG_SET (BackgroundTaskEnabled);
 			if (configMap.count(L"FilesystemOptions") > 0) { SetValue (configMap[L"FilesystemOptions"], DefaultMountOptions.FilesystemOptions); configMap.erase (L"FilesystemOptions"); }
 			TC_CONFIG_SET (ForceAutoDismount);
-			TC_CONFIG_SET (Language);
 			TC_CONFIG_SET (LastSelectedSlotNumber);
 			TC_CONFIG_SET (MaxVolumeIdleTime);
 			TC_CONFIG_SET (MountDevicesOnLogon);
@@ -228,7 +227,6 @@ namespace VeraCrypt
 		TC_CONFIG_ADD (BackgroundTaskEnabled);
 		formatter.AddEntry (L"FilesystemOptions", DefaultMountOptions.FilesystemOptions);
 		TC_CONFIG_ADD (ForceAutoDismount);
-		TC_CONFIG_ADD (Language);
 		TC_CONFIG_ADD (LastSelectedSlotNumber);
 		TC_CONFIG_ADD (MaxVolumeIdleTime);
 		TC_CONFIG_ADD (MountDevicesOnLogon);

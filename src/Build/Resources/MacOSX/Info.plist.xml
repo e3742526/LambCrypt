@@ -6,16 +6,16 @@
 	<string>6.0</string>
 
 	<key>CFBundleIdentifier</key>
-	<string>org.idrix.VeraCrypt</string>
+	<string>io.github.e3742526.LambCrypt</string>
 	
- 	<key>UTExportedTypeDeclarations</key>
+	<key>UTImportedTypeDeclarations</key>
     <array>
     	<dict>
 			<key>UTTypeIdentifier</key>
 			<string>org.idrix.veracrypt.hc</string>
             
             <key>UTTypeDescription</key>
-            <string>VeraCrypt Container File</string>
+            <string>LambCrypt Container File</string>
             
             <key>UTTypeConformsTo</key>
             <array>
@@ -40,9 +40,9 @@
 	<array>
     	<dict>
      	   <key>CFBundleTypeIconFile</key>
-     	   <string>VeraCrypt_Volume.icns</string>
+	   <string>LambCrypt_Volume.icns</string>
     	    <key>CFBundleTypeName</key>
-        	<string>VeraCrypt Container File</string>
+	<string>LambCrypt Container File</string>
 	        <key>CFBundleTypeRole</key>
     	    <string>Viewer</string>
         	<key>LSHandlerRank</key>
@@ -56,16 +56,16 @@
 	</array>
 
 	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
+	<string>en</string>
 
 	<key>CFBundleExecutable</key>
-	<string>VeraCrypt</string>
+	<string>LambCrypt</string>
 
 	<key>CFBundleIconFile</key>
-	<string>VeraCrypt.icns</string>
+	<string>LambCrypt.icns</string>
 
 	<key>CFBundleName</key>
-	<string>VeraCrypt</string>
+	<string>LambCrypt</string>
 
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
@@ -80,7 +80,7 @@
 	<string>_VERSION_</string>
 
 	<key>CFBundleLongVersionString</key>
-	<string>VeraCrypt _VERSION_</string>
+	<string>LambCrypt _VERSION_</string>
 
 	<key>LSMinimumSystemVersion</key>
 	<string>12.0.0</string>

@@ -2,10 +2,14 @@
 cmake_minimum_required(VERSION 2.8.12...3.10)
 
 # - Obligatory parameters
-#		-DVERACRYPT_BUILD_DIR 	: folder that contains 'usr' folder
+#		-DLAMBCRYPT_BUILD_DIR 	: folder that contains 'usr' folder
 #		-DNOGUI					: TRUE if building 'Console' version, 'FALSE' if building 'GUI' version
-if ( NOT DEFINED VERACRYPT_BUILD_DIR )
-	MESSAGE(FATAL_ERROR "VERACRYPT_BUILD_DIR variable MUST BE set to the path of the folder which contains 'usr' folder")
+# Accept staging paths supplied by existing direct CMake callers.
+if ( NOT DEFINED LAMBCRYPT_BUILD_DIR AND DEFINED VERACRYPT_BUILD_DIR )
+	set( LAMBCRYPT_BUILD_DIR "${VERACRYPT_BUILD_DIR}" )
+endif()
+if ( NOT DEFINED LAMBCRYPT_BUILD_DIR )
+	MESSAGE(FATAL_ERROR "LAMBCRYPT_BUILD_DIR variable MUST BE set to the path of the folder which contains 'usr' folder")
 elseif ( NOT DEFINED NOGUI )
 	MESSAGE(FATAL_ERROR "NOGUI variable MUST BE set to TRUE if building 'Console' version, 'FALSE' otherwise")
 endif()
@@ -20,11 +24,11 @@ set( RELEASE 			"1" )
 
 # - Set PROJECT_NAME and CONFLICT_PACKAGE values
 if (NOGUI)
-	set( PROJECT_NAME 		"veracrypt-console" )
-	set( CONFLICT_PACKAGE	"veracrypt" )
+	set( PROJECT_NAME 		"lambcrypt-console" )
+	set( CONFLICT_PACKAGE	"lambcrypt" )
 else()
-	set( PROJECT_NAME 		"veracrypt" )
-	set( CONFLICT_PACKAGE	"veracrypt-console" )
+	set( PROJECT_NAME 		"lambcrypt" )
+	set( CONFLICT_PACKAGE	"lambcrypt-console" )
 endif()
 project(${PROJECT_NAME})
 
@@ -263,8 +267,8 @@ MESSAGE ( STATUS "Architecture = ${ARCHITECTURE}" )
 #	unless "cmake --build . --target install" is executed, which is not the case here.
 # 	
 #	Doing things like the following
-#		-	install(DIRECTORY 	${VERACRYPT_BUILD_DIR}/usr DESTINATION /)
-#		-	install(DIRECTORY 	${VERACRYPT_BUILD_DIR}/usr/bin DESTINATION /usr)
+#		-	install(DIRECTORY 	${LAMBCRYPT_BUILD_DIR}/usr DESTINATION /)
+#		-	install(DIRECTORY 	${LAMBCRYPT_BUILD_DIR}/usr/bin DESTINATION /usr)
 #	lead to conflicts despite the usage of CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION
 #	because install() forces CpackRPM to create the DESTINATION folders.
 #
@@ -274,13 +278,13 @@ MESSAGE ( STATUS "Architecture = ${ARCHITECTURE}" )
 #	inside '${CPACK_PACKAGE_DIRECTORY}/_CPack_Packages/<system_name>/DEB,RPM/${CPACK_PACKAGE_NAME}/${CPACK_PACKAGING_INSTALL_PREFIX}'.
 #
 #	Also, we use USE_SOURCE_PERMISSIONS to save the permissions
-install(DIRECTORY 	${VERACRYPT_BUILD_DIR}/usr/bin
+install(DIRECTORY 	${LAMBCRYPT_BUILD_DIR}/usr/bin
 		DESTINATION .
 		USE_SOURCE_PERMISSIONS)
-install(DIRECTORY 	${VERACRYPT_BUILD_DIR}/usr/sbin
+install(DIRECTORY 	${LAMBCRYPT_BUILD_DIR}/usr/sbin
 		DESTINATION .
 		USE_SOURCE_PERMISSIONS)
-install(DIRECTORY 	${VERACRYPT_BUILD_DIR}/usr/share
+install(DIRECTORY 	${LAMBCRYPT_BUILD_DIR}/usr/share
 		DESTINATION .
 		USE_SOURCE_PERMISSIONS)
 set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
@@ -297,11 +301,12 @@ set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
 
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/Packaging)	# creates the Packaging directory under build directory when CMake generates the build system
 
-set( VENDOR "AM Crypto" )
+set( VENDOR "LambCrypt" )
 set( LICENSE "VeraCrypt License" )
-set( CONTACT "VeraCrypt Team <veracrypt@amcrypto.jp>" )
-set( CPACK_PACKAGE_DESCRIPTION_SUMMARY "Disk encryption with strong security based on TrueCrypt." )
-set( CPACK_PACKAGE_DESCRIPTION "This package contains binaries for VeraCrypt, a disk encryption with strong security based on TrueCrypt." )
+set( CONTACT "LambCrypt maintainers <209696398+e3742526@users.noreply.github.com>" )
+set( CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/e3742526/LambCrypt" )
+set( CPACK_PACKAGE_DESCRIPTION_SUMMARY "LambCrypt disk encryption based on VeraCrypt." )
+set( CPACK_PACKAGE_DESCRIPTION "This package contains binaries for LambCrypt, an independently maintained fork of VeraCrypt." )
 set( CPACK_PACKAGE_NAME 			${PROJECT_NAME} )
 set( CPACK_PACKAGE_VERSION 			${VERSION} )
 set( CPACK_PACKAGE_RELEASE 			${RELEASE} )

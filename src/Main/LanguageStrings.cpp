@@ -11,7 +11,6 @@
 */
 
 #include "System.h"
-#include "Resources.h"
 #include "LanguageStrings.h"
 #include "Xml.h"
 
@@ -29,9 +28,9 @@ namespace VeraCrypt
 	{
 		if (Map.count (key) > 0)
 			return wxString (Map.find (key)->second);
-		// return "VeraCrypt" as it is
-		if (key == "VeraCrypt")
-			return L"VeraCrypt";
+		// return "LambCrypt" as it is
+		if (key == "LambCrypt")
+			return L"LambCrypt";
 
 		return wxString (L"?") + StringConverter::ToWide (key) + L"?";
 	}
@@ -43,46 +42,18 @@ namespace VeraCrypt
 
 	void LanguageStrings::Init ()
 	{
-		static uint8 LanguageXml[] =
-        {
-#           include "Common/Language.xml.h"
-            , 0
-        };
-		string def = string ((const char*) LanguageXml);
-		foreach (XmlNode node, XmlParser (def).GetNodes (L"entry"))
+		static const uint8 LanguageXml[] =
+		{
+#			include "Common/Language.xml.h"
+			, 0
+		};
+		XmlParser catalogue (wxString::FromUTF8 (reinterpret_cast<const char*> (LanguageXml)));
+		foreach (XmlNode node, catalogue.GetNodes (L"entry"))
 		{
 			wxString text = node.InnerText;
 			text.Replace (L"\\n", L"\n");
 			Map[StringConverter::ToSingle (wstring (node.Attributes[L"key"]))] = text;
 		}
-
-		string translatedXml = Resources::GetLanguageXml(PreferredLang);
-		XmlNodeList translatedEntries, languageNodes;
-		try
-		{
-			translatedEntries = XmlParser (translatedXml).GetNodes (L"entry");
-			languageNodes = XmlParser (translatedXml).GetNodes (L"language");
-		}
-		catch (ParameterIncorrect&) { }
-
-		// Keep the built-in strings if the language file is empty, malformed or has no language element
-		if (languageNodes.empty())
-		{
-			translatedEntries.clear();
-			languageNodes = XmlParser (def).GetNodes (L"language");
-			PreferredLang = "en";
-		}
-
-		foreach (XmlNode node, translatedEntries)
-		{
-			wxString text = node.InnerText;
-			text.Replace (L"\\n", L"\n");
-			Map[StringConverter::ToSingle (wstring (node.Attributes[L"key"]))] = text;
-		}
-
-		XmlNode node = languageNodes.front();
-		Map["LANGUAGE_TRANSLATORS"] = wxString (node.Attributes[L"translators"]);
-		Map["CURRENT_LANGUAGE_PACK"] = wxString (node.Attributes[L"name"]);
 	}
 
 	LanguageStrings LangString;

@@ -8,7 +8,7 @@ host or leaking devices; an explicit noload mount is the positive control.
 Volumes hosted on read only loop devices also test automatic detection when
 the kernel permits opening the protected device with write access.
 Run:
-  python3 Tests/test_linux_read_only_integration.py --binary /usr/bin/veracrypt
+  python3 Tests/test_linux_read_only_integration.py --binary /usr/bin/lambcrypt
 
 To also test a virtual block device, attach a blank 16 MiB virtio disk with
 serial=vc-readonly-test and pass --disposable-device /dev/vdb. That device is

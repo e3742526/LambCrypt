@@ -12,7 +12,7 @@ $(PKGBUILD_RELEASE): $(PKGBUILD_RELEASE_TEMPLATE) $(VERSION_FILE)
 		exit 1; \
 	fi; \
 	{ \
-		printf '%s\n' '# Maintainer: VeraCrypt upstream'; \
+		printf '%s\n' '# Maintainer: LambCrypt upstream'; \
 		printf '%s\n' '# DO NOT EDIT: generated from PKGBUILD.release.in by `make pkgbuild-release`.'; \
 		sed -e '1,2d' -e "s/@VERSION@/$$version/g" "$(PKGBUILD_RELEASE_TEMPLATE)"; \
 	} > "$(PKGBUILD_RELEASE)"

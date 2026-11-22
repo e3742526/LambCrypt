@@ -428,8 +428,8 @@ void EraseMemory (void *memory, int size);
 
 #define MAX_URL_LENGTH	2084 /* Internet Explorer limit. Includes the terminating null character. */
 
-#define TC_HOMEPAGE L"https://amcrypto.jp"
-#define TC_APPLINK L"https://veracrypt.jp"
+#define TC_HOMEPAGE L"https://github.com/e3742526/LambCrypt"
+#define TC_APPLINK L"https://github.com/e3742526/LambCrypt"
 
 enum
 {

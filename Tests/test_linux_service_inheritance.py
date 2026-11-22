@@ -61,7 +61,7 @@ def pipes(pid):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--veracrypt", type=Path, default=ROOT / "src/Main/veracrypt")
+    parser.add_argument("--veracrypt", type=Path, default=ROOT / "src/Main/lambcrypt")
     parser.add_argument("--probe", type=int, help=argparse.SUPPRESS)
     args = parser.parse_args()
     if not sys.platform.startswith("linux"):

@@ -839,7 +839,7 @@ void Applink_Dll (MSIHANDLE hInstaller, const char *dest)
 	}
 	else if (strcmp(dest, "onlinehelp") == 0)
 	{
-		StringCbCopyW (url, sizeof (url),L"https://veracrypt.jp/en/Documentation.html");
+		StringCbCopyW (url, sizeof (url),L"https://github.com/e3742526/LambCrypt/blob/main/doc/html/en/Documentation.html");
 		buildUrl = FALSE;
 	}
 	else if (strcmp(dest, "keyfiles") == 0)
@@ -917,15 +917,18 @@ void Applink_Dll (MSIHANDLE hInstaller, const char *dest)
 	}
 	else if (strcmp(dest, "downloads") == 0)
 	{
-		StringCbCopyW (page, sizeof (page),L"Downloads.html");
+		StringCbCopyW (url, sizeof (url),L"https://github.com/e3742526/LambCrypt/releases");
+		buildUrl = FALSE;
 	}
 	else if (strcmp(dest, "news") == 0)
 	{
-		StringCbCopyW (page, sizeof (page),L"News.html");
+		StringCbCopyW (url, sizeof (url),L"https://github.com/e3742526/LambCrypt/releases");
+		buildUrl = FALSE;
 	}
 	else if (strcmp(dest, "contact") == 0)
 	{
-		StringCbCopyW (page, sizeof (page),L"Contact.html");
+		StringCbCopyW (url, sizeof (url),L"https://github.com/e3742526/LambCrypt/issues");
+		buildUrl = FALSE;
 	}
 	else if (strcmp(dest, "pim") == 0)
 	{
@@ -953,7 +956,7 @@ void Applink_Dll (MSIHANDLE hInstaller, const char *dest)
 		if (buildUrl && !FileExists (url))
 		{
 			// fallbacl to online resources
-			StringCbPrintfW (url, sizeof (url), L"https://veracrypt.jp/en/%s", page);
+			StringCbPrintfW (url, sizeof (url), L"https://github.com/e3742526/LambCrypt/blob/main/doc/html/en/%s", page);
 			SafeOpenURL (url);
 		}
 		else
@@ -968,7 +971,7 @@ void Applink_Dll (MSIHANDLE hInstaller, const char *dest)
 		if (((r == ERROR_FILE_NOT_FOUND) || (r == ERROR_PATH_NOT_FOUND)) && buildUrl)
 		{
 			// fallbacl to online resources
-			StringCbPrintfW (url, sizeof (url), L"https://veracrypt.jp/en/%s", page);
+			StringCbPrintfW (url, sizeof (url), L"https://github.com/e3742526/LambCrypt/blob/main/doc/html/en/%s", page);
 			ShellExecuteW (NULL, L"open", url, NULL, NULL, SW_SHOWNORMAL);
 		}			
 	}

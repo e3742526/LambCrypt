@@ -2,17 +2,17 @@ name: Test wxWidgets build jobs
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]
     paths:
       - 'src/Makefile'
-      - 'src/Build/Packaging/openwrt/package/utils/veracrypt/Makefile.in'
+      - 'src/Build/Packaging/openwrt/package/utils/lambcrypt/Makefile.in'
       - 'Tests/test_wxbuild_jobs.py'
       - '.github/workflows/test-wxbuild.yml'
   pull_request:
-    branches: [ "master" ]
+    branches: [ "main" ]
     paths:
       - 'src/Makefile'
-      - 'src/Build/Packaging/openwrt/package/utils/veracrypt/Makefile.in'
+      - 'src/Build/Packaging/openwrt/package/utils/lambcrypt/Makefile.in'
       - 'Tests/test_wxbuild_jobs.py'
       - '.github/workflows/test-wxbuild.yml'
 

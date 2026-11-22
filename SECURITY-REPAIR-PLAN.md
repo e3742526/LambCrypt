@@ -1,5 +1,7 @@
 # VeraCrypt security findings — verification and repair plan
 
+> Historical LambCrypt fork record from before the rebrand. Commit, path and upstream references reflect that snapshot.
+
 Baseline: `f38c8090` (master). I re-checked every finding against the source. I did not build or run anything, so all verdicts come from reading the code. Severity is re-rated against the real trust boundary, meaning who the attacker is and what they gain that they did not already have.
 
 ## 1. Verification verdicts

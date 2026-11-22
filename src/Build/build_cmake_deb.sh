@@ -21,7 +21,7 @@ export SCRIPT=$(readlink -f "$0")
 export SCRIPTPATH=$(dirname "$SCRIPT")
 # Source directory which contains the Makefile
 export SOURCEPATH=$(readlink -f "$SCRIPTPATH/..")
-# Directory where the VeraCrypt has been checked out
+# Directory where the LambCrypt has been checked out
 export PARENTDIR=$(readlink -f "$SCRIPTPATH/../../..")
 
 # Compute and export SOURCE_DATE_EPOCH so cmake/cpack inherit it (they get
@@ -62,7 +62,7 @@ fi
 # /tmp is shared with other users: accept only entries owned by this user and
 # create the directories the build writes to before anyone else can.
 . "$SCRIPTPATH/Tools/private_tmp_dir.sh"
-vc_secure_tmp_parentdir --existing wxWidgets-3.2.5 --create wxBuildConsole wxBuildGUI VeraCrypt_Setup VeraCrypt_Packaging || exit 1
+vc_secure_tmp_parentdir --existing wxWidgets-3.2.5 --create wxBuildConsole wxBuildGUI LambCrypt_Setup LambCrypt_Packaging || exit 1
 
 # The sources of wxWidgets 3.2.5 must be extracted to the parent directory
 export WX_ROOT=$PARENTDIR/wxWidgets-3.2.5
@@ -108,11 +108,11 @@ fi
 if [ "$build_with_fuse3" = "1" ]; then
     FUSE3_MAKE_FLAG="WITHFUSE3=1"
     FUSE3_CMAKE_FLAG="-DVC_WITH_FUSE3=TRUE"
-    echo "Building VeraCrypt packages against FUSE3"
+    echo "Building LambCrypt packages against FUSE3"
 else
     FUSE3_MAKE_FLAG=""
     FUSE3_CMAKE_FLAG="-DVC_WITH_FUSE3=FALSE"
-    echo "Building VeraCrypt packages against FUSE2"
+    echo "Building LambCrypt packages against FUSE2"
 fi
 
 build_and_install() {
@@ -146,49 +146,49 @@ build_and_install() {
         indicator_value="INDICATOR=1"
     fi
 
-    rm -rf "$PARENTDIR/VeraCrypt_Setup/$target"
+    rm -rf "$PARENTDIR/LambCrypt_Setup/$target"
     make $wxstatic_value $indicator_value $nogui $FUSE3_MAKE_FLAG clean || exit 1
     make $wxstatic_value $indicator_value $nogui $FUSE3_MAKE_FLAG || exit 1
-    make $wxstatic_value $indicator_value $nogui $FUSE3_MAKE_FLAG install DESTDIR="$PARENTDIR/VeraCrypt_Setup/$target" || exit 1
+    make $wxstatic_value $indicator_value $nogui $FUSE3_MAKE_FLAG install DESTDIR="$PARENTDIR/LambCrypt_Setup/$target" || exit 1
 }
 
 # Handle arguments
 case "$1$2" in
 "WXSTATIC")
-    echo "Building GUI version of VeraCrypt for DEB using wxWidgets static libraries"
+    echo "Building GUI version of LambCrypt for DEB using wxWidgets static libraries"
     build_and_install "GUI" "WXSTATIC" ""
     ;;
 "INDICATOR")
-    echo "Building GUI version of VeraCrypt for DEB using system wxWidgets and indicator"
+    echo "Building GUI version of LambCrypt for DEB using system wxWidgets and indicator"
     build_and_install "GUI" "" "INDICATOR"
     ;;
 "WXSTATICINDICATOR"|"INDICATORWXSTATIC")
-    echo "Building GUI version of VeraCrypt for DEB using wxWidgets static libraries and indicator"
+    echo "Building GUI version of LambCrypt for DEB using wxWidgets static libraries and indicator"
     build_and_install "GUI" "WXSTATIC" "INDICATOR"
     ;;
 *)
-    echo "Building GUI version of VeraCrypt for DEB using system wxWidgets"
+    echo "Building GUI version of LambCrypt for DEB using system wxWidgets"
     build_and_install "GUI" "" ""
     ;;
 esac
 
-echo "Building console version of VeraCrypt for DEB using wxWidgets static libraries"
+echo "Building console version of LambCrypt for DEB using wxWidgets static libraries"
 build_and_install "Console" "WXSTATIC" ""
 
-echo "Creating VeraCrypt DEB packages"
+echo "Creating LambCrypt DEB packages"
 
 # -DCPACK_RPM_PACKAGE_DEBUG=TRUE for debugging cpack DEB
 # -DCPACK_RPM_PACKAGE_DEBUG=TRUE for debugging cpack DEB
 
 # remove old packages
-rm -rf "$PARENTDIR/VeraCrypt_Packaging"
-vc_secure_tmp_parentdir --create VeraCrypt_Packaging || exit 1
+rm -rf "$PARENTDIR/LambCrypt_Packaging"
+vc_secure_tmp_parentdir --create LambCrypt_Packaging || exit 1
 
-mkdir -p $PARENTDIR/VeraCrypt_Packaging/GUI
-mkdir -p $PARENTDIR/VeraCrypt_Packaging/Console
+mkdir -p $PARENTDIR/LambCrypt_Packaging/GUI
+mkdir -p $PARENTDIR/LambCrypt_Packaging/Console
 
-cmake -H$SCRIPTPATH -B$PARENTDIR/VeraCrypt_Packaging/GUI -DVERACRYPT_BUILD_DIR="$PARENTDIR/VeraCrypt_Setup/GUI" -DNOGUI=FALSE -DSOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH $FUSE3_CMAKE_FLAG || exit 1
-cpack --config $PARENTDIR/VeraCrypt_Packaging/GUI/CPackConfig.cmake || exit 1
+cmake -H$SCRIPTPATH -B$PARENTDIR/LambCrypt_Packaging/GUI -DLAMBCRYPT_BUILD_DIR="$PARENTDIR/LambCrypt_Setup/GUI" -DNOGUI=FALSE -DSOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH $FUSE3_CMAKE_FLAG || exit 1
+cpack --config $PARENTDIR/LambCrypt_Packaging/GUI/CPackConfig.cmake || exit 1
 
-cmake -H$SCRIPTPATH -B$PARENTDIR/VeraCrypt_Packaging/Console -DVERACRYPT_BUILD_DIR="$PARENTDIR/VeraCrypt_Setup/Console" -DNOGUI=TRUE -DSOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH $FUSE3_CMAKE_FLAG || exit 1
-cpack --config $PARENTDIR/VeraCrypt_Packaging/Console/CPackConfig.cmake || exit 1
+cmake -H$SCRIPTPATH -B$PARENTDIR/LambCrypt_Packaging/Console -DLAMBCRYPT_BUILD_DIR="$PARENTDIR/LambCrypt_Setup/Console" -DNOGUI=TRUE -DSOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH $FUSE3_CMAKE_FLAG || exit 1
+cpack --config $PARENTDIR/LambCrypt_Packaging/Console/CPackConfig.cmake || exit 1

@@ -3,7 +3,7 @@
 veracrypt.
 
 Usage (as root, after installing a package):
-  python3 Tests/test_stdin_password.py [--veracrypt /usr/bin/veracrypt]
+  python3 Tests/test_stdin_password.py [--veracrypt /usr/bin/lambcrypt]
       [--require-locales]
 
 Mounts a copy of Tests/test.sha512.hc (password "test") and volumes created
@@ -88,7 +88,7 @@ def check_overflow_without_eof(vc, checks, work, env):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--veracrypt", default="/usr/bin/veracrypt")
+    parser.add_argument("--veracrypt", default="/usr/bin/lambcrypt")
     parser.add_argument("--require-locales", action="store_true")
     args = parser.parse_args()
     if os.geteuid() != 0:

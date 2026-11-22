@@ -28,6 +28,8 @@ if [ ${#rpm_files[@]} -eq 0 ]; then
     exit 0
 fi
 
+: "${LAMBCRYPT_RPM_SIGNING_KEY:?Set the LambCrypt RPM signing key fingerprint}"
+
 # Iterate over each RPM file in the directory
 for rpm_file in "${rpm_files[@]}"; do
     echo "Processing $rpm_file..."
@@ -41,7 +43,7 @@ for rpm_file in "${rpm_files[@]}"; do
     
     # Sign the RPM file
     echo "Signing $rpm_file..."
-    rpmsign --define "_gpg_name veracrypt@amcrypto.jp" \
+    rpmsign --define "_gpg_name $LAMBCRYPT_RPM_SIGNING_KEY" \
             --define "_gpg_digest_algo sha512" \
             --define "_source_filedigest_algorithm 10" \
             --define "_binary_filedigest_algorithm 10" \

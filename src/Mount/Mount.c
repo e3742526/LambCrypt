@@ -4431,7 +4431,6 @@ BOOL CALLBACK PreferencesDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM 
 			HMENU popup = CreatePopupMenu ();
 			if (popup)
 			{
-				AppendMenuW (popup, MF_STRING, IDM_LANGUAGE, GetString ("IDM_LANGUAGE"));
 				AppendMenuW (popup, MF_STRING, IDM_HOTKEY_SETTINGS, GetString ("IDM_HOTKEY_SETTINGS"));
 				AppendMenuW (popup, MF_STRING, IDM_PERFORMANCE_SETTINGS, GetString ("IDM_PERFORMANCE_SETTINGS"));
 				AppendMenuW (popup, MF_STRING, IDM_SYSENC_SETTINGS, GetString ("IDM_SYSENC_SETTINGS"));

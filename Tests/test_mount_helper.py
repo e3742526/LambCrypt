@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Test the fstab helper mount.veracrypt against the installed veracrypt.
+"""Test the fstab helper mount.lambcrypt against the installed LambCrypt.
 
 Usage (as root, after installing a package):
-  python3 Tests/test_mount_helper.py [--helper /usr/sbin/mount.veracrypt]
-      [--veracrypt /usr/bin/veracrypt]
+  python3 Tests/test_mount_helper.py [--helper /usr/sbin/mount.lambcrypt]
+      [--veracrypt /usr/bin/lambcrypt]
 
-The helper always runs /usr/bin/veracrypt; --veracrypt is only used here to
+The helper always runs /usr/bin/lambcrypt; --veracrypt is only used here to
 list and unmount. A copy of Tests/test.sha512.hc (password "test") is
 mounted through the helper and through mount(8). Checked:
 
@@ -73,8 +73,8 @@ def aux_mounts():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--helper", default="/usr/sbin/mount.veracrypt")
-    parser.add_argument("--veracrypt", default="/usr/bin/veracrypt")
+    parser.add_argument("--helper", default="/usr/sbin/mount.lambcrypt")
+    parser.add_argument("--veracrypt", default="/usr/bin/lambcrypt")
     args = parser.parse_args()
     if os.geteuid() != 0:
         sys.exit("must run as root (mounting)")
@@ -127,7 +127,7 @@ def main():
                 cmd += ["-o", options]
             r = run(cmd + list(extra))
             c.check("%s rejected by the helper" % desc,
-                    r.returncode != 0 and "mount.veracrypt:" in text(r)
+                    r.returncode != 0 and "mount.lambcrypt:" in text(r)
                     and not mounted(), text(r))
             unmount()
         r = helper(pw, ("-f",))
@@ -170,11 +170,11 @@ def main():
             else:
                 c.check("readonly from fstab rejected despite rw override",
                         r.returncode != 0 and
-                        "mount.veracrypt: readonly is not supported; use ro" in text(r)
+                        "mount.lambcrypt: readonly is not supported; use ro" in text(r)
                         and not mounted(), text(r))
             unmount()
 
-        r = run(["mount", "-f", "-t", "veracrypt", "-o", pw, str(volume),
+        r = run(["mount", "-f", "-t", "lambcrypt", "-o", pw, str(volume),
                  str(mnt)])
         c.check("mount -f -t veracrypt does not mount",
                 r.returncode == 0 and not mounted(), text(r))

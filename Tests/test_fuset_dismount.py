@@ -5,7 +5,7 @@ Usage:
   python3 Tests/test_fuset_dismount.py --binary /path/to/patched/VeraCrypt
 
 Optional compatibility checks use binaries built from these protocol generations:
-  --released-binary /Applications/VeraCrypt.app/Contents/MacOS/VeraCrypt
+  --released-binary /Applications/LambCrypt.app/Contents/MacOS/LambCrypt
   --file-protocol-binary /path/to/d7bc65be/VeraCrypt
 
 An unsigned/local build can also exercise startup rollback with --startup-faults

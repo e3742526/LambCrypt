@@ -32,8 +32,13 @@ namespace VeraCrypt
 		versionStr += L" (FUSE-T build)";
 #endif
 		VersionStaticText->SetLabel (Application::GetName() + L" " + versionStr);
-		CopyrightStaticText->SetLabel (TC_STR_RELEASED_BY);
-		WebsiteHyperlink->SetLabel (L"amcrypto.jp");
+		CopyrightStaticText->SetLabel (L"Independently maintained fork of VeraCrypt");
+		WebsiteHyperlink->SetLabel (L"LambCrypt on GitHub");
+
+		wxSizer *websiteSizer = WebsiteHyperlink->GetContainingSizer();
+		websiteSizer->Add (new wxHyperlinkCtrl (this, wxID_ANY,
+				L"Based on TrueCrypt, freely available at http://www.truecrypt.org/",
+				L"http://www.truecrypt.org/"), 0, wxALL, 5);
 
 		CreditsTextCtrl->SetMinSize (wxSize (
 			Gui->GetCharWidth (CreditsTextCtrl) * 70,
@@ -79,6 +84,6 @@ namespace VeraCrypt
 
 			L"This software uses wxWidgets library, which is copyright \xA9 1998-2011 Julian Smart, Robert Roebling et al.\n\n"
 
-			L"An AM Crypto Release");
+			L"Upstream attribution: VeraCrypt and TrueCrypt");
 	}
 }

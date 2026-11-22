@@ -1,0 +1,90 @@
+include $(TOPDIR)/rules.mk
+
+PKG_NAME:=lambcrypt
+PKG_VERSION:=@LAMBCRYPT_VERSION@
+PKG_RELEASE:=1
+PKG_LICENSE:=Apache-2.0 AND LicenseRef-TrueCrypt
+PKG_LICENSE_FILES:=lambcrypt/src/License.txt
+PKG_MAINTAINER:=LambCrypt maintainers
+
+PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
+PKG_BUILD_PARALLEL:=1
+PKG_BUILD_DEPENDS:=fuse3 pcsc-lite
+
+LAMBCRYPT_STAGED_SOURCE:=sources/lambcrypt
+WXWIDGETS_STAGED_SOURCE:=sources/wxWidgets
+
+include $(INCLUDE_DIR)/package.mk
+
+RSTRIP:=:
+STRIP:=:
+
+define Package/lambcrypt
+  SECTION:=utils
+  CATEGORY:=Utilities
+  SUBMENU:=Filesystem
+  TITLE:=LambCrypt console
+  URL:=https://github.com/e3742526/LambCrypt
+  DEPENDS:=+libstdcpp +libfuse3
+endef
+
+define Package/lambcrypt/description
+  Console-only LambCrypt build for OpenWrt using FUSE3 and a static wxBase.
+endef
+
+define Build/Prepare
+	rm -rf "$(PKG_BUILD_DIR)"
+	$(INSTALL_DIR) "$(PKG_BUILD_DIR)"
+	rsync -a --delete \
+		--exclude .git \
+		--exclude 'src/wxrelease' \
+		--exclude 'src/wxdebug' \
+		--exclude 'src/Main/lambcrypt' \
+		--exclude 'src/Setup/Linux/usr' \
+		--exclude '*.o' \
+		--exclude '*.d' \
+		--exclude '*.a' \
+		"$(LAMBCRYPT_STAGED_SOURCE)/" "$(PKG_BUILD_DIR)/lambcrypt/"
+	rsync -a --delete "$(WXWIDGETS_STAGED_SOURCE)/" "$(PKG_BUILD_DIR)/wxWidgets/"
+endef
+
+define Build/Configure
+endef
+
+VC_COMMON_MAKE_FLAGS = \
+	AR="$(TARGET_AR)" \
+	CC="$(TARGET_CC)" \
+	CXX="$(TARGET_CXX)" \
+	AS="yasm" \
+	RANLIB="$(TARGET_RANLIB)" \
+	PKG_CONFIG="$(PKG_CONFIG)" \
+	PKG_CONFIG_PATH="$(PKG_CONFIG_PATH)" \
+	WX_ROOT="$(PKG_BUILD_DIR)/wxWidgets" \
+	WX_BUILD_DIR="$(PKG_BUILD_DIR)/wxBuildConsole" \
+	WX_CONFIGURE_EXTRA_FLAGS="--target=$(GNU_TARGET_NAME) --host=$(GNU_TARGET_NAME) --build=$(GNU_HOST_NAME) --prefix=/usr --exec-prefix=/usr --disable-rpath" \
+	TC_EXTRA_CFLAGS="$(TARGET_CFLAGS) $(TARGET_CPPFLAGS)" \
+	TC_EXTRA_CXXFLAGS="$(TARGET_CXXFLAGS) $(TARGET_CPPFLAGS)" \
+	TC_EXTRA_LFLAGS="$(TARGET_LDFLAGS)" \
+	NOGUI=1 \
+	WITHFUSE3=1 \
+	WXSTATIC=1 \
+	NOTEST=1 \
+	NOSTRIP=1 \
+	VERBOSE=1
+
+define Build/Compile
+	+$(MAKE) -C "$(PKG_BUILD_DIR)/lambcrypt/src" $(VC_COMMON_MAKE_FLAGS) clean
+	+$(MAKE) -C "$(PKG_BUILD_DIR)/lambcrypt/src" $(PKG_JOBS) $(VC_COMMON_MAKE_FLAGS) WX_MAKE_JOBS= wxbuild
+	+$(MAKE) -C "$(PKG_BUILD_DIR)/lambcrypt/src" $(PKG_JOBS) $(VC_COMMON_MAKE_FLAGS)
+endef
+
+define Package/lambcrypt/install
+	$(INSTALL_DIR) "$(1)/usr/bin"
+	$(INSTALL_BIN) "$(PKG_BUILD_DIR)/lambcrypt/src/Main/lambcrypt" "$(1)/usr/bin/lambcrypt"
+	$(INSTALL_DIR) "$(1)/sbin"
+	$(INSTALL_BIN) "$(PKG_BUILD_DIR)/lambcrypt/src/Setup/Linux/mount.lambcrypt" "$(1)/sbin/mount.lambcrypt"
+	$(INSTALL_DIR) "$(1)/usr/share/licenses/lambcrypt"
+	$(INSTALL_DATA) "$(PKG_BUILD_DIR)/lambcrypt/src/License.txt" "$(1)/usr/share/licenses/lambcrypt/License.txt"
+endef
+
+$(eval $(call BuildPackage,lambcrypt))

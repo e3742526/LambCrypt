@@ -2,26 +2,24 @@
 <html lang="en">
 <head>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-<title>VeraCrypt - Free Open source disk encryption with strong security for the Paranoid</title>
-<meta name="description" content="VeraCrypt is free open-source disk encryption software for Windows, Mac OS X and Linux. In case an attacker forces you to reveal the password, VeraCrypt provides plausible deniability. In contrast to file encryption, data encryption performed by VeraCrypt is real-time (on-the-fly), automatic, transparent, needs very little memory, and does not involve temporary unencrypted files."/>
+<title>Normal Unmount vs Force Unmount – LambCrypt Documentation</title>
+<meta name="description" content="LambCrypt documentation and upstream VeraCrypt reference material."/>
 <meta name="keywords" content="encryption, security"/>
 <link href="styles.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
 
 <div>
-<a href="Documentation.html"><img src="VeraCrypt128x128.png" alt="VeraCrypt"/></a>
+<a href="Documentation.html"><img src="LambCrypt128x128.png" alt="LambCrypt" width="128" height="128"/></a>
 </div>
 
 <div id="menu">
-	<ul>
-	  <li><a href="Home.html">Home</a></li>
-	  <li><a href="Code.html">Source Code</a></li>
-	  <li><a href="Downloads.html">Downloads</a></li>
-	  <li><a class="active" href="Documentation.html">Documentation</a></li>
-	  <li><a href="Donation.html">Donate</a></li>
-	  <li><a href="https://sourceforge.net/p/veracrypt/discussion/" target="_blank">Forums</a></li>
-	</ul>
+  <ul>
+    <li><a href="https://github.com/e3742526/LambCrypt">Project</a></li>
+    <li><a href="Documentation.html">Documentation</a></li>
+    <li><a href="https://github.com/e3742526/LambCrypt/releases">Releases</a></li>
+    <li><a href="https://github.com/e3742526/LambCrypt/issues">Issues</a></li>
+  </ul>
 </div>
 
 <div>
@@ -37,7 +35,7 @@
 
 <h2>Normal Unmount Process</h2>
 
-<p>During a normal unmount process, VeraCrypt performs the following steps:</p>
+<p>During a normal unmount process, LambCrypt performs the following steps:</p>
 
 <ol>
     <li>Requests the Windows operating system to lock the volume, prohibiting further I/O operations.</li>
@@ -57,7 +55,7 @@
 
 <h2>How to Trigger Force Unmount</h2>
 
-<p>There are three approaches to trigger a force unmount in VeraCrypt:</p>
+<p>There are three approaches to trigger a force unmount in LambCrypt:</p>
 
 <ol>
     <li>Through the popup window that appears if a normal unmount attempt is unsuccessful.</li>
@@ -65,11 +63,11 @@
     <li>Using the command line, by incorporating the /force or /f switch along with the /u or /unmount switch.</li>
 </ol>
 
-<p>In order to avoid inadvertent data loss or corruption, always ensure to follow suitable precautions when unmounting a VeraCrypt volume. This includes</p>
+<p>In order to avoid inadvertent data loss or corruption, always ensure to follow suitable precautions when unmounting a LambCrypt volume. This includes</p>
 <ol>
     <li>Ensuring all files on the volume are closed before initiating a unmount.</li>
     <li>Allowing some time after closing all files to ensure Windows has completely flushed the I/O cache.</li>
-	<li>Take note that some antivirus software may keep file handles open on the volume after performing a scan, hindering a successful Normal Unmount. If you experience this issue, you might consider excluding the VeraCrypt volume from your antivirus scans. Alternatively, consult with your antivirus software provider to understand how their product interacts with VeraCrypt volumes and how to ensure it doesn't retain open file handles.</li>
+	<li>Take note that some antivirus software may keep file handles open on the volume after performing a scan, hindering a successful Normal Unmount. If you experience this issue, you might consider excluding the LambCrypt volume from your antivirus scans. Alternatively, consult with your antivirus software provider to understand how their product interacts with LambCrypt volumes and how to ensure it doesn't retain open file handles.</li>
 </ol>
 
 

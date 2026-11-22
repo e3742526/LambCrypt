@@ -106,7 +106,7 @@ namespace VeraCrypt
 		parser.AddSwitch (L"",	L"list-emvtoken-keyfiles",	_("List EMV token keyfiles"));
 		parser.AddSwitch (L"",	L"load-preferences",	_("Load user preferences"));
 		parser.AddSwitch (L"",	L"mount",				_("Mount volume interactively"));
-		parser.AddOption (L"m", L"mount-options",		_("VeraCrypt volume mount options"));
+		parser.AddOption (L"m", L"mount-options",		_("Encrypted volume mount options"));
 		parser.AddOption (L"",	L"new-hash",			_("New header key derivation algorithm"));
 		parser.AddOption (L"",	L"new-keyfiles",		_("New keyfiles"));
 		parser.AddOption (L"",	L"new-password",		_("New password"));
@@ -729,7 +729,7 @@ namespace VeraCrypt
 			if (Application::GetUserInterfaceType() != UserInterfaceType::Text)
 			{
 				// check if only parameters were specified in the command line
-				// (e.g. when associating .hc extension in mimetype with /usr/bin/veracrypt)
+				// (e.g. when associating .hc extension in mimetype with /usr/bin/lambcrypt)
 				bool onlyParametersPresent = (parser.GetParamCount() == (size_t) (argc - 1));
 
 				if (onlyParametersPresent)

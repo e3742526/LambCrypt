@@ -41,7 +41,6 @@ namespace VeraCrypt
 			DismountOnScreenSaver (false),
 			DisplayMessageAfterHotkeyDismount (false),
 			ForceAutoDismount (true),
-			Language (L"system"),
 			LastSelectedSlotNumber (0),
 			MaxVolumeIdleTime (60),
 			MountDevicesOnLogon (false),
@@ -86,7 +85,6 @@ namespace VeraCrypt
 		bool DismountOnScreenSaver;
 		bool DisplayMessageAfterHotkeyDismount;
 		bool ForceAutoDismount;
-		wstring Language;
 		uint64 LastSelectedSlotNumber;
 		int32 MaxVolumeIdleTime;
 		bool MountDevicesOnLogon;

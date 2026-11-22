@@ -625,17 +625,12 @@ namespace VeraCrypt
 				unique_ptr <wxMenu> popup (new wxMenu);
 				const bool operationsEnabled = !Busy && !Gui->GetWaitDialog();
 
-				// On macOS the native menu is recreated on every click. Bind to its
-				// lifetime rather than accumulating command IDs on the status icon.
+				// The tray menu is recreated on every click. Bind handlers to its lifetime.
 				auto appendCommand = [&] (const wxString &label, void (TaskBarIcon::*handler) (wxCommandEvent&), int id = wxID_ANY)
 				{
-#ifdef TC_MACOSX
 					auto *item = popup->Append (id, label);
 					popup->Bind (wxEVT_MENU, [this, handler] (wxCommandEvent& event) { (this->*handler) (event); }, item->GetId());
 					return item;
-#else
-					return Gui->AppendToMenu (*popup, label, this, wxEVENT_HANDLER_CAST (wxCommandEventFunction, handler), id);
-#endif
 				};
 
 				appendCommand (LangString[Gui->IsInBackgroundMode() ? "SHOW_TC" : "HIDE_TC"], &TaskBarIcon::OnShowHideMenuItemSelected);
@@ -721,7 +716,7 @@ namespace VeraCrypt
 							if (!volume->MountPoint.IsEmpty())
 							{
 								wxString label = LangString["OPEN"] + L" " + wstring (volume->MountPoint) + L" (" + wstring (volume->Path) + L")";
-								wxMenuItem *item = Gui->AppendToMenu (*popup, label, this, wxCommandEventHandler (TaskBarIcon::OnOpenMenuItemSelected));
+								wxMenuItem *item = appendCommand (label, &TaskBarIcon::OnOpenMenuItemSelected);
 								OpenMap[item->GetId()] = volume;
 							}
 						}
@@ -740,7 +735,7 @@ namespace VeraCrypt
 							else
 								label += wstring (volume->Path);
 
-							wxMenuItem *item = Gui->AppendToMenu (*popup, label, this, wxCommandEventHandler (TaskBarIcon::OnDismountMenuItemSelected));
+							wxMenuItem *item = appendCommand (label, &TaskBarIcon::OnDismountMenuItemSelected);
 							item->Enable (operationsEnabled);
 							DismountMap[item->GetId()] = volume;
 						}
@@ -1266,17 +1261,6 @@ namespace VeraCrypt
 #endif
 		PreferencesDialog dialog (this);
 		dialog.SelectPage (dialog.HotkeysPage);
-		dialog.ShowModal();
-	}
-
-	void MainFrame::OnLanguageMenuItemSelected (wxCommandEvent& event)
-	{
-#ifdef TC_MACOSX
-		if (Gui->IsInBackgroundMode())
-			Gui->SetBackgroundMode (false);
-#endif
-		PreferencesDialog dialog (this);
-		dialog.SelectPage (dialog.LanguagesPage);
 		dialog.ShowModal();
 	}
 
@@ -1815,11 +1799,11 @@ namespace VeraCrypt
 		else if (show && !mTaskBarIcon->IsIconInstalled())
 		{
 #ifndef HAVE_INDICATORS
-			mTaskBarIcon->SetIcon (Resources::GetVeraCryptIcon(), L"VeraCrypt");
+			mTaskBarIcon->SetIcon (Resources::GetVeraCryptIcon(), L"LambCrypt");
 #endif
 #ifdef HAVE_INDICATORS
 			if (indicator == NULL) {
-				indicator = app_indicator_new ("veracrypt", "veracrypt", APP_INDICATOR_CATEGORY_APPLICATION_STATUS);
+				indicator = app_indicator_new ("lambcrypt", "lambcrypt", APP_INDICATOR_CATEGORY_APPLICATION_STATUS);
 				app_indicator_set_status (indicator, APP_INDICATOR_STATUS_ACTIVE);
 
 				GtkWidget *menu = gtk_menu_new();

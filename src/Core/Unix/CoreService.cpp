@@ -244,7 +244,7 @@ namespace VeraCrypt
 		{
 #ifdef TC_FREEBSD
 			if (IsFreeBSDSecurityDoasPackage (path))
-				throw ElevationFailed (SRC_POS, "doas", 1, "The FreeBSD security/doas package is incompatible with VeraCrypt elevation. Install security/opendoas or sudo.");
+				throw ElevationFailed (SRC_POS, "doas", 1, "The FreeBSD security/doas package is incompatible with LambCrypt elevation. Install security/opendoas or sudo.");
 #endif
 			return { PrivilegeHelperType::Doas, "doas", path };
 		}
@@ -868,7 +868,7 @@ namespace VeraCrypt
 		ThrowSerializedExceptionIfAny (errOutput);
 		string errorOutput = CombineElevationErrorOutput (errOutput, authOutput);
 		if (errorOutput.empty())
-			errorOutput = "Timed out while waiting for the elevated VeraCrypt service to start";
+			errorOutput = "Timed out while waiting for the elevated LambCrypt service to start";
 
 		TerminateChildProcessAsync (childPid);
 		throw ElevationFailed (SRC_POS, helperName, 1, errorOutput);
@@ -1678,7 +1678,7 @@ namespace VeraCrypt
 					// if appPath is empty or not absolute, use FindSystemBinary to get the full path of veracrpyt executable
 					if (appPath.empty() || appPath[0] != '/')
 					{
-						appPath = Process::FindSystemBinary("veracrypt", errorMsg);
+						appPath = Process::FindSystemBinary("lambcrypt", errorMsg);
 						if (appPath.empty())
 							throw SystemException(SRC_POS, errorMsg);
 					}

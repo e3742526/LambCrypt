@@ -122,7 +122,7 @@ namespace VeraCrypt
 		void OnClearSlotSelectionMenuItemSelected (wxCommandEvent& event);
 		void OnClose (wxCloseEvent& event);
 		void OnCloseAllSecurityTokenSessionsMenuItemSelected (wxCommandEvent& event);
-		void OnDonateMenuItemSelected (wxCommandEvent& event) { Gui->OpenHomepageLink (this, L"donate"); }
+		void OnIssueTrackerMenuItemSelected (wxCommandEvent& event) { Gui->OpenHomepageLink (this, L"contact"); }
 		void OnContactMenuItemSelected (wxCommandEvent& event) { Gui->OpenHomepageLink (this, L"contact"); }
 		void OnCreateKeyfileMenuItemSelected (wxCommandEvent& event)
 		{
@@ -145,7 +145,6 @@ namespace VeraCrypt
 		void OnHiddenVolumeProtectionTriggered (shared_ptr <VolumeInfo> protectedVolume);
 		void OnHotkey (wxKeyEvent& event);
 		void OnHotkeysMenuItemSelected (wxCommandEvent& event);
-		void OnLanguageMenuItemSelected (wxCommandEvent& event);
 		void OnLegalNoticesMenuItemSelected (wxCommandEvent& event);
 		void OnListChanged ();
 		void OnListItemActivated (wxListEvent& event);

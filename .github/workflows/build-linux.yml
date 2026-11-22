@@ -2,7 +2,7 @@ name: Build and test Linux
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]
     paths:
       - 'src/Build/Include/Makefile.inc'
       - 'src/Build/CMakeLists.txt'
@@ -41,7 +41,7 @@ on:
       - 'Tests/smartcard_parser_test.cpp'
       - '.github/workflows/build-linux.yml'
   pull_request:
-    branches: [ "master" ]
+    branches: [ "main" ]
     paths:
       - 'src/Build/Include/Makefile.inc'
       - 'src/Build/CMakeLists.txt'
@@ -165,7 +165,7 @@ jobs:
         mkdir -p /tmp/wxWidgets-${{ env.WXWIDGETS_VERSION }}
         tar -xjf /tmp/wxWidgets-${{ env.WXWIDGETS_VERSION }}.tar.bz2 -C /tmp/wxWidgets-${{ env.WXWIDGETS_VERSION }} --strip-components=1
 
-    - name: Build VeraCrypt .deb packages
+    - name: Build LambCrypt .deb packages
       run: |
         chmod +x src/Build/build_cmake_deb.sh
         if [ "${{ matrix.os }}" = "ubuntu-26.04" ]; then
@@ -177,14 +177,14 @@ jobs:
     - name: Upload GUI .deb packages
       uses: actions/upload-artifact@v4
       with:
-        name: veracrypt-gui-debs-${{ matrix.os }}
-        path: /tmp/VeraCrypt_Packaging/GUI/Packaging/veracrypt-*.*
+        name: lambcrypt-gui-debs-${{ matrix.os }}
+        path: /tmp/LambCrypt_Packaging/GUI/Packaging/lambcrypt-*.*
 
     - name: Upload Console .deb packages
       uses: actions/upload-artifact@v4
       with:
-        name: veracrypt-console-debs-${{ matrix.os }}
-        path: /tmp/VeraCrypt_Packaging/Console/Packaging/veracrypt-console-*.*
+        name: lambcrypt-console-debs-${{ matrix.os }}
+        path: /tmp/LambCrypt_Packaging/Console/Packaging/lambcrypt-console-*.*
 
     # Decrypts the Tests/*.hc volumes through Volume::ReadSectors, without
     # mounting, using the archives that the last build above (the console
@@ -203,19 +203,19 @@ jobs:
       run: python3 Tests/test_linux_mount_points.py --build-dir src --fuse-package=fuse
 
     - name: Check text-mode keyfile and header-backup overwrite handling
-      run: python3 Tests/test_text_overwrite.py --veracrypt src/Main/veracrypt
+      run: python3 Tests/test_text_overwrite.py --veracrypt src/Main/lambcrypt
 
-    - name: Install and test VeraCrypt GUI .deb packages
+    - name: Install and test LambCrypt GUI .deb packages
       run: |
-        sudo apt install -y /tmp/VeraCrypt_Packaging/GUI/Packaging/veracrypt-*.deb
-        python3 Tests/test_linux_privilege_helpers.py --veracrypt "$(command -v veracrypt)"
-        python3 Tests/test_linux_service_inheritance.py --veracrypt "$(command -v veracrypt)"
-        veracrypt --text --test && veracrypt --text --version
-        sudo veracrypt --text --non-interactive Tests/test.sha256.hc --hash sha256 --slot 1 --password test --mount-options=ro
-        sudo veracrypt --text --non-interactive Tests/test.sha512.hc --hash sha512 --slot 2 --password test --mount-options=ro
-        sudo veracrypt --text --non-interactive Tests/test.streebog.hc --hash streebog --slot 3 --password test --mount-options=ro
-        sudo veracrypt --text --non-interactive Tests/test.whirlpool.hc --hash whirlpool --slot 4 --password test --mount-options=ro
-        sudo veracrypt --text --list
+        sudo apt install -y /tmp/LambCrypt_Packaging/GUI/Packaging/lambcrypt-*.deb
+        python3 Tests/test_linux_privilege_helpers.py --veracrypt "$(command -v lambcrypt)"
+        python3 Tests/test_linux_service_inheritance.py --veracrypt "$(command -v lambcrypt)"
+        lambcrypt --text --test && lambcrypt --text --version
+        sudo lambcrypt --text --non-interactive Tests/test.sha256.hc --hash sha256 --slot 1 --password test --mount-options=ro
+        sudo lambcrypt --text --non-interactive Tests/test.sha512.hc --hash sha512 --slot 2 --password test --mount-options=ro
+        sudo lambcrypt --text --non-interactive Tests/test.streebog.hc --hash streebog --slot 3 --password test --mount-options=ro
+        sudo lambcrypt --text --non-interactive Tests/test.whirlpool.hc --hash whirlpool --slot 4 --password test --mount-options=ro
+        sudo lambcrypt --text --list
         echo -n "Dummy" > /tmp/expected_content.txt
         if cmp -s /media/veracrypt1/Dummy.txt /tmp/expected_content.txt; then
           echo "Content of test.sha256.hc is valid."
@@ -241,23 +241,23 @@ jobs:
           echo "Content of test.whirlpool.hc is invalid!"
           exit 1
         fi
-        sudo veracrypt -d
+        sudo lambcrypt -d
         sudo locale-gen en_US en_US.UTF-8
         sudo python3 Tests/test_stdin_password.py --require-locales
-        sudo python3 Tests/test_mount_helper.py --helper /usr/sbin/mount.veracrypt
+        sudo python3 Tests/test_mount_helper.py --helper /usr/sbin/mount.lambcrypt
         sudo python3 Tests/test_linux_mount_point_protection.py
-        sudo apt remove -y veracrypt
+        sudo apt remove -y lambcrypt
 
-    - name: Install and test VeraCrypt Console .deb packages
+    - name: Install and test LambCrypt Console .deb packages
       run: |
-        sudo apt install -y /tmp/VeraCrypt_Packaging/Console/Packaging/veracrypt-console-*.deb
-        python3 Tests/test_linux_service_inheritance.py --veracrypt "$(command -v veracrypt)"
-        veracrypt --test && veracrypt --version
-        sudo veracrypt --non-interactive Tests/test.sha256.hc --hash sha256 --slot 1 --password test --mount-options=ro
-        sudo veracrypt --non-interactive Tests/test.sha512.hc --hash sha512 --slot 2 --password test --mount-options=ro
-        sudo veracrypt --non-interactive Tests/test.streebog.hc --hash streebog --slot 3 --password test --mount-options=ro
-        sudo veracrypt --non-interactive Tests/test.whirlpool.hc --hash whirlpool --slot 4 --password test --mount-options=ro
-        sudo veracrypt --list
+        sudo apt install -y /tmp/LambCrypt_Packaging/Console/Packaging/lambcrypt-console-*.deb
+        python3 Tests/test_linux_service_inheritance.py --veracrypt "$(command -v lambcrypt)"
+        lambcrypt --test && lambcrypt --version
+        sudo lambcrypt --non-interactive Tests/test.sha256.hc --hash sha256 --slot 1 --password test --mount-options=ro
+        sudo lambcrypt --non-interactive Tests/test.sha512.hc --hash sha512 --slot 2 --password test --mount-options=ro
+        sudo lambcrypt --non-interactive Tests/test.streebog.hc --hash streebog --slot 3 --password test --mount-options=ro
+        sudo lambcrypt --non-interactive Tests/test.whirlpool.hc --hash whirlpool --slot 4 --password test --mount-options=ro
+        sudo lambcrypt --list
         echo -n "Dummy" > /tmp/expected_content.txt
         if cmp -s /media/veracrypt1/dummy.txt /tmp/expected_content.txt; then
           echo "Content of test.sha256.hc is valid."
@@ -283,8 +283,8 @@ jobs:
           echo "Content of test.whirlpool.hc is invalid!"
           exit 1
         fi
-        sudo veracrypt -d
-        sudo apt remove -y veracrypt-console
+        sudo lambcrypt -d
+        sudo apt remove -y lambcrypt-console
 
     - name: Cleanup old caches
       uses: actions/github-script@v8

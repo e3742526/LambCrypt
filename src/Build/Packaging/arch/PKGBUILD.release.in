@@ -1,11 +1,11 @@
 # Template for generated PKGBUILD.release.
 # Edit this file and run `make pkgbuild-release`.
 
-pkgname=veracrypt
+pkgname=lambcrypt
 pkgver=@VERSION@
 pkgrel=1
 pkgdesc='Disk encryption with strong security based on TrueCrypt'
-url='https://www.veracrypt.jp/'
+url='https://github.com/e3742526/LambCrypt'
 arch=(x86_64 aarch64 armv7h)
 license=('LicenseRef-TrueCrypt AND Apache-2.0')
 depends=(
@@ -40,18 +40,15 @@ makedepends=(
 makedepends_x86_64=(
   yasm
 )
-_source_archive="VeraCrypt_${pkgver}_Source.tar.bz2"
+# Use the fork's source archive, detached signature and signing key.
+_source_archive="LambCrypt_${pkgver}_Source.tar.bz2"
 source=(
-  "https://launchpad.net/veracrypt/trunk/${pkgver}/+download/${_source_archive}"
-  "https://launchpad.net/veracrypt/trunk/${pkgver}/+download/${_source_archive}.sig"
+  "${_source_archive}::${LAMBCRYPT_SOURCE_URL:?Set the LambCrypt release source URL}"
+  "${_source_archive}.sig::${LAMBCRYPT_SOURCE_SIGNATURE_URL:?Set the detached signature URL}"
 )
-validpgpkeys=(
-  5069A233D55A0EEB174A5FC3821ACD02680D16DE
-)
-# Replace only the source archive SKIP with the published SHA-512 before publishing.
-# The .sig checksum should remain SKIP because makepkg verifies it as a PGP signature.
+validpgpkeys=("${LAMBCRYPT_SOURCE_SIGNING_KEY:?Set the release signing key fingerprint}")
 sha512sums=(
-  'SKIP'
+  "${LAMBCRYPT_SOURCE_SHA512:?Set the release source SHA-512 checksum}"
   'SKIP'
 )
 
@@ -89,7 +86,7 @@ build() {
 
 check() {
   cd "${srcdir}/src"
-  ./Main/veracrypt --text --test >/dev/null
+  ./Main/lambcrypt --text --test >/dev/null
 }
 
 package() {

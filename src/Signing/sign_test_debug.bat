@@ -30,11 +30,6 @@ copy ..\..\Setup\VeraCrypt_setup_background.bmp .
 copy ..\..\Setup\VeraCrypt_setup.bmp .
 copy ..\..\Setup\Setup.ico .
 del *.xml
-rmdir /S /Q Languages
-mkdir Languages
-copy /V /Y ..\..\..\Translations\*.xml Languages\.
-del Languages.zip
-tar -a -cf Languages.zip Languages
 rmdir /S /Q docs
 mkdir docs\html\en
 mkdir docs\EFI-DCS
@@ -56,9 +51,7 @@ del VeraCrypt_setup_background.bmp
 del VeraCrypt_setup.bmp
 del Setup.ico
 del "VeraCrypt User Guide*.chm"
-del Languages.zip
 del docs.zip
-rmdir /S /Q Languages
 rmdir /S /Q docs
 
 cd %SIGNINGPATH%

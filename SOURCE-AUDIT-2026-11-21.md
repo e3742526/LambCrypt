@@ -1,5 +1,7 @@
 # VeraCrypt source audit, 2026-11-21
 
+> Historical LambCrypt fork record from before the rebrand. Commit, path and upstream references reflect that snapshot.
+
 Report only: no source files were changed. Tree audited: `master` at `cb20f79e`, plus the uncommitted `Tests/test_fuset_dismount.py`.
 
 This picks up the Codex session "Audit VeraCrypt codebase" (`01a1feae-aa77-7493-9399-2b57ab69e64e`), which OpenAI's filter stopped at 10:21. Codex left two unconfirmed leads. Both are confirmed below as F-01 and F-03. A separate write-up of those same two leads was supplied afterwards. Its details agreed with this report, and the one thing it added (the GUI wizard's overflow check, see F-01) has been checked against the source and merged in. Everything else was found by reading the code. Earlier reports in the repo (`SECURITY-REPAIR-PLAN.md` and the survey it answers) were not used as sources.
@@ -163,10 +165,10 @@ veracrypt -t --non-interactive --pim=1 --password=aaaaaaaaaaaaaaaaaaaaaaaa \
 ## F-08: Build scripts fall back to wxWidgets in `/tmp` (Low)
 
 **Where:** `export PARENTDIR="/tmp"` appears in seven scripts:
-- [build_veracrypt_macosx.sh:128](src/Build/build_veracrypt_macosx.sh#L128)
-- [build_veracrypt_linux.sh:30](src/Build/build_veracrypt_linux.sh#L30)
-- [build_veracrypt_linux_no_sse2.sh:30](src/Build/build_veracrypt_linux_no_sse2.sh#L30)
-- [build_veracrypt_freebsd.sh:25](src/Build/build_veracrypt_freebsd.sh#L25)
+- [build_veracrypt_macosx.sh:128](https://github.com/e3742526/LambCrypt/blob/e708993988fd7bba2f7b36cac93a6e399d08e006/src/Build/build_veracrypt_macosx.sh#L128)
+- [build_veracrypt_linux.sh:30](https://github.com/e3742526/LambCrypt/blob/e708993988fd7bba2f7b36cac93a6e399d08e006/src/Build/build_veracrypt_linux.sh#L30)
+- [build_veracrypt_linux_no_sse2.sh:30](https://github.com/e3742526/LambCrypt/blob/e708993988fd7bba2f7b36cac93a6e399d08e006/src/Build/build_veracrypt_linux_no_sse2.sh#L30)
+- [build_veracrypt_freebsd.sh:25](https://github.com/e3742526/LambCrypt/blob/e708993988fd7bba2f7b36cac93a6e399d08e006/src/Build/build_veracrypt_freebsd.sh#L25)
 - [build_cmake_deb.sh:51](src/Build/build_cmake_deb.sh#L51)
 - [build_cmake_rpm.sh:47](src/Build/build_cmake_rpm.sh#L47)
 - [build_cmake_opensuse.sh:47](src/Build/build_cmake_opensuse.sh#L47)

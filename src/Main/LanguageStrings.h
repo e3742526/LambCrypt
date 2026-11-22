@@ -28,12 +28,10 @@ namespace VeraCrypt
 
 		bool Exists (const string &key) const { return Map.find (key) != Map.end(); }
 		wstring Get (const string &key) const;
-		string GetPreferredLang () const { return PreferredLang; }
 		void Init ();
 
 	protected:
 		map <string, wstring> Map;
-		string PreferredLang;
 
 	private:
 		LanguageStrings (const LanguageStrings &);

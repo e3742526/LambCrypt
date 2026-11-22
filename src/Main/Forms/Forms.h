@@ -118,7 +118,6 @@ namespace VeraCrypt
 			virtual void OnManageSecurityTokenKeyfilesMenuItemSelected( wxCommandEvent& event ) { event.Skip(); }
 			virtual void OnCloseAllSecurityTokenSessionsMenuItemSelected( wxCommandEvent& event ) { event.Skip(); }
 			virtual void OnWipeCacheButtonClick( wxCommandEvent& event ) { event.Skip(); }
-			virtual void OnLanguageMenuItemSelected( wxCommandEvent& event ) { event.Skip(); }
 			virtual void OnHotkeysMenuItemSelected( wxCommandEvent& event ) { event.Skip(); }
 			virtual void OnDefaultKeyfilesMenuItemSelected( wxCommandEvent& event ) { event.Skip(); }
 			virtual void OnDefaultMountParametersMenuItemSelected( wxCommandEvent& event ) { event.Skip(); }
@@ -132,7 +131,7 @@ namespace VeraCrypt
 			virtual void OnDownloadsMenuItemSelected( wxCommandEvent& event ) { event.Skip(); }
 			virtual void OnNewsMenuItemSelected( wxCommandEvent& event ) { event.Skip(); }
 			virtual void OnVersionHistoryMenuItemSelected( wxCommandEvent& event ) { event.Skip(); }
-			virtual void OnDonateMenuItemSelected( wxCommandEvent& event ) { event.Skip(); }
+			virtual void OnIssueTrackerMenuItemSelected( wxCommandEvent& event ) { event.Skip(); }
 			virtual void OnContactMenuItemSelected( wxCommandEvent& event ) { event.Skip(); }
 			virtual void OnLegalNoticesMenuItemSelected( wxCommandEvent& event ) { event.Skip(); }
 			virtual void OnAboutMenuItemSelected( wxCommandEvent& event ) { event.Skip(); }
@@ -151,7 +150,7 @@ namespace VeraCrypt
 
 		public:
 
-			MainFrameBase( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("VeraCrypt"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( -1,-1 ), long style = wxCAPTION|wxCLOSE_BOX|wxMINIMIZE_BOX|wxSYSTEM_MENU|wxTAB_TRAVERSAL );
+			MainFrameBase( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("LambCrypt"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( -1,-1 ), long style = wxCAPTION|wxCLOSE_BOX|wxMINIMIZE_BOX|wxSYSTEM_MENU|wxTAB_TRAVERSAL );
 
 			~MainFrameBase();
 
@@ -616,17 +615,11 @@ namespace VeraCrypt
 			wxButton* RemoveHotkeyButton;
 			wxCheckBox* BeepAfterHotkeyMountDismountCheckBox;
 			wxCheckBox* DisplayMessageAfterHotkeyDismountCheckBox;
-			wxStaticText* m_staticText73;
-			wxStaticText* m_staticText74;
-			wxStaticText* m_staticText72;
-			wxStaticText* m_staticText71;
-			wxButton* SysDefaultLangButton;
 			wxButton* OKButton;
 			wxButton* CancelButton;
 
 			// Virtual event handlers, override them in your derived class
 			virtual void OnClose( wxCloseEvent& event ) { event.Skip(); }
-			virtual void OnPageChanged( wxNotebookEvent& event ) { event.Skip(); }
 			virtual void OnDismountOnScreenSaverCheckBoxClick( wxCommandEvent& event ) { event.Skip(); }
 			virtual void OnDismountOnPowerSavingCheckBoxClick( wxCommandEvent& event ) { event.Skip(); }
 			virtual void OnForceAutoDismountCheckBoxClick( wxCommandEvent& event ) { event.Skip(); }
@@ -639,7 +632,6 @@ namespace VeraCrypt
 			virtual void OnHotkeyListItemSelected( wxListEvent& event ) { event.Skip(); }
 			virtual void OnAssignHotkeyButtonClick( wxCommandEvent& event ) { event.Skip(); }
 			virtual void OnRemoveHotkeyButtonClick( wxCommandEvent& event ) { event.Skip(); }
-			virtual void OnSysDefaultLangButtonClick( wxCommandEvent& event ) { event.Skip(); }
 			virtual void OnOKButtonClick( wxCommandEvent& event ) { event.Skip(); }
 
 
@@ -648,8 +640,6 @@ namespace VeraCrypt
 			wxPanel* DefaultKeyfilesPage;
 			wxPanel* SecurityTokensPage;
 			wxPanel* HotkeysPage;
-			wxPanel* LanguagesPage;
-			wxListBox* LanguageListBox;
 
 			PreferencesDialogBase( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("IDD_PREFERENCES_DLG"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( -1,-1 ), long style = wxDEFAULT_DIALOG_STYLE );
 
@@ -1135,7 +1125,7 @@ namespace VeraCrypt
 
 		public:
 
-			WaitDialogBase( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("VeraCrypt"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( -1,-1 ), long style = wxCAPTION );
+			WaitDialogBase( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("LambCrypt"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( -1,-1 ), long style = wxCAPTION );
 
 			~WaitDialogBase();
 

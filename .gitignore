@@ -17,7 +17,7 @@ __pycache__/
 *.xml.h
 *.txt.h
 *.h.gch
-src/Main/veracrypt
+src/Main/lambcrypt
 *.osse41
 *.ossse3
 *.oshani
@@ -26,14 +26,14 @@ src/Main/veracrypt
 *.oarmv8crypto
 src/Setup/Linux/packaging/
 src/Setup/Linux/usr/
-src/Setup/Linux/veracrypt.AppDir/usr/
-src/Setup/Linux/veracrypt.AppDir/veracrypt.png
-src/Setup/Linux/veracrypt_*.tar.gz
-src/Setup/Linux/veracrypt-*-setup-*
+src/Setup/Linux/lambcrypt.AppDir/usr/
+src/Setup/Linux/lambcrypt.AppDir/lambcrypt.png
+src/Setup/Linux/lambcrypt_*.tar.gz
+src/Setup/Linux/lambcrypt-*-setup-*
 
-# VC macOS build artifacts
-src/Main/VeraCrypt
-src/Main/VeraCrypt.app
+# LambCrypt macOS build artifacts
+src/Main/LambCrypt
+src/Main/LambCrypt.app
 src/Main/*.dmg
 src/Setup/MacOSX/*.pkg
 *.oo

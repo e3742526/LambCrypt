@@ -2,18 +2,16 @@ name: Validate XML
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]
     paths:
-      - 'Translations/*'
       - 'src/Common/Language.xml'
       - '.github/workflows/xmlvalidate.*'
       - '.github/workflows/validate_translation_formats.py'
       - 'Tests/test_xmlvalidate.py'
       - 'Tests/test_translation_formats.py'
   pull_request:
-    branches: [ "master" ]
+    branches: [ "main" ]
     paths:
-      - 'Translations/*'
       - 'src/Common/Language.xml'
       - '.github/workflows/xmlvalidate.*'
       - '.github/workflows/validate_translation_formats.py'

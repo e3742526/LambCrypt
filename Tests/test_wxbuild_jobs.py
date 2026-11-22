@@ -22,7 +22,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OPENWRT_RECIPE = ROOT / "src/Build/Packaging/openwrt/package/utils/veracrypt/Makefile.in"
+OPENWRT_RECIPE = ROOT / "src/Build/Packaging/openwrt/package/utils/lambcrypt/Makefile.in"
 JOBS = 8
 
 
@@ -87,7 +87,7 @@ class WxBuildJobsTests(unittest.TestCase):
         self.root = Path(temporary.name).resolve()
         source = (ROOT / "src/Makefile").read_text(encoding="utf-8")
         wx_section = source.split("#------ wxWidgets build ------", 1)[1]
-        self.write("pkg/veracrypt/src/Makefile",
+        self.write("pkg/lambcrypt/src/Makefile",
                    ".PHONY: all clean wxbuild\nall clean:\n\t@:\n" + wx_section)
         jobs = " ".join("job%d" % i for i in range(JOBS))
         self.write("pkg/wxWidgets/Makefile",
@@ -118,7 +118,7 @@ endef
                          "TOPDIR=" + str(self.root / "openwrt"),
                          "PKG_BUILD_DIR=" + str(self.root / "pkg")]
         else:
-            arguments = ["-C", str(self.root / "pkg/veracrypt/src"), "wxbuild",
+            arguments = ["-C", str(self.root / "pkg/lambcrypt/src"), "wxbuild",
                          "WX_ROOT=" + str(self.root / "pkg/wxWidgets"),
                          "WX_BUILD_DIR=" + str(self.root / "pkg/wxBuildConsole")]
         siblings = "" if serial else "sibling "

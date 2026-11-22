@@ -152,18 +152,6 @@ namespace VeraCrypt
 #endif
 
 	// Check if given language has a corresponding translated documentation
-	static BOOL HasTranslatedDocumentation(const char* language)
-	{
-		// hardcoded list of languages for which a translated documentation exists
-		const char* supportedLanguages[] = { "en", "ru", "zh-cn"};
-		for (size_t i = 0; i < sizeof(supportedLanguages) / sizeof(supportedLanguages[0]); i++)
-		{
-			if (strcmp(language, supportedLanguages[i]) == 0)
-				return TRUE;
-		}
-		return FALSE;
-	}
-
 	GraphicUserInterface::GraphicUserInterface () :
 		ActiveFrame (nullptr),
 		BackgroundMode (false),
@@ -1540,23 +1528,24 @@ namespace VeraCrypt
 #endif
 	}
 
-	wxString GraphicUserInterface::GetHomepageLinkURL (const wxString &linkId, const wxString &extraVars) const
+	wxString GraphicUserInterface::GetHomepageLinkURL (const wxString &linkId, const wxString &) const
 	{
-		wxString url = wxString (TC_APPLINK);
+		wxString url = L"https://github.com/e3742526/LambCrypt";
 		bool buildUrl = true;
 
 		if (linkId == L"donate")
 		{
-			url = L"Donation.html";
+			url = L"https://github.com/e3742526/LambCrypt";
+			buildUrl = false;
 		}
 		else if (linkId == L"main")
 		{
-			url = wxString (TC_HOMEPAGE);
+			url = L"https://github.com/e3742526/LambCrypt";
 			buildUrl = false;
 		}
 		else if (linkId == L"onlinehelp")
 		{
-			url = L"https://veracrypt.jp/en/Documentation.html";
+			url = L"https://github.com/e3742526/LambCrypt/blob/main/doc/html/en/Documentation.html";
 			buildUrl = false;
 		}
 		else if (linkId == L"localizations")
@@ -1658,15 +1647,18 @@ namespace VeraCrypt
 		}
 		else if (linkId == L"downloads")
 		{
-			url = L"Downloads.html";
+			url = L"https://github.com/e3742526/LambCrypt/releases";
+			buildUrl = false;
 		}
 		else if (linkId == L"news")
 		{
-			url = L"News.html";
+			url = L"https://github.com/e3742526/LambCrypt/releases";
+			buildUrl = false;
 		}
-		else if (linkId == L"contact")
+		else if (linkId == L"contact" || linkId == L"err-report")
 		{
-			url = L"Contact.html";
+			url = L"https://github.com/e3742526/LambCrypt/issues";
+			buildUrl = false;
 		}
 		else
 		{
@@ -1685,7 +1677,7 @@ namespace VeraCrypt
 #elif defined (TC_MACOSX)
 			htmlPath += L"/../Resources/doc/HTML/";
 #elif defined (TC_UNIX)
-			htmlPath = L"/usr/share/doc/veracrypt/HTML/";
+			htmlPath = L"/usr/share/doc/lambcrypt/HTML/";
 #if defined(TC_LINUX)
 			// AppImage specific handling:
 			// if we are running from an AppImage, we need to use the path inside the AppImage
@@ -1697,59 +1689,22 @@ namespace VeraCrypt
 				if (appDirEnv)
 				{
 					htmlPath = wxString::FromUTF8(appDirEnv);
-					htmlPath += L"/usr/share/doc/veracrypt/HTML/";
+					htmlPath += L"/usr/share/doc/lambcrypt/HTML/";
 				}
 			}
 #endif
 #else
 			localFile = false;
 #endif
-			string preferredLang = LangString.GetPreferredLang();
-			// Use preferred language only if it has translated documentation
-			if (!HasTranslatedDocumentation (preferredLang.c_str()))
-			{
-				preferredLang = "en";
-			}
-			wstring documentationLang = StringConverter::ToWide (preferredLang);
 			if (localFile)
 			{
-				/* check if local file exists */
-				wxFileName htmlFile = htmlPath + documentationLang + L"/" + url;
-				htmlFile.Normalize (
-					wxPATH_NORM_ENV_VARS |
-					wxPATH_NORM_DOTS     |
-					wxPATH_NORM_CASE     |
-					wxPATH_NORM_LONG     |
-					wxPATH_NORM_SHORTCUT |
-					wxPATH_NORM_TILDE
-				);
-				localFile = htmlFile.FileExists();
-				if (!localFile)
-				{
-					htmlFile = htmlPath + L"en/" + url;
-					htmlFile.Normalize (
-						wxPATH_NORM_ENV_VARS |
-						wxPATH_NORM_DOTS     |
-						wxPATH_NORM_CASE     |
-						wxPATH_NORM_LONG     |
-						wxPATH_NORM_SHORTCUT |
-						wxPATH_NORM_TILDE
-					);
-					localFile = htmlFile.FileExists();
-					if (localFile)
-					{
-						htmlPath += L"en/";
-					}
-				}
-				else
-				{
-					htmlPath += documentationLang + L"/";
-				}
+				htmlPath += L"en/";
+				localFile = wxFileName::FileExists (htmlPath + url);
 			}
 
 			if (!localFile)
 			{
-				htmlPath = L"https://veracrypt.jp/" + documentationLang + L"/";
+				htmlPath = L"https://github.com/e3742526/LambCrypt/blob/main/doc/html/en/";
 			}
 			else
 			{

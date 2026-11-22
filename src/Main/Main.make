@@ -137,29 +137,29 @@ GUI_CONDITION := $(filter gui,$(INSTALLER_TYPE))
 GTK2_CONDITION := $(filter 2,$(GTK_VERSION))
 
 ifeq "$(origin NOSSE2)" "command line"
-INTERNAL_INSTALLER_NAME := veracrypt_install_$(INSTALLER_TYPE)_$(CPU_ARCH)_legacy.sh
+INTERNAL_INSTALLER_NAME := lambcrypt_install_$(INSTALLER_TYPE)_$(CPU_ARCH)_legacy.sh
 
 ifneq (,$(GUI_CONDITION))
 ifneq (,$(GTK2_CONDITION))
-INSTALLER_NAME := veracrypt-$(TC_VERSION)-setup-gtk2-gui-$(CPU_ARCH)-legacy
+INSTALLER_NAME := lambcrypt-$(TC_VERSION)-setup-gtk2-gui-$(CPU_ARCH)-legacy
 else
-INSTALLER_NAME := veracrypt-$(TC_VERSION)-setup-$(INSTALLER_TYPE)-$(CPU_ARCH)-legacy
+INSTALLER_NAME := lambcrypt-$(TC_VERSION)-setup-$(INSTALLER_TYPE)-$(CPU_ARCH)-legacy
 endif
 else
-INSTALLER_NAME := veracrypt-$(TC_VERSION)-setup-$(INSTALLER_TYPE)-$(CPU_ARCH)-legacy
+INSTALLER_NAME := lambcrypt-$(TC_VERSION)-setup-$(INSTALLER_TYPE)-$(CPU_ARCH)-legacy
 endif
 
 else
-INTERNAL_INSTALLER_NAME := veracrypt_install_$(INSTALLER_TYPE)_$(CPU_ARCH).sh
+INTERNAL_INSTALLER_NAME := lambcrypt_install_$(INSTALLER_TYPE)_$(CPU_ARCH).sh
 
 ifneq (,$(GUI_CONDITION))
 ifneq (,$(GTK2_CONDITION))
-INSTALLER_NAME := veracrypt-$(TC_VERSION)-setup-gtk2-gui-$(CPU_ARCH)
+INSTALLER_NAME := lambcrypt-$(TC_VERSION)-setup-gtk2-gui-$(CPU_ARCH)
 else
-INSTALLER_NAME := veracrypt-$(TC_VERSION)-setup-$(INSTALLER_TYPE)-$(CPU_ARCH)
+INSTALLER_NAME := lambcrypt-$(TC_VERSION)-setup-$(INSTALLER_TYPE)-$(CPU_ARCH)
 endif
 else
-INSTALLER_NAME := veracrypt-$(TC_VERSION)-setup-$(INSTALLER_TYPE)-$(CPU_ARCH)
+INSTALLER_NAME := lambcrypt-$(TC_VERSION)-setup-$(INSTALLER_TYPE)-$(CPU_ARCH)
 endif
 
 endif
@@ -184,16 +184,16 @@ endif
 GUI_CONDITION := $(filter gui,$(INSTALLER_TYPE))
 GTK2_CONDITION := $(filter 2,$(GTK_VERSION))
 
-INTERNAL_INSTALLER_NAME := veracrypt_install_$(SYSTEMNAME)_$(INSTALLER_TYPE)_$(CPU_ARCH).sh
+INTERNAL_INSTALLER_NAME := lambcrypt_install_$(SYSTEMNAME)_$(INSTALLER_TYPE)_$(CPU_ARCH).sh
 
 ifneq (,$(GUI_CONDITION))
 ifneq (,$(GTK2_CONDITION))
-INSTALLER_NAME := veracrypt-$(TC_VERSION)-$(SYSTEMNAME)-setup-gtk2-gui-$(CPU_ARCH)
+INSTALLER_NAME := lambcrypt-$(TC_VERSION)-$(SYSTEMNAME)-setup-gtk2-gui-$(CPU_ARCH)
 else
-INSTALLER_NAME := veracrypt-$(TC_VERSION)-$(SYSTEMNAME)-setup-$(INSTALLER_TYPE)-$(CPU_ARCH)
+INSTALLER_NAME := lambcrypt-$(TC_VERSION)-$(SYSTEMNAME)-setup-$(INSTALLER_TYPE)-$(CPU_ARCH)
 endif
 else
-INSTALLER_NAME := veracrypt-$(TC_VERSION)-$(SYSTEMNAME)-setup-$(INSTALLER_TYPE)-$(CPU_ARCH)
+INSTALLER_NAME := lambcrypt-$(TC_VERSION)-$(SYSTEMNAME)-setup-$(INSTALLER_TYPE)-$(CPU_ARCH)
 endif
 
 endif
@@ -231,7 +231,7 @@ bundle: $(APPNAME)
 	rm -rf $(APPNAME).app/Contents/_CodeSignature
 	rm -rf $(APPNAME).app/Contents/Resources/doc/HTML
 	mkdir -p $(APPNAME).app/Contents/Resources/doc/HTML
-	mkdir -p $(APPNAME).app/Contents/MacOS $(APPNAME).app/Contents/Resources/languages
+	mkdir -p $(APPNAME).app/Contents/MacOS
 	-rm -f $(APPNAME).app/Contents/MacOS/$(APPNAME)
 	-rm -f $(APPNAME).app/Contents/MacOS/$(APPNAME)_console
 
@@ -251,10 +251,9 @@ else
 endif
 endif
 
-	cp $(BASE_DIR)/Resources/Icons/VeraCrypt.icns $(APPNAME).app/Contents/Resources
-	cp $(BASE_DIR)/Resources/Icons/VeraCrypt_Volume.icns $(APPNAME).app/Contents/Resources
+	cp $(BASE_DIR)/Resources/Icons/LambCrypt.icns $(APPNAME).app/Contents/Resources
+	cp $(BASE_DIR)/Resources/Icons/LambCrypt_Volume.icns $(APPNAME).app/Contents/Resources
 	cp -R $(BASE_DIR)/../doc/html/* $(APPNAME).app/Contents/Resources/doc/HTML
-	cp $(BASE_DIR)/../Translations/* $(APPNAME).app/Contents/Resources/languages
 
 	echo -n APPLTRUE >$(APPNAME).app/Contents/PkgInfo
 ifdef VC_LEGACY_BUILD
@@ -266,45 +265,45 @@ endif
 
 prepare: bundle
 ifneq ("$(LOCAL_DEVELOPMENT_BUILD)","true")
-	codesign -s "Developer ID Application: Mounir Joseph IDRASSI (HLTN5GLG99)" --timestamp $(APPNAME).app
+	test -n "$(VC_APP_SIGN_IDENTITY)" || { echo "Set VC_APP_SIGN_IDENTITY for a signed build."; exit 1; }
+	codesign -s "$(VC_APP_SIGN_IDENTITY)" --timestamp $(APPNAME).app
 endif
 
 install: prepare
 	cp -R $(APPNAME).app /Applications/.
 
 package: prepare
+ifneq ("$(LOCAL_DEVELOPMENT_BUILD)","true")
+	test -n "$(VC_INSTALLER_SIGN_IDENTITY)" || { echo "Set VC_INSTALLER_SIGN_IDENTITY for a signed package."; exit 1; }
+endif
 ifdef VC_LEGACY_BUILD
-	/usr/local/bin/packagesbuild $(BASE_DIR)/Setup/MacOSX/veracrypt_Legacy.pkgproj
-	productsign --sign "Developer ID Installer: Mounir Joseph IDRASSI (HLTN5GLG99)" --timestamp "$(BASE_DIR)/Setup/MacOSX/VeraCrypt Legacy $(TC_VERSION).pkg" $(BASE_DIR)/Setup/MacOSX/VeraCrypt_$(TC_VERSION).pkg
+	/usr/local/bin/packagesbuild $(BASE_DIR)/Setup/MacOSX/lambcrypt_Legacy.pkgproj
+ifneq ("$(LOCAL_DEVELOPMENT_BUILD)","true")
+	productsign --sign "$(VC_INSTALLER_SIGN_IDENTITY)" --timestamp "$(BASE_DIR)/Setup/MacOSX/LambCrypt Legacy $(TC_VERSION).pkg" $(BASE_DIR)/Setup/MacOSX/LambCrypt_$(TC_VERSION).pkg
+else
+	cp "$(BASE_DIR)/Setup/MacOSX/LambCrypt Legacy $(TC_VERSION).pkg" $(BASE_DIR)/Setup/MacOSX/LambCrypt_$(TC_VERSION).pkg
+endif
 	rm -f $(APPNAME)_Legacy_$(TC_VERSION).dmg
 else
 ifeq "$(VC_OSX_FUSET)" "1"
-	/usr/local/bin/packagesbuild $(BASE_DIR)/Setup/MacOSX/veracrypt_fuse-t.pkgproj
+	/usr/local/bin/packagesbuild $(BASE_DIR)/Setup/MacOSX/lambcrypt_fuse-t.pkgproj
 else
-	/usr/local/bin/packagesbuild $(BASE_DIR)/Setup/MacOSX/veracrypt.pkgproj
+	/usr/local/bin/packagesbuild $(BASE_DIR)/Setup/MacOSX/lambcrypt.pkgproj
 endif
 ifneq ("$(LOCAL_DEVELOPMENT_BUILD)","true")
-	productsign --sign "Developer ID Installer: Mounir Joseph IDRASSI (HLTN5GLG99)" --timestamp "$(BASE_DIR)/Setup/MacOSX/VeraCrypt $(TC_VERSION).pkg" $(BASE_DIR)/Setup/MacOSX/VeraCrypt_$(TC_VERSION).pkg
+	productsign --sign "$(VC_INSTALLER_SIGN_IDENTITY)" --timestamp "$(BASE_DIR)/Setup/MacOSX/LambCrypt $(TC_VERSION).pkg" $(BASE_DIR)/Setup/MacOSX/LambCrypt_$(TC_VERSION).pkg
 else
 	# copy the unsigned package to the expected location
-	cp "$(BASE_DIR)/Setup/MacOSX/VeraCrypt $(TC_VERSION).pkg" $(BASE_DIR)/Setup/MacOSX/VeraCrypt_$(TC_VERSION).pkg
+	cp "$(BASE_DIR)/Setup/MacOSX/LambCrypt $(TC_VERSION).pkg" $(BASE_DIR)/Setup/MacOSX/LambCrypt_$(TC_VERSION).pkg
 endif
 	rm -f $(APPNAME)_$(TC_VERSION).dmg
 endif
-	rm -f "$(BASE_DIR)/Setup/MacOSX/template.dmg"
-	rm -fr "$(BASE_DIR)/Setup/MacOSX/VeraCrypt_dmg"
-	mkdir -p "$(BASE_DIR)/Setup/MacOSX/VeraCrypt_dmg"
-	bunzip2 -k -f "$(BASE_DIR)/Setup/MacOSX/template.dmg.bz2"
-	hdiutil attach "$(BASE_DIR)/Setup/MacOSX/template.dmg" -noautoopen -quiet -mountpoint "$(BASE_DIR)/Setup/MacOSX/VeraCrypt_dmg"
-	cp "$(BASE_DIR)/Setup/MacOSX/VeraCrypt_$(TC_VERSION).pkg" "$(BASE_DIR)/Setup/MacOSX/VeraCrypt_dmg/VeraCrypt_Installer.pkg"
-	hdiutil detach "$(BASE_DIR)/Setup/MacOSX/VeraCrypt_dmg" -quiet -force
-ifdef VC_LEGACY_BUILD
-	hdiutil convert "$(BASE_DIR)/Setup/MacOSX/template.dmg" -quiet -format UDZO -imagekey zlib-level=9 -o $(APPNAME)_Legacy_$(TC_VERSION).dmg
-else
-	hdiutil convert "$(BASE_DIR)/Setup/MacOSX/template.dmg" -quiet -format UDZO -imagekey zlib-level=9 -o $(APPNAME)_$(TC_VERSION).dmg
-endif
-	rm -f "$(BASE_DIR)/Setup/MacOSX/template.dmg"
-	rm -fr "$(BASE_DIR)/Setup/MacOSX/VeraCrypt_dmg"
+	@set -e; \
+		dmg_stage=$$(mktemp -d); \
+		trap 'rm -rf "$$dmg_stage"' EXIT; \
+		cp "$(BASE_DIR)/Setup/MacOSX/LambCrypt_$(TC_VERSION).pkg" "$$dmg_stage/LambCrypt_Installer.pkg"; \
+		hdiutil create -quiet -format UDZO -imagekey zlib-level=9 -volname LambCrypt \
+			-srcfolder "$$dmg_stage" "$(APPNAME)$(if $(VC_LEGACY_BUILD),_Legacy)_$(TC_VERSION).dmg"
 endif
 
 
@@ -332,7 +331,6 @@ INSTALL_UNINSTALLER ?= 1
 INSTALL_LICENSE ?= 1
 INSTALL_LICENSE_DIR ?= share/doc/$(APPNAME)
 INSTALL_DOCS ?= 1
-INSTALL_LANGUAGES ?= 1
 INSTALL_MOUNT_HELPER ?= 1
 INSTALL_MOUNT_HELPER_DIR ?= sbin
 INSTALL_DESKTOP ?= 1
@@ -408,10 +406,6 @@ ifneq "$(INSTALL_DOCS)" "0"
 	mkdir -p $(BASE_DIR)/Setup/Linux/usr/share/doc/$(APPNAME)/HTML
 	cp -R $(BASE_DIR)/../doc/html/* "$(BASE_DIR)/Setup/Linux/usr/share/doc/$(APPNAME)/HTML"
 endif
-ifneq "$(INSTALL_LANGUAGES)" "0"
-	mkdir -p $(BASE_DIR)/Setup/Linux/usr/share/veracrypt/languages
-	cp -r $(BASE_DIR)/../Translations/* $(BASE_DIR)/Setup/Linux/usr/share/veracrypt/languages/
-endif
 
 ifneq "$(INSTALL_MOUNT_HELPER)" "0"
 	mkdir -p "$(BASE_DIR)/Setup/Linux/usr/$(INSTALL_MOUNT_HELPER_DIR)"
@@ -431,21 +425,21 @@ endif
 ifneq "$(INSTALL_ICONS)" "0"
 	mkdir -p $(BASE_DIR)/Setup/Linux/usr/share/pixmaps
 	mkdir -p $(BASE_DIR)/Setup/Linux/usr/share/icons/hicolor/scalable/apps
-	cp $(BASE_DIR)/Resources/Icons/VeraCrypt-256x256.xpm $(BASE_DIR)/Setup/Linux/usr/share/pixmaps/$(APPNAME).xpm
-	cp $(BASE_DIR)/Resources/Icons/VeraCrypt.svg $(BASE_DIR)/Setup/Linux/usr/share/icons/hicolor/scalable/apps/$(APPNAME).svg
+	cp $(BASE_DIR)/Resources/Icons/LambCrypt-256x256.xpm $(BASE_DIR)/Setup/Linux/usr/share/pixmaps/$(APPNAME).xpm
+	cp $(BASE_DIR)/Resources/Icons/LambCrypt.svg $(BASE_DIR)/Setup/Linux/usr/share/icons/hicolor/scalable/apps/$(APPNAME).svg
 
 	for res in 16 22 24 32 48 64 256 512 1024; do \
 		mkdir -p $(BASE_DIR)/Setup/Linux/usr/share/icons/hicolor/$${res}x$${res}/apps ;\
-		cp $(BASE_DIR)/Resources/Icons/VeraCrypt-$${res}x$${res}.png $(BASE_DIR)/Setup/Linux/usr/share/icons/hicolor/$${res}x$${res}/apps/$(APPNAME).png ;\
+		cp $(BASE_DIR)/Resources/Icons/LambCrypt-$${res}x$${res}.png $(BASE_DIR)/Setup/Linux/usr/share/icons/hicolor/$${res}x$${res}/apps/$(APPNAME).png ;\
 	done
 endif
 
 ifneq "$(INSTALL_APPIMAGE_FILES)" "0"
-	rm -fr $(BASE_DIR)/Setup/Linux/veracrypt.AppDir/usr
-	cp -r $(BASE_DIR)/Setup/Linux/usr $(BASE_DIR)/Setup/Linux/veracrypt.AppDir/.
+	rm -fr $(BASE_DIR)/Setup/Linux/lambcrypt.AppDir/usr
+	cp -r $(BASE_DIR)/Setup/Linux/usr $(BASE_DIR)/Setup/Linux/lambcrypt.AppDir/.
 ifneq "$(APPIMAGE_BUNDLE_FUSE)" "0"
 	@set -e; \
-	_appdir="$(BASE_DIR)/Setup/Linux/veracrypt.AppDir"; \
+	_appdir="$(BASE_DIR)/Setup/Linux/lambcrypt.AppDir"; \
 	_fuse_soname=""; \
 	_fuse_lib=""; \
 	_fuse_link_name=""; \
@@ -550,7 +544,7 @@ ifneq "$(APPIMAGE_BUNDLE_FUSE)" "0"
 	fi
 endif
 ifneq "$(INSTALL_ICONS)" "0"
-	ln -sf usr/share/icons/hicolor/1024x1024/apps/$(APPNAME).png $(BASE_DIR)/Setup/Linux/veracrypt.AppDir/$(APPNAME).png
+	ln -sf usr/share/icons/hicolor/1024x1024/apps/$(APPNAME).png $(BASE_DIR)/Setup/Linux/lambcrypt.AppDir/$(APPNAME).png
 endif
 endif
 endif
@@ -561,7 +555,7 @@ endif
 	# clamped too; appimagetool honours SOURCE_DATE_EPOCH for its SquashFS
 	# metadata, and the AppDir input should not leak checkout/build mtimes.
 ifeq "$(TOUCH_REPRODUCIBLE)" "yes"
-	_appdir="$(BASE_DIR)/Setup/Linux/veracrypt.AppDir"; \
+	_appdir="$(BASE_DIR)/Setup/Linux/lambcrypt.AppDir"; \
 	if [ ! -d "$$_appdir" ]; then \
 		_appdir=""; \
 	fi; \
@@ -632,11 +626,11 @@ endif
 	@echo "VERSION=$(TC_VERSION)" >> $(INTERNAL_INSTALLER_NAME)
 	@echo "PACKAGE_TYPE=tar" >> $(INTERNAL_INSTALLER_NAME)
 	@echo "PACKAGE_NAME=$(PACKAGE_NAME)" >> $(INTERNAL_INSTALLER_NAME)
-	@template_lines=$$(wc -l < $(BASE_DIR)/Setup/Linux/veracrypt_install_template.sh); \
+	@template_lines=$$(wc -l < $(BASE_DIR)/Setup/Linux/lambcrypt_install_template.sh); \
 	echo "PACKAGE_START=$$(($$template_lines + 7))" >> $(INTERNAL_INSTALLER_NAME)
 	@echo "INSTALLER_TYPE=$(INSTALLER_TYPE)" >> $(INTERNAL_INSTALLER_NAME)
 
-	@cat $(BASE_DIR)/Setup/Linux/veracrypt_install_template.sh >> $(INTERNAL_INSTALLER_NAME)
+	@cat $(BASE_DIR)/Setup/Linux/lambcrypt_install_template.sh >> $(INTERNAL_INSTALLER_NAME)
 	@cat $(BASE_DIR)/Setup/Linux/$(PACKAGE_NAME) >> $(INTERNAL_INSTALLER_NAME)
 	chmod +x $(INTERNAL_INSTALLER_NAME)
 
@@ -660,7 +654,7 @@ endif
 	fi; \
 	makeself "$$@" \
 		packaging "$(INSTALLER_NAME)" \
-		"VeraCrypt $(TC_VERSION) Installer" "./$(INTERNAL_INSTALLER_NAME)"
+		"LambCrypt $(TC_VERSION) Installer" "./$(INTERNAL_INSTALLER_NAME)"
 	# makeself runs 'gzip -c9 < tmpfile' which writes tmpfile's mtime into
 	# the gzip header (SOURCE_DATE_EPOCH is ignored for redirected stdin).
 	# Zero the mtime and refresh CRCsum/MD5; installer --check still passes.
@@ -704,7 +698,7 @@ appimage: prepare
 	if [ "$(GTK_VERSION)" = "2" ]; then \
 		_final_appimage_gtk_suffix="-gtk2-legacy"; \
 	fi; \
-	_final_appimage_filename="VeraCrypt-$(TC_VERSION)$${_final_appimage_gtk_suffix}-$${_final_appimage_arch_suffix}.AppImage"; \
+	_final_appimage_filename="LambCrypt-$(TC_VERSION)$${_final_appimage_gtk_suffix}-$${_final_appimage_arch_suffix}.AppImage"; \
 	_final_appimage_path="$(BASE_DIR)/Setup/Linux/$${_final_appimage_filename}"; \
 	\
 	echo "Preparing AppImage for $(CPU_ARCH) (using $${_appimagetool_arch_suffix})..."; \
@@ -712,7 +706,7 @@ appimage: prepare
 	wget --quiet -O "$${_appimagetool_executable_path}" "$${_appimagetool_url}"; \
 	chmod +x "$${_appimagetool_executable_path}"; \
 	echo "Creating AppImage $${_final_appimage_path}..."; \
-	ARCH="$${_final_appimage_arch_suffix}" "$${_appimagetool_executable_path}" "$(BASE_DIR)/Setup/Linux/veracrypt.AppDir" "$${_final_appimage_path}"; \
+	ARCH="$${_final_appimage_arch_suffix}" "$${_appimagetool_executable_path}" "$(BASE_DIR)/Setup/Linux/lambcrypt.AppDir" "$${_final_appimage_path}"; \
 	echo "AppImage created: $${_final_appimage_path}"; \
 	echo "Cleaning up appimagetool..."; \
 	rm -f "$${_appimagetool_executable_path}";
@@ -731,8 +725,6 @@ prepare: $(APPNAME)
 	chmod +x $(BASE_DIR)/Setup/FreeBSD/usr/bin/$(APPNAME)-uninstall.sh
 	cp $(BASE_DIR)/License.txt $(BASE_DIR)/Setup/FreeBSD/usr/share/doc/$(APPNAME)/License.txt
 	cp -R $(BASE_DIR)/../doc/html/* "$(BASE_DIR)/Setup/FreeBSD/usr/share/doc/$(APPNAME)/HTML"
-	mkdir -p $(BASE_DIR)/Setup/FreeBSD/usr/share/veracrypt/languages
-	cp -r $(BASE_DIR)/../Translations/* $(BASE_DIR)/Setup/FreeBSD/usr/share/veracrypt/languages/
 
 ifndef TC_NO_GUI
 	mkdir -p $(BASE_DIR)/Setup/FreeBSD/usr/local/share/applications
@@ -742,12 +734,12 @@ ifndef TC_NO_GUI
 
 	mkdir -p $(BASE_DIR)/Setup/FreeBSD/usr/local/share/pixmaps
 	mkdir -p $(BASE_DIR)/Setup/FreeBSD/usr/local/share/icons/hicolor/scalable/apps
-	cp $(BASE_DIR)/Resources/Icons/VeraCrypt-256x256.xpm $(BASE_DIR)/Setup/FreeBSD/usr/local/share/pixmaps/$(APPNAME).xpm
-	cp $(BASE_DIR)/Resources/Icons/VeraCrypt.svg $(BASE_DIR)/Setup/FreeBSD/usr/local/share/icons/hicolor/scalable/apps/$(APPNAME).svg
+	cp $(BASE_DIR)/Resources/Icons/LambCrypt-256x256.xpm $(BASE_DIR)/Setup/FreeBSD/usr/local/share/pixmaps/$(APPNAME).xpm
+	cp $(BASE_DIR)/Resources/Icons/LambCrypt.svg $(BASE_DIR)/Setup/FreeBSD/usr/local/share/icons/hicolor/scalable/apps/$(APPNAME).svg
 
 	for res in 16 22 24 32 48 64 256 512 1024; do \
 		mkdir -p $(BASE_DIR)/Setup/FreeBSD/usr/local/share/icons/hicolor/$${res}x$${res}/apps ;\
-		cp $(BASE_DIR)/Resources/Icons/VeraCrypt-$${res}x$${res}.png $(BASE_DIR)/Setup/FreeBSD/usr/local/share/icons/hicolor/$${res}x$${res}/apps/$(APPNAME).png ;\
+		cp $(BASE_DIR)/Resources/Icons/LambCrypt-$${res}x$${res}.png $(BASE_DIR)/Setup/FreeBSD/usr/local/share/icons/hicolor/$${res}x$${res}/apps/$(APPNAME).png ;\
 	done
 endif
 	chown -R root:wheel $(BASE_DIR)/Setup/FreeBSD/usr
@@ -777,18 +769,18 @@ package: prepare
 	@echo "VERSION=$(TC_VERSION)" >> $(INTERNAL_INSTALLER_NAME)
 	@echo "PACKAGE_TYPE=tar" >> $(INTERNAL_INSTALLER_NAME)
 	@echo "PACKAGE_NAME=$(PACKAGE_NAME)" >> $(INTERNAL_INSTALLER_NAME)
-	@template_lines=$$(wc -l < $(BASE_DIR)/Setup/FreeBSD/veracrypt_install_template.sh); \
+	@template_lines=$$(wc -l < $(BASE_DIR)/Setup/FreeBSD/lambcrypt_install_template.sh); \
 	echo "PACKAGE_START=$$(($$template_lines + 7))" >> $(INTERNAL_INSTALLER_NAME)
 	@echo "INSTALLER_TYPE=$(INSTALLER_TYPE)" >> $(INTERNAL_INSTALLER_NAME)
 
-	@cat $(BASE_DIR)/Setup/FreeBSD/veracrypt_install_template.sh >> $(INTERNAL_INSTALLER_NAME)
+	@cat $(BASE_DIR)/Setup/FreeBSD/lambcrypt_install_template.sh >> $(INTERNAL_INSTALLER_NAME)
 	@cat $(BASE_DIR)/Setup/FreeBSD/$(PACKAGE_NAME) >> $(INTERNAL_INSTALLER_NAME)
 	chmod +x $(INTERNAL_INSTALLER_NAME)
 
 	rm -fr $(BASE_DIR)/Setup/FreeBSD/packaging
 	mkdir -p $(BASE_DIR)/Setup/FreeBSD/packaging
 	cp $(INTERNAL_INSTALLER_NAME) $(BASE_DIR)/Setup/FreeBSD/packaging/.
-	makeself $(BASE_DIR)/Setup/FreeBSD/packaging $(BASE_DIR)/Setup/FreeBSD/$(INSTALLER_NAME) "VeraCrypt $(TC_VERSION) $(SYSTEMNAME) Installer" ./$(INTERNAL_INSTALLER_NAME)
+	makeself $(BASE_DIR)/Setup/FreeBSD/packaging $(BASE_DIR)/Setup/FreeBSD/$(INSTALLER_NAME) "LambCrypt $(TC_VERSION) $(SYSTEMNAME) Installer" ./$(INTERNAL_INSTALLER_NAME)
 
 endif
 

@@ -391,14 +391,14 @@ namespace VeraCrypt
 			socklen_t size = sizeof (socketType);
 			struct ucred peer;
 			socklen_t peerSize = sizeof (peer);
-			// Only root may send requests. Otherwise a user allowed to run 'sudo veracrypt'
+			// Only root may send requests. Otherwise a user allowed to run 'sudo lambcrypt'
 			// could pass a socket of their own and obtain files opened as any other user.
 			if (getsockopt (socketFd, SOL_SOCKET, SO_TYPE, &socketType, &size) != 0 || socketType != SOCK_SEQPACKET
 				|| getsockopt (socketFd, SOL_SOCKET, SO_PEERCRED, &peer, &peerSize) != 0 || peer.uid != 0)
 				return 1;
 
 			// Otherwise named after /proc/self/exe, e.g. in ps.
-			prctl (PR_SET_NAME, "veracrypt", 0, 0, 0);
+			prctl (PR_SET_NAME, "lambcrypt", 0, 0, 0);
 
 			int32 startupError = 0;
 			if (fcntl (socketFd, F_SETFD, FD_CLOEXEC) == -1 || !CloseRequesterHelperDescriptors (socketFd))
@@ -440,7 +440,7 @@ namespace VeraCrypt
 		// Preserve that setting only, not the caller's other environment/loader hooks.
 		const char *libraryPath = getenv ("LD_LIBRARY_PATH");
 		const string libraryEnvironment = libraryPath ? string ("LD_LIBRARY_PATH=") + libraryPath : string();
-		char *helperArgv[] = { const_cast <char *> ("veracrypt"), const_cast <char *> (TC_REQUESTER_HELPER_CMDLINE_OPTION),
+		char *helperArgv[] = { const_cast <char *> ("lambcrypt"), const_cast <char *> (TC_REQUESTER_HELPER_CMDLINE_OPTION),
 			const_cast <char *> (socketArgument.c_str()), nullptr };
 		char *helperEnv[] = { libraryEnvironment.empty() ? nullptr : const_cast <char *> (libraryEnvironment.c_str()), nullptr };
 

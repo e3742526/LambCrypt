@@ -16,7 +16,7 @@ SAVE = b"existing output must be preserved"
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--veracrypt", type=Path, default=ROOT / "src/Main/veracrypt")
+    parser.add_argument("--veracrypt", type=Path, default=ROOT / "src/Main/lambcrypt")
     args = parser.parse_args()
 
     with tempfile.TemporaryDirectory(prefix="vc-overwrite-") as directory:

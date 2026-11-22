@@ -21,8 +21,6 @@ namespace VeraCrypt
 	{
 	public:
 		static void Deregister();
-		static uint32 GetAppChecksum ();
-		static wstring GetCallStack (int depth);
 		static void Register();
 
 	protected:

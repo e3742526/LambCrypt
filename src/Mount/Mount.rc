@@ -743,7 +743,6 @@ BEGIN
     END
     POPUP "Settin&gs"
     BEGIN
-        MENUITEM L"Language\x2026",                 IDM_LANGUAGE
         MENUITEM L"Hot Keys\x2026",                 IDM_HOTKEY_SETTINGS
         MENUITEM SEPARATOR
         MENUITEM L"System Encryption\x2026",        IDM_SYSENC_SETTINGS

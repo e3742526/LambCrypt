@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <title>LambCrypt</title>
+  <rect x="5" y="5" width="118" height="118" rx="25" fill="#192b3b"/>
+  <path fill="#f4f5ec" d="M36 61a14 14 0 0 1 2-24 16 16 0 0 1 22-9 16 16 0 0 1 23 5 14 14 0 0 1 12 24l-9 10H44Z"/>
+  <path fill="#79ddc3" d="M46 65v-5a18 18 0 0 1 36 0v5h4a5 5 0 0 1 5 5v23a5 5 0 0 1-5 5H42a5 5 0 0 1-5-5V70a5 5 0 0 1 5-5Zm8 0h20v-5a10 10 0 0 0-20 0Z"/>
+  <path fill="#192b3b" d="M64 72a6 6 0 0 1 3 11v7h-6v-7a6 6 0 0 1 3-11Z"/>
+</svg>

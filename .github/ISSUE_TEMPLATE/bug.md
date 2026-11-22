@@ -27,7 +27,7 @@ labels: bug, unreviewed
 
 Please tell us more about your environment
 
-**VeraCrypt version:** <!-- f.e. 1.24-Update7 -->
+**LambCrypt version:** <!-- f.e. 1.24-Update7 -->
 
 **Operating system and version:** <!-- f.e. Windows 10 build 19042 -->
 

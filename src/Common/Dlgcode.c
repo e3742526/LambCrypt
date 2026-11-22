@@ -2265,7 +2265,7 @@ BOOL CALLBACK AboutDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lParam
 			LocalizeDialog (hwndDlg, "IDD_ABOUT_DLG");
 
 			// Hyperlink
-			SetWindowText (GetDlgItem (hwndDlg, IDC_HOMEPAGE), L"amcrypto.jp");
+			SetWindowText (GetDlgItem (hwndDlg, IDC_HOMEPAGE), L"LambCrypt on GitHub");
 			ToHyperlink (hwndDlg, IDC_HOMEPAGE);
 
 			// Logo area background (must not keep aspect ratio; must retain Windows-imposed distortion)
@@ -2285,13 +2285,13 @@ BOOL CALLBACK AboutDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lParam
 
 			// Version
 			SendMessage (GetDlgItem (hwndDlg, IDT_ABOUT_VERSION), WM_SETFONT, (WPARAM) hUserBoldFont, 0);
-			StringCbPrintfW (szTmp, sizeof(szTmp), L"VeraCrypt %s", _T(VERSION_STRING) _T(VERSION_STRING_SUFFIX) L"  (64-bit)");
+			StringCbPrintfW (szTmp, sizeof(szTmp), L"LambCrypt %s", _T(VERSION_STRING) _T(VERSION_STRING_SUFFIX) L"  (64-bit)");
 
 #if (defined(_DEBUG) || defined(DEBUG))
 			StringCbCatW (szTmp, sizeof(szTmp), L"  (debug)");
 #endif
 			SetDlgItemText (hwndDlg, IDT_ABOUT_VERSION, szTmp);
-			SetDlgItemText (hwndDlg, IDT_ABOUT_RELEASE, TC_STR_RELEASED_BY);
+			SetDlgItemText (hwndDlg, IDT_ABOUT_RELEASE, L"Based on VeraCrypt");
 
 			// Credits
 			SendMessage (GetDlgItem (hwndDlg, IDC_ABOUT_CREDITS), WM_SETFONT, (WPARAM) hUserFont, (LPARAM) 0);
@@ -2301,7 +2301,7 @@ BOOL CALLBACK AboutDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lParam
 
 	case WM_APP:
 		SetWindowText (GetDlgItem (hwndDlg, IDC_ABOUT_CREDITS),
-			L"Based on TrueCrypt 7.1a, freely available at http://www.truecrypt.org/ .\r\n\r\n"
+			L"Based on TrueCrypt, freely available at http://www.truecrypt.org/\r\n\r\n"
 
 			L"Portions of this software:\r\n"
 			L"Copyright \xA9 2026 AM Crypto. All rights reserved.\r\n"
@@ -2320,7 +2320,7 @@ BOOL CALLBACK AboutDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lParam
 			L"This software as a whole:\r\n"
 			L"Copyright \xA9 2026 AM Crypto. All rights reserved.\r\n\r\n"
 
-			L"An AM Crypto Release");
+			L"Independently maintained fork of VeraCrypt");
 
 		return 1;
 
@@ -12057,7 +12057,7 @@ extern wchar_t InstallationPath[TC_MAX_PATH];
 BOOL HasTranslatedDocumentation(const char* language)
 {
     // hardcoded list of languages for which a translated documentation exists
-    const char* supportedLanguages[] = { "en", "ru", "zh-cn"};
+    const char* supportedLanguages[] = { "en" };
     for (size_t i = 0; i < sizeof(supportedLanguages) / sizeof(supportedLanguages[0]); i++)
     {
         if (strcmp(language, supportedLanguages[i]) == 0)
@@ -12130,7 +12130,7 @@ void Applink (const char *dest)
 	}
 	else if (strcmp(dest, "onlinehelp") == 0)
 	{
-		StringCbPrintfW (url, sizeof (url),L"https://veracrypt.jp/%s/Documentation.html", currentLanguage);
+		StringCbPrintfW (url, sizeof (url),L"https://github.com/e3742526/LambCrypt/blob/main/doc/html/en/Documentation.html");
 		buildUrl = FALSE;
 	}
 	else if (strcmp(dest, "keyfiles") == 0)
@@ -12212,15 +12212,18 @@ void Applink (const char *dest)
 	}
 	else if (strcmp(dest, "downloads") == 0)
 	{
-		StringCbCopyW (page, sizeof (page),L"Downloads.html");
+		StringCbCopyW (url, sizeof (url),L"https://github.com/e3742526/LambCrypt/releases");
+		buildUrl = FALSE;
 	}
 	else if (strcmp(dest, "news") == 0)
 	{
-		StringCbCopyW (page, sizeof (page),L"News.html");
+		StringCbCopyW (url, sizeof (url),L"https://github.com/e3742526/LambCrypt/releases");
+		buildUrl = FALSE;
 	}
 	else if (strcmp(dest, "contact") == 0)
 	{
-		StringCbCopyW (page, sizeof (page),L"Contact.html");
+		StringCbCopyW (url, sizeof (url),L"https://github.com/e3742526/LambCrypt/issues");
+		buildUrl = FALSE;
 	}
 	else if (strcmp(dest, "pim") == 0)
 	{
@@ -12242,7 +12245,7 @@ void Applink (const char *dest)
 #ifdef SETUP
 		if (IsInternetConnected())
 		{
-			StringCbPrintfW (url, sizeof (url), L"https://veracrypt.jp/%s/%s", currentLanguage, page);
+			StringCbPrintfW (url, sizeof (url), L"https://github.com/e3742526/LambCrypt/blob/main/doc/html/en/%s", page);
 			buildUrl = FALSE;
 		}
 #endif
@@ -12291,7 +12294,7 @@ void Applink (const char *dest)
 				if (!FileExists (pageFullPath.c_str()))
 				{
 					// fallback to online resources
-					StringCbPrintfW (url, sizeof (url), L"https://veracrypt.jp/%s/%s", currentLanguage, page);
+					StringCbPrintfW (url, sizeof (url), L"https://github.com/e3742526/LambCrypt/blob/main/doc/html/en/%s", page);
 					SafeOpenURL (url);
 					openDone = 1;
 				}
@@ -12310,7 +12313,7 @@ void Applink (const char *dest)
 		if (((r == ERROR_FILE_NOT_FOUND) || (r == ERROR_PATH_NOT_FOUND)) && buildUrl)
 		{
 			// fallback to online resources
-			StringCbPrintfW (url, sizeof (url), L"https://veracrypt.jp/%s/%s", currentLanguage, page);
+			StringCbPrintfW (url, sizeof (url), L"https://github.com/e3742526/LambCrypt/blob/main/doc/html/en/%s", page);
 			ShellExecuteW (NULL, L"open", url, NULL, NULL, SW_SHOWNORMAL);
 		}			
 	}

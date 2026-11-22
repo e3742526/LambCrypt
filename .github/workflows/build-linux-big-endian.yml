@@ -12,7 +12,7 @@ name: Build and test Linux big-endian
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]
     paths:
       - 'src/Build/Include/Makefile.inc'
       - 'src/Common/*.h'
@@ -31,7 +31,7 @@ on:
       - 'Tests/volume_read_test.cpp'
       - '.github/workflows/build-linux-big-endian.yml'
   pull_request:
-    branches: [ "master" ]
+    branches: [ "main" ]
     paths:
       - 'src/Build/Include/Makefile.inc'
       - 'src/Common/*.h'
@@ -116,7 +116,7 @@ jobs:
         mkdir -p /tmp/wxWidgets-${{ env.WXWIDGETS_VERSION }}
         tar -xjf /tmp/wxWidgets.tar.bz2 -C /tmp/wxWidgets-${{ env.WXWIDGETS_VERSION }} --strip-components=1
 
-    - name: Build console VeraCrypt
+    - name: Build console LambCrypt
       run: |
         set -- NOGUI=1 WITHFUSE3=1 WXSTATIC=1 NOTEST=1 \
           WX_ROOT=/tmp/wxWidgets-${{ env.WXWIDGETS_VERSION }} WX_BUILD_DIR=/tmp/wxBuildConsole
@@ -133,10 +133,10 @@ jobs:
           make "$@" wxbuild
         fi
         make "$@" -j"$(nproc)"
-        file Main/veracrypt
+        file Main/lambcrypt
 
     - name: Algorithm self-tests
-      run: src/Main/veracrypt --text --test
+      run: src/Main/lambcrypt --text --test
 
     # Needs Volume.a and Platform.a, so it runs here and not in the jobs that
     # only receive the binary. One volume keeps the automatic check short.
@@ -154,14 +154,14 @@ jobs:
     # One volume keeps this check short; the full suite opens all of them.
     - name: Volume created on little-endian
       if: env.FULL != 'true'
-      run: python3 Tests/test_byte_order_interop.py --binary-a src/Main/veracrypt --fixture test.sha512.hc
+      run: python3 Tests/test_byte_order_interop.py --binary-a src/Main/lambcrypt --fixture test.sha512.hc
 
     - name: Upload binary
       if: env.FULL == 'true'
       uses: actions/upload-artifact@v4
       with:
-        name: veracrypt-${{ matrix.arch }}
-        path: src/Main/veracrypt
+        name: lambcrypt-${{ matrix.arch }}
+        path: src/Main/lambcrypt
         retention-days: 1
 
   volumes:
@@ -195,13 +195,13 @@ jobs:
 
     - uses: actions/download-artifact@v4
       with:
-        name: veracrypt-${{ matrix.arch }}
+        name: lambcrypt-${{ matrix.arch }}
         path: bin
 
     - name: Volumes created on little-endian
       run: |
-        chmod +x bin/veracrypt
-        python3 Tests/test_byte_order_interop.py --binary-a bin/veracrypt
+        chmod +x bin/lambcrypt
+        python3 Tests/test_byte_order_interop.py --binary-a bin/lambcrypt
 
   interop:
     if: github.event_name == 'workflow_dispatch' && inputs.full
@@ -228,7 +228,7 @@ jobs:
 
     - name: Volumes created on one byte order open on the other
       run: |
-        chmod +x bin/*/veracrypt
-        file bin/*/veracrypt
+        chmod +x bin/*/lambcrypt
+        file bin/*/lambcrypt
         python3 Tests/test_byte_order_interop.py --skip-official \
-          --binary-a bin/veracrypt-s390x/veracrypt --binary-b bin/veracrypt-amd64/veracrypt
+          --binary-a bin/lambcrypt-s390x/lambcrypt --binary-b bin/lambcrypt-amd64/lambcrypt

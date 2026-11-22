@@ -2,33 +2,31 @@
 <html lang="en">
 <head>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-<title>VeraCrypt - Free Open source disk encryption with strong security for the Paranoid</title>
-<meta name="description" content="VeraCrypt is free open-source disk encryption software for Windows, Mac OS X and Linux. In case an attacker forces you to reveal the password, VeraCrypt provides plausible deniability. In contrast to file encryption, data encryption performed by VeraCrypt is real-time (on-the-fly), automatic, transparent, needs very little memory, and does not involve temporary unencrypted files."/>
+<title>Favorite Volumes – LambCrypt Documentation</title>
+<meta name="description" content="LambCrypt documentation and upstream VeraCrypt reference material."/>
 <meta name="keywords" content="encryption, security"/>
 <link href="styles.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
 
 <div>
-<a href="Documentation.html"><img src="VeraCrypt128x128.png" alt="VeraCrypt"/></a>
+<a href="Documentation.html"><img src="LambCrypt128x128.png" alt="LambCrypt" width="128" height="128"/></a>
 </div>
 
 <div id="menu">
-	<ul>
-	  <li><a href="Home.html">Home</a></li>
-	  <li><a href="Code.html">Source Code</a></li>
-	  <li><a href="Downloads.html">Downloads</a></li>
-	  <li><a class="active" href="Documentation.html">Documentation</a></li>
-	  <li><a href="Donation.html">Donate</a></li>
-	  <li><a href="https://sourceforge.net/p/veracrypt/discussion/" target="_blank">Forums</a></li>
-	</ul>
+  <ul>
+    <li><a href="https://github.com/e3742526/LambCrypt">Project</a></li>
+    <li><a href="Documentation.html">Documentation</a></li>
+    <li><a href="https://github.com/e3742526/LambCrypt/releases">Releases</a></li>
+    <li><a href="https://github.com/e3742526/LambCrypt/issues">Issues</a></li>
+  </ul>
 </div>
 
 <div>
 <p>
 <a href="Documentation.html">Documentation</a>
 <img src="arrow_right.gif" alt=">>" style="margin-top: 5px">
-<a href="VeraCrypt%20Volume.html">VeraCrypt Volume</a>
+<a href="VeraCrypt%20Volume.html">LambCrypt Volume</a>
 <img src="arrow_right.gif" alt=">>" style="margin-top: 5px">
 <a href="Favorite%20Volumes.html">Favorite Volumes</a>
 </p></div>
@@ -48,10 +46,10 @@ or removable medium. </li></ul>
 <p>
 <strong>Note: </strong>Please refer to <a href="Issues%20and%20Limitations.html">Known Issues and Limitations</a> section for issues that may affect favorite volumes when Windows "Fast Startup" feature is enabled.
 </p>
-<h3>To configure a VeraCrypt volume as a favorite volume, follow these steps:</h3>
+<h3>To configure a LambCrypt volume as a favorite volume, follow these steps:</h3>
 <ol>
 <li>Mount the volume (to the drive letter to which you want it to be mounted every time).
-</li><li>Right-click the mounted volume in the drive list in the main VeraCrypt window and select &lsquo;<em>Add to Favorites</em>&rsquo;.
+</li><li>Right-click the mounted volume in the drive list in the main LambCrypt window and select &lsquo;<em>Add to Favorites</em>&rsquo;.
 </li><li>The Favorite Volumes Organizer window should appear now. In this window, you can set various options for the volume (see below).
 </li><li>Click <em>OK</em>. </li></ol>
 <strong>Favorite volumes can be mounted in several ways: </strong>To mount all favorite volumes, select
@@ -62,24 +60,24 @@ or removable medium. </li></ul>
 <p>To set this up, follow these steps:</p>
 <ol>
 <li>Mount the volume you want to have mounted automatically when you log on (mount it to the drive letter to which you want it to be mounted every time).
-</li><li>Right-click the mounted volume in the drive list in the main VeraCrypt window and select &lsquo;<em>Add to Favorites</em>&rsquo;.
+</li><li>Right-click the mounted volume in the drive list in the main LambCrypt window and select &lsquo;<em>Add to Favorites</em>&rsquo;.
 </li><li>The Favorites Organizer window should appear now. In this window, enable the option &lsquo;<em>Mount selected volume upon logon</em>&rsquo; and click
 <em>OK</em>. </li></ol>
 <p>Then, when you log on to Windows, you will be asked for the volume password (and/or keyfiles) and if it is correct, the volume will be mounted.<br>
 <br>
-Note: VeraCrypt will not prompt you for a password if you have enabled caching of the pre-boot authentication password (<em>Settings
+Note: LambCrypt will not prompt you for a password if you have enabled caching of the pre-boot authentication password (<em>Settings
 </em>&gt; &lsquo;<em>System Encryption</em>&rsquo;) and the volumes use the same password as the system partition/drive.</p>
 <p>Selected or all favorite volumes can be mounted automatically whenever its host device gets connected to the computer. To set this up, follow these steps:</p>
 <ol>
 <li>Mount the volume (to the drive letter to which you want it to be mounted every time).
-</li><li>Right-click the mounted volume in the drive list in the main VeraCrypt window and select &lsquo;<em>Add to Favorites</em>&rsquo;.
+</li><li>Right-click the mounted volume in the drive list in the main LambCrypt window and select &lsquo;<em>Add to Favorites</em>&rsquo;.
 </li><li>The Favorites Organizer window should appear now. In this window, enable the option &lsquo;<em>Mount selected volume when its host device gets connected</em>&rsquo; and click
 <em>OK</em>. </li></ol>
-<p>Then, when you insert e.g. a USB flash drive on which a VeraCrypt volume is located into the USB port, you will be asked for the volume password (and/or keyfiles) (unless it is cached) and if it is correct, the volume will be mounted.<br>
+<p>Then, when you insert e.g. a USB flash drive on which a LambCrypt volume is located into the USB port, you will be asked for the volume password (and/or keyfiles) (unless it is cached) and if it is correct, the volume will be mounted.<br>
 <br>
-Note: VeraCrypt will not prompt you for a password if you have enabled caching of the pre-boot authentication password (<em>Settings
+Note: LambCrypt will not prompt you for a password if you have enabled caching of the pre-boot authentication password (<em>Settings
 </em>&gt; &lsquo;<em>System Encryption</em>&rsquo;) and the volume uses the same password as the system partition/drive.</p>
-<p>A special label can be assigned to each favorite volume. This label is not the same as the filesystem label and it is shown within the VeraCrypt user interface instead of the volume path. To assign such a label, follow these steps:</p>
+<p>A special label can be assigned to each favorite volume. This label is not the same as the filesystem label and it is shown within the LambCrypt user interface instead of the volume path. To assign such a label, follow these steps:</p>
 <ol>
 <li>Select <em>Favorites </em>&gt; &lsquo;<em>Organize Favorite Volumes</em>&rsquo;.
 </li><li>The Favorite Volumes Organizer window should appear now. In this window, select the volume whose label you want to edit.

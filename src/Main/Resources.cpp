@@ -16,15 +16,6 @@
 
 #ifdef TC_WINDOWS
 #include "Main/resource.h"
-#else
-#include "Application.h"
-#include "Platform/File.h"
-#include "Platform/StringConverter.h"
-#include <stdio.h>
-#include "UserPreferences.h"
-#if defined(TC_LINUX)
-#include "Platform/Unix/Process.h"
-#endif
 #endif
 
 namespace VeraCrypt
@@ -47,137 +38,6 @@ namespace VeraCrypt
 		return ConstBufferPtr (resPtr, SizeofResource (NULL, hRes));
 	}
 #endif // TC_WINDOWS
-
-	string Resources::GetLanguageXml (string& xmlLang)
-	{
-#ifdef TC_WINDOWS
-		ConstBufferPtr res = GetWindowsResource (L"XML", L"IDR_LANGUAGE");
-		Buffer strBuf (res.Size() + 1);
-		strBuf.Zero();
-		strBuf.CopyFrom (res);
-		xmlLang = "en";
-		return string (reinterpret_cast <char *> (strBuf.Ptr()));
-#else
-		// get language from env LANG
-		// support:  C,POSIX,
-		// support for e.g. german: de_DE.UTF-8, de.UTF8, de_DE, de
-		// not support e.g.: de@Euro
-		string defaultLang("en");
-#if defined (TC_MACOSX)
-		string filenamePrefix = StringConverter::ToSingle (Application::GetExecutableDirectory()) + "/../Resources/languages/Language.";
-#else
-		string filenamePrefix("/usr/share/veracrypt/languages/Language.");
-#if defined(TC_LINUX)
-		if (Process::IsRunningUnderAppImage (StringConverter::ToSingle (wstring (Application::GetExecutablePath()))))
-		{
-			const char* appDirEnv = getenv ("APPDIR");
-			if (appDirEnv)
-				filenamePrefix = string (appDirEnv) + "/usr/share/veracrypt/languages/Language.";
-		}
-#endif
-#endif
-		string filenamePost(".xml");
-		string filename = filenamePrefix + defaultLang + filenamePost;
-		xmlLang = defaultLang;
-		UserPreferences Preferences;
-		Preferences.Load();
-		string preferredLang = string(Preferences.Language.begin(), Preferences.Language.end());
-#ifdef DEBUG
-		std::cout << "Config language: " << preferredLang << std::endl;
-#endif
-
-		if (preferredLang == "system") {
-			if (const char *env_p = getenv("LANG")) {
-				string lang(env_p);
-#ifdef DEBUG
-				std::cout << "env $LANG: " << lang << std::endl;
-#endif
-				if (lang.size() > 1) {
-					int found = lang.find(".");
-					if (found > 1) {
-						string langTag = lang.substr(0, found);
-						string lowerLangTag(StringConverter::ToLower(langTag));
-						int foundUnderscore = lowerLangTag.find("_");
-						if (foundUnderscore > 0) {
-							lowerLangTag.replace(foundUnderscore, 1, 1, '-');
-							filename = filenamePrefix + lowerLangTag + filenamePost;
-							xmlLang = lowerLangTag;
-							FilesystemPath xml(filename);
-							if (!xml.IsFile()) {
-								string shortLangTag = lowerLangTag.substr(0, foundUnderscore);
-								filename = filenamePrefix + shortLangTag + filenamePost;
-								xmlLang = shortLangTag;
-								FilesystemPath xml(filename);
-								if (!xml.IsFile()) {
-									filename = filenamePrefix + defaultLang + filenamePost;
-									xmlLang = defaultLang;
-								}
-							}
-						} else {
-							filename = filenamePrefix + langTag + filenamePost;
-							xmlLang = langTag;
-							FilesystemPath xml(filename);
-							if (!xml.IsFile()) {
-								filename = filenamePrefix + defaultLang + filenamePost;
-								xmlLang = defaultLang;
-							}
-						}
-					} else {
-						string lowerLang(StringConverter::ToLower(lang));
-						filename = filenamePrefix + lowerLang + filenamePost;
-						xmlLang = lowerLang;
-						FilesystemPath xml(filename);
-						if (!xml.IsFile()) {
-							int foundUnderscore = lowerLang.find("_");
-							if (foundUnderscore > 0) {
-								lowerLang.replace(foundUnderscore, 1, 1, '-');
-								filename = filenamePrefix + lowerLang + filenamePost;
-								xmlLang = lowerLang;
-								FilesystemPath xml(filename);
-								if (!xml.IsFile()) {
-									filename = filenamePrefix + defaultLang + filenamePost;
-									xmlLang = defaultLang;
-								}
-							}
-						}
-					}
-				}
-			}
-		} else {
-			filename = filenamePrefix + preferredLang + filenamePost;
-			xmlLang = preferredLang;
-		}
-		FilesystemPath xml(filename);
-		if ( xml.IsFile() ){
-			try
-			{
-				File file;
-				file.Open (xml, File::OpenRead, File::ShareRead);
-				vector <uint8> keyfileData (file.Length());
-				if (!keyfileData.empty())
-				{
-					BufferPtr keyfileDataBuf (&keyfileData.front(), keyfileData.size());
-					file.ReadCompleteBuffer (keyfileDataBuf);
-				}
-				file.Close();
-				string langxml(keyfileData.begin(), keyfileData.end());
-				return langxml;
-			}
-			// An optional translation must not prevent startup if it cannot be
-			// opened or read completely (for example, if it shrinks while reading).
-			catch (SystemException&) { }
-			catch (InsufficientData&) { }
-		}
-		static uint8 LanguageXml[] =
-		{
-#			include "Common/Language.xml.h"
-			, 0
-		};
-
-		xmlLang = defaultLang; // fallback to default language
-		return string ((const char*) LanguageXml);
-#endif
-	}
 
 	string Resources::GetLegalNotices ()
 	{
@@ -275,8 +135,8 @@ namespace VeraCrypt
 #ifdef TC_WINDOWS
 		return wxIcon (L"IDI_TRUECRYPT_ICON", wxBITMAP_TYPE_ICO_RESOURCE, 16, 16);
 #else
-#		include "Resources/Icons/VeraCrypt-256x256.xpm"
-		return wxIcon (VeraCryptIcon256x256);
+#		include "Resources/Icons/LambCrypt-256x256.xpm"
+		return wxIcon (LambCryptIcon256x256);
 #endif
 	}
 

@@ -2,26 +2,24 @@
 <html lang="en">
 <head>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-<title>VeraCrypt - Free Open source disk encryption with strong security for the Paranoid</title>
-<meta name="description" content="VeraCrypt is free open-source disk encryption software for Windows, Mac OS X and Linux. In case an attacker forces you to reveal the password, VeraCrypt provides plausible deniability. In contrast to file encryption, data encryption performed by VeraCrypt is real-time (on-the-fly), automatic, transparent, needs very little memory, and does not involve temporary unencrypted files."/>
+<title>Troubleshooting – LambCrypt Documentation</title>
+<meta name="description" content="LambCrypt documentation and upstream VeraCrypt reference material."/>
 <meta name="keywords" content="encryption, security"/>
 <link href="styles.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
 
 <div>
-<a href="Documentation.html"><img src="VeraCrypt128x128.png" alt="VeraCrypt"/></a>
+<a href="Documentation.html"><img src="LambCrypt128x128.png" alt="LambCrypt" width="128" height="128"/></a>
 </div>
 
 <div id="menu">
-	<ul>
-	  <li><a href="Home.html">Home</a></li>
-	  <li><a href="Code.html">Source Code</a></li>
-	  <li><a href="Downloads.html">Downloads</a></li>
-	  <li><a class="active" href="Documentation.html">Documentation</a></li>
-	  <li><a href="Donation.html">Donate</a></li>
-	  <li><a href="https://sourceforge.net/p/veracrypt/discussion/" target="_blank">Forums</a></li>
-	</ul>
+  <ul>
+    <li><a href="https://github.com/e3742526/LambCrypt">Project</a></li>
+    <li><a href="Documentation.html">Documentation</a></li>
+    <li><a href="https://github.com/e3742526/LambCrypt/releases">Releases</a></li>
+    <li><a href="https://github.com/e3742526/LambCrypt/issues">Issues</a></li>
+  </ul>
 </div>
 
 <div>
@@ -34,7 +32,7 @@
 <div class="wikidoc">
 <h1>Troubleshooting</h1>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
-This section presents possible solutions to common problems that you may run into when using VeraCrypt.</div>
+This section presents possible solutions to common problems that you may run into when using LambCrypt.</div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 Note: If your problem is not listed here, it might be listed in one of the following sections:</div>
 <ul style="text-align:left; margin-top:18px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
@@ -49,7 +47,7 @@ Note: If your problem is not listed here, it might be listed in one of the follo
 <tbody style="text-align:left">
 <tr style="text-align:left">
 <td style="color:#000000; text-align:left; font-size:11px; line-height:13px; font-family:Verdana,Arial,Helvetica,sans-serif; padding:15px; border:1px solid #000000">
-Make sure you use the latest stable version of VeraCrypt. If the problem is caused by a bug in an old version of VeraCrypt, it may have already been fixed. Note: Select
+Make sure you use the latest stable version of LambCrypt. If the problem is caused by a bug in an old version of LambCrypt, it may have already been fixed. Note: Select
 <em style="text-align:left"><strong style="text-align:left">Help</strong></em> &gt;
 <em style="text-align:left"><strong style="text-align:left">About</strong></em> to find out which version you use.</td>
 </tr>
@@ -68,7 +66,7 @@ This is probably caused by an interfering application.</div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Possible Solution: </strong></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
-First, make sure that your VeraCrypt container does not have a file extension that is reserved for executable files (for example, .exe, .sys, or .dll). If it does, Windows and antivirus software may interfere with the container and adversely affect the performance
+First, make sure that your LambCrypt container does not have a file extension that is reserved for executable files (for example, .exe, .sys, or .dll). If it does, Windows and antivirus software may interfere with the container and adversely affect the performance
  of the volume.</div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 Second, disable or uninstall any application that might be interfering, which usually is antivirus software or automatic disk defragmentation tool, etc. In case of antivirus software, it often helps to turn off real-time (on-access) scanning in the preferences
@@ -77,7 +75,7 @@ Second, disable or uninstall any application that might be interfering, which us
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Problem: </strong></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
-<em style="text-align:left">VeraCrypt volume cannot be mounted; VeraCrypt reports &quot;</em>Incorrect password or not a VeraCrypt volume<em style="text-align:left">&quot;.</em></div>
+<em style="text-align:left">LambCrypt volume cannot be mounted; LambCrypt reports &quot;</em>Incorrect password or not a LambCrypt volume<em style="text-align:left">&quot;.</em></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Possible Cause: </strong></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
@@ -89,7 +87,7 @@ The volume header may have been damaged by a third-party application or malfunct
 You can try to restore the volume header from the backup embedded in the volume by following these steps:
 <ol style="text-align:left; margin-top:18px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <li style="text-align:left; margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">
-Run VeraCrypt. </li><li style="text-align:left; margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">
+Run LambCrypt. </li><li style="text-align:left; margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">
 Click <em style="text-align:left">Select Device</em> or <em style="text-align:left">
 Select File</em> to select your volume. </li><li style="text-align:left; margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">
 Select <em style="text-align:left"><a href="Program%20Menu.html#tools-restore-volume-header" style="text-align:left; color:#0080c0; text-decoration:none">Tools &gt; Restore Volume Header</a></em>.
@@ -103,12 +101,12 @@ Select <em style="text-align:left"><a href="Program%20Menu.html#tools-restore-vo
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Probable Cause: </strong></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
-The file system on the VeraCrypt volume may be corrupted (or the volume is unformatted).</div>
+The file system on the LambCrypt volume may be corrupted (or the volume is unformatted).</div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Possible Solution: </strong></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
-You can use filesystem repair tools supplied with your operating system to attempt to repair the filesystem on the VeraCrypt volume. In Windows, it is the '<em style="text-align:left">chkdsk</em>' tool. VeraCrypt provides an easy way to use this tool on a VeraCrypt
- volume: First, make a backup copy of the VeraCrypt volume (because the '<em style="text-align:left">chkdsk</em>' tool might damage the filesystem even more) and then mount it. Right-click the mounted volume in the main VeraCrypt window (in the drive list)
+You can use filesystem repair tools supplied with your operating system to attempt to repair the filesystem on the LambCrypt volume. In Windows, it is the '<em style="text-align:left">chkdsk</em>' tool. LambCrypt provides an easy way to use this tool on a LambCrypt
+ volume: First, make a backup copy of the LambCrypt volume (because the '<em style="text-align:left">chkdsk</em>' tool might damage the filesystem even more) and then mount it. Right-click the mounted volume in the main LambCrypt window (in the drive list)
  and from the context menu select '<em style="text-align:left">Repair Filesystem</em>'.</div>
 <hr style="text-align:left">
 <div id="hidden_volume_small_max_size" style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
@@ -170,14 +168,14 @@ If it does not help, reformat the outer volume again and copy less files/folders
 One of the following problems occurs:</div>
 <ul style="text-align:left; margin-top:18px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <li style="text-align:left; margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">
-A VeraCrypt volume cannot be mounted. </li><li style="text-align:left; margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">
-NTFS VeraCrypt volumes cannot be created. </li></ul>
+A LambCrypt volume cannot be mounted. </li><li style="text-align:left; margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">
+NTFS LambCrypt volumes cannot be created. </li></ul>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 In addition, the following error may be reported: &quot;<em style="text-align:left">The process cannot access the file because it is being used by another process.</em>&quot;</div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Probable Cause: </strong></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
-This is probably caused by an interfering application. Note that this is not a bug in VeraCrypt. The operating system reports to VeraCrypt that the device is locked for an exclusive access by an application (so VeraCrypt is not allowed to access it).</div>
+This is probably caused by an interfering application. Note that this is not a bug in LambCrypt. The operating system reports to LambCrypt that the device is locked for an exclusive access by an application (so LambCrypt is not allowed to access it).</div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Possible Solution: </strong></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
@@ -186,7 +184,7 @@ It usually helps to disable or uninstall the interfering application, which is u
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Problem: </strong></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
-<em style="text-align:left">In the VeraCrypt Boot Loader screen, I'm trying to type my password and/or pressing other keys but the VeraCrypt boot loader is not responding.</em></div>
+<em style="text-align:left">In the LambCrypt Boot Loader screen, I'm trying to type my password and/or pressing other keys but the LambCrypt boot loader is not responding.</em></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Probable Cause: </strong></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
@@ -272,7 +270,7 @@ https://www.sevenforums.com/tutorials/71363-system-reserved-partition-delete.htm
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Problem: </strong></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
-<em style="text-align:left">When trying to encrypt the system partition/drive, during the pretest, the VeraCrypt Boot Loader always reports that the pre-boot authentication password I entered is incorrect (even though I'm sure it is correct).</em></div>
+<em style="text-align:left">When trying to encrypt the system partition/drive, during the pretest, the LambCrypt Boot Loader always reports that the pre-boot authentication password I entered is incorrect (even though I'm sure it is correct).</em></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Possible Causes:</strong></div>
 <ul style="text-align:left; margin-top:18px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
@@ -288,7 +286,7 @@ When you <em style="text-align:left">set</em> a pre-boot authentication password
 <em style="text-align:left">Num Lock</em> and <em style="text-align:left">Caps Lock</em> keys are on or off (depending on the manufacturer, the keys may have different labels, such as
 <em style="text-align:left">Num LK</em>). Note: You can change the state of each of the keys as desired before you set the password, but you need to remember the states.
 </li><li style="text-align:left; margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">
-When you enter the password in the VeraCrypt Boot Loader screen, make sure the state of each of the keys is the same as when you set the password.
+When you enter the password in the LambCrypt Boot Loader screen, make sure the state of each of the keys is the same as when you set the password.
 </li></ol>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 Note: For other possible solutions to this problem, see the other sections of this chapter.</div>
@@ -313,19 +311,19 @@ Replace the motherboard with a different one (different type and/or brand). </li
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Problem:</strong></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
-<em style="text-align:left">When mounting or unmounting a VeraCrypt volume, the system crashes (a 'blue screen' error screen appears or the
+<em style="text-align:left">When mounting or unmounting a LambCrypt volume, the system crashes (a 'blue screen' error screen appears or the
 <span style="text-align:left">computer abruptly restarts)</span>.</em></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 OR</div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
-<em style="text-align:left">Since I installed VeraCrypt, the operating system has been crashing frequently.</em></div>
+<em style="text-align:left">Since I installed LambCrypt, the operating system has been crashing frequently.</em></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Possible Causes: </strong></div>
 <ul style="text-align:left; margin-top:18px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <li style="text-align:left; margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">
 A bug in a third-party application (e.g. antivirus, system &quot;tweaker&quot;, driver, etc.)
 </li><li style="text-align:left; margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">
-A bug in VeraCrypt </li><li style="text-align:left; margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">
+A bug in LambCrypt </li><li style="text-align:left; margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">
 A bug in Windows or a malfunctioning hardware component </li></ul>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Possible Solutions: </strong></div>
@@ -334,15 +332,15 @@ A bug in Windows or a malfunctioning hardware component </li></ul>
 Try disabling any antivirus tools, system &quot;tweakers&quot;, and any other similar applications. If it does not help, try uninstalling them and restarting Windows.
 <br style="text-align:left">
 <br style="text-align:left">
-If the problem persists, run VeraCrypt and select <em style="text-align:left">Help</em> &gt; '<em style="text-align:left">Analyze a System Crash</em>' shortly after the system crashes or restarts. VeraCrypt will then analyze crash dump files that Windows automatically
- created when it crashed (if any). If VeraCrypt determines that a bug in a third party driver is likely to have caused the crash, it will show the name and provider of the driver (note that updating or uninstalling the driver might resolve the issue). Whatever
- the results, you will be able to choose to send us essential information about the system crash to help us determine whether it was caused by a bug in VeraCrypt.
+If the problem persists, run LambCrypt and select <em style="text-align:left">Help</em> &gt; '<em style="text-align:left">Analyze a System Crash</em>' shortly after the system crashes or restarts. LambCrypt will then analyze crash dump files that Windows automatically
+ created when it crashed (if any). If LambCrypt determines that a bug in a third party driver is likely to have caused the crash, it will show the name and provider of the driver (note that updating or uninstalling the driver might resolve the issue). Whatever
+ the results, you will be able to choose to send us essential information about the system crash to help us determine whether it was caused by a bug in LambCrypt.
 </li></ul>
 <hr style="text-align:left">
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Problem:</strong></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
-<em style="text-align:left">On Windows 7/Vista (and possibly later versions), the Microsoft Windows Backup tool cannot be used to backup data to a non-system VeraCrypt Volume.</em></div>
+<em style="text-align:left">On Windows 7/Vista (and possibly later versions), the Microsoft Windows Backup tool cannot be used to backup data to a non-system LambCrypt Volume.</em></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Cause: </strong></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
@@ -351,7 +349,7 @@ A bug in the Windows Backup tool.</div>
 <strong style="text-align:left">Possible Solution: </strong></div>
 <ol style="text-align:left; margin-top:18px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <li style="text-align:left; margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">
-Mount the VeraCrypt volume to which you want to back up data. </li><li style="text-align:left; margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">
+Mount the LambCrypt volume to which you want to back up data. </li><li style="text-align:left; margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">
 Right-click a folder located on the volume (or right-click its drive letter in the '<em style="text-align:left">Computer</em>' list) and select an item from the '<em style="text-align:left">Share with</em>' submenu (on Windows Vista, select '<em style="text-align:left">Share</em>').
 </li><li style="text-align:left; margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">
 Follow the instructions to share the folder with your user account. </li><li style="text-align:left; margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">
@@ -365,7 +363,7 @@ Note: The above solution does not apply to the <em style="text-align:left">Start
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Problem:</strong></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
-<em style="text-align:left">The label of a filesystem in a VeraCrypt volume cannot be changed from within the 'Computer' window under Windows Vista or a later version of Windows.</em></div>
+<em style="text-align:left">The label of a filesystem in a LambCrypt volume cannot be changed from within the 'Computer' window under Windows Vista or a later version of Windows.</em></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Cause: </strong></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
@@ -381,7 +379,7 @@ Right-click the mounted volume in the '<em style="text-align:left">Computer</em>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Problem: </strong></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
-<em style="text-align:left">I cannot encrypt a partition/device because VeraCrypt Volume Creation Wizard says it is in use.</em></div>
+<em style="text-align:left">I cannot encrypt a partition/device because LambCrypt Volume Creation Wizard says it is in use.</em></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Possible Solution: </strong></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
@@ -427,21 +425,21 @@ https://support.microsoft.com/kb/177078/</a></div>
 <div id="linux_user_fuse_mounts" style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Problem: </strong></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
-<em style="text-align:left">On Linux, a volume stored on a network share opened in the file manager, or on another file system that your user account mounted with FUSE (for example sshfs or rclone), cannot be mounted: VeraCrypt reports &quot;</em>Permission denied<em style="text-align:left">&quot;. Or VeraCrypt warns that it opened the volume file with your user account's access rights.</em></div>
+<em style="text-align:left">On Linux, a volume stored on a network share opened in the file manager, or on another file system that your user account mounted with FUSE (for example sshfs or rclone), cannot be mounted: LambCrypt reports &quot;</em>Permission denied<em style="text-align:left">&quot;. Or LambCrypt warns that it opened the volume file with your user account's access rights.</em></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Probable Cause: </strong></div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
-Such file systems are mounted by your user account without the <code>allow_other</code> option. Linux then denies access to every other user, including the administrator (root), even though your account can open the files. VeraCrypt mounts volumes with administrator privileges, so VeraCrypt 1.26.29 and earlier versions cannot open such volume files.</div>
+Such file systems are mounted by your user account without the <code>allow_other</code> option. Linux then denies access to every other user, including the administrator (root), even though your account can open the files. LambCrypt mounts volumes with administrator privileges, so LambCrypt 1.26.29 and earlier versions cannot open such volume files.</div>
 <div style="text-align:left; margin-top:19px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <strong style="text-align:left">Possible Solutions: </strong></div>
 <ul style="text-align:left; margin-top:18px; margin-bottom:19px; padding-top:0px; padding-bottom:0px">
 <li style="text-align:left; margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">
-Later versions of VeraCrypt open the volume file with your user account's access rights when administrator access is denied, provided that VeraCrypt obtained administrator privileges through sudo or doas, as it does when you enter your password in VeraCrypt. The volume is then served through VeraCrypt's FUSE layer, which is slower than direct mounting by the kernel, and VeraCrypt displays a warning. Keep the share mounted and your session active until you unmount the volume: ejecting the share or logging out while the volume is mounted can cause data loss. If &quot;Permission denied&quot; is still reported, either your account itself cannot open the file, or VeraCrypt was started as root without sudo (for example from a root shell) and cannot determine your user account. In the latter case, start VeraCrypt as your user. Keyfiles stored on such a file system work only when VeraCrypt itself runs as your user, not when it is started with sudo.
+Later versions of LambCrypt open the volume file with your user account's access rights when administrator access is denied, provided that LambCrypt obtained administrator privileges through sudo or doas, as it does when you enter your password in LambCrypt. The volume is then served through LambCrypt's FUSE layer, which is slower than direct mounting by the kernel, and LambCrypt displays a warning. Keep the share mounted and your session active until you unmount the volume: ejecting the share or logging out while the volume is mounted can cause data loss. If &quot;Permission denied&quot; is still reported, either your account itself cannot open the file, or LambCrypt was started as root without sudo (for example from a root shell) and cannot determine your user account. In the latter case, start LambCrypt as your user. Keyfiles stored on such a file system work only when LambCrypt itself runs as your user, not when it is started with sudo.
 </li><li style="text-align:left; margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">
 For regular use of an SMB share, mount it with the kernel CIFS client instead (package <em style="text-align:left">cifs-utils</em>), owned by your user account. For example:
 <code>sudo mount -t cifs //server/share /mnt/share -o username=NAME,uid=$(id -u),gid=$(id -g)</code>. Volumes stored on such a mount are mounted directly by the kernel and do not depend on your session.
 </li><li style="text-align:left; margin-top:0px; margin-bottom:0px; padding-top:0px; padding-bottom:0px">
-For sshfs, rclone and other FUSE file systems that support it, enable <code>user_allow_other</code> in <em style="text-align:left">/etc/fuse.conf</em> and mount the file system with the option <code>-o allow_root</code>. Administrator privileges can then access it, and VeraCrypt opens the volume file normally. The volume still depends on that file system: keep it mounted until you unmount the volume.
+For sshfs, rclone and other FUSE file systems that support it, enable <code>user_allow_other</code> in <em style="text-align:left">/etc/fuse.conf</em> and mount the file system with the option <code>-o allow_root</code>. Administrator privileges can then access it, and LambCrypt opens the volume file normally. The volume still depends on that file system: keep it mounted until you unmount the volume.
 </li></ul>
 <hr style="text-align:left">
 <p><br style="text-align:left">

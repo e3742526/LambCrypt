@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=LambCrypt
+GenericName=LambCrypt volume manager
+Comment=Create and mount LambCrypt encrypted volumes
+Icon=lambcrypt
+Exec=/usr/bin/lambcrypt %f
+Categories=Security;Utility;Filesystem
+Keywords=encryption,filesystem
+Terminal=false
+MimeType=application/x-veracrypt-volume;application/x-truecrypt-volume;

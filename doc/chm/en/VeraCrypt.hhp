@@ -7,7 +7,7 @@ Display compile progress=No
 Full-text search=Yes
 Index file=VeraCrypt.hhk
 Language=0x409 English (United States)
-Title=VeraCrypt User Guide
+Title=LambCrypt Documentation
 
 [FILES]
 Acknowledgements.html
@@ -177,7 +177,7 @@ VeraCrypt Rescue Disk.html
 VeraCrypt System Files.html
 VeraCrypt Volume Format Specification.html
 VeraCrypt Volume.html
-VeraCrypt128x128.png
+LambCrypt128x128.png
 Volume Clones.html
 Wear-Leveling.html
 Whirlpool.html

@@ -37,7 +37,6 @@ int LocalizationSerialNo;
 
 wchar_t UnknownString[1024]  = {0};
 static char *LanguageFileBuffer = NULL;
-static HANDLE LanguageFileFindHandle = INVALID_HANDLE_VALUE;
 static char PreferredLangId[6] = {0};
 static char *LanguageResource = NULL;
 static DWORD LanguageResourceSize = 0;
@@ -48,12 +47,6 @@ static int LanguageResourceId = 0;
 
 static char *MapFirstLanguageFile ()
 {
-	if (LanguageFileFindHandle != INVALID_HANDLE_VALUE)
-	{
-		FindClose (LanguageFileFindHandle);
-		LanguageFileFindHandle = INVALID_HANDLE_VALUE;
-	}
-
 	if (LanguageFileBuffer != NULL)
 	{
 		free (LanguageFileBuffer);
@@ -83,41 +76,8 @@ static char *MapFirstLanguageFile ()
 	return LanguageFileBuffer;
 }
 
-static int IsValidLanguageFileName(const wchar_t* filename) {
-    size_t len = wcslen(filename);
-    
-    // Check the base format and length directly
-    if (_wcsnicmp(filename, L"Language.", 9) != 0 || (len != 15 && len != 18))
-        return 0; // Does not start with "Language." or has incorrect length
-
-    // Check for the ".xml" suffix
-    if (_wcsicmp(filename + len - 4, L".xml") != 0)
-        return 0; // Does not end with ".xml"
-
-    // Detailed checks based on the specific length
-    if (len == 15) {
-        // Format should be Language.xx.xml
-        if (iswalpha(filename[9]) && iswalpha(filename[10]))
-            return 1; // Valid format for short code
-    } else if (len == 18) {
-        // Format should be Language.xx-yy.xml
-        if (iswalpha(filename[9]) && iswalpha(filename[10]) && filename[11] == L'-' &&
-            iswalpha(filename[12]) && iswalpha(filename[13]))
-            return 1; // Valid format for long code
-    }
-
-    return 0; // If none of the conditions are met, the filename is invalid
-}
-
 static char *MapNextLanguageFile (int resourceid)
 {
-	wchar_t f[TC_MAX_PATH*2], *t;
-	WIN32_FIND_DATAW find;
-	HANDLE file;
-	DWORD read;
-	BOOL bStatus;
-	BOOL validFileFound = FALSE;
-
 	/* free memory here to avoid leaks */
 	if (LanguageFileBuffer != NULL)
 	{
@@ -125,83 +85,7 @@ static char *MapNextLanguageFile (int resourceid)
 		LanguageFileBuffer = NULL;
 	}
 
-	if (resourceid == 0)
-	{
-		if (LanguageFileFindHandle == INVALID_HANDLE_VALUE)
-		{
-			GetModuleFileNameW (NULL, f, sizeof (f) / sizeof (f[0]));
-			t = wcsrchr (f, L'\\');
-			if (t == NULL) return NULL;
-
-			*t = 0;
-			StringCbCatW (f, sizeof(f), L"\\Languages\\Language*.xml");
-
-			LanguageFileFindHandle = FindFirstFileW (f, &find);
-		}
-		else if (!FindNextFileW (LanguageFileFindHandle, &find))
-		{
-			FindClose (LanguageFileFindHandle);
-			LanguageFileFindHandle = INVALID_HANDLE_VALUE;
-			return NULL;
-		}
-
-		if (LanguageFileFindHandle == INVALID_HANDLE_VALUE) return NULL;
-		if (find.nFileSizeHigh != 0) return NULL;
-
-        // Validate the file name format
-        while (!validFileFound)
-        {
-            if (!IsValidLanguageFileName(find.cFileName))
-            {
-                if (!FindNextFileW(LanguageFileFindHandle, &find))
-                {
-                    FindClose(LanguageFileFindHandle);
-                    LanguageFileFindHandle = INVALID_HANDLE_VALUE;
-                    return NULL;
-                }
-            }
-            else
-            {
-                validFileFound = TRUE;
-            }
-        }
-
-		LanguageFileBuffer = malloc(find.nFileSizeLow + 1);
-		if (LanguageFileBuffer == NULL) return NULL;
-
-		GetModuleFileNameW (NULL, f, sizeof (f) / sizeof(f[0]));
-		t = wcsrchr (f, L'\\');
-		if (t == NULL)
-		{
-			free(LanguageFileBuffer);
-			LanguageFileBuffer = NULL;
-			return NULL;
-		}
-
-		t[1] = 0;
-		StringCbCatW (f, sizeof(f), L"Languages\\");
-		StringCbCatW (f, sizeof(f),find.cFileName);
-
-		file = CreateFileW (f, GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, NULL);
-		if (file == INVALID_HANDLE_VALUE)
-		{
-			free(LanguageFileBuffer);
-			LanguageFileBuffer = NULL;
-			return NULL;
-		}
-
-		bStatus = ReadFile (file, LanguageFileBuffer, find.nFileSizeLow, &read, NULL);
-		CloseHandle (file);
-		if (!bStatus || (read != find.nFileSizeLow))
-		{
-			free(LanguageFileBuffer);
-			LanguageFileBuffer = NULL;
-			return NULL;
-		}
-
-		LanguageFileBuffer [find.nFileSizeLow] = 0; // we have allocated (find.nFileSizeLow + 1) bytes
-	}
-	else if (LanguageResourceId != resourceid)
+	if (resourceid != 0 && LanguageResourceId != resourceid)
 	{
 		DWORD size;
 
@@ -260,9 +144,6 @@ static BOOL LoadLanguageData (int resourceid, BOOL bForceSetPreferredLanguage, B
 	ActiveLangPackVersion[0] = 0;
 	ClearDictionaryPool ();
 	LanguageResource = NULL;
-
-	if ((resourceid == 0) && (PreferredLangId[0] != 0))
-		StringCbCopyA (langId, sizeof(langId), PreferredLangId);
 
 	// Parse all available language files until preferred language is found
 	for (res = MapFirstLanguageFile (); res != NULL; res = MapNextLanguageFile (resourceid))

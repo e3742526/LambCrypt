@@ -1,14 +1,14 @@
-This archive contains the source code of VeraCrypt.
-It is based on the original TrueCrypt 7.1a with security enhancements and modifications.
+# LambCrypt
 
-# Important
+LambCrypt is an independently maintained disk-encryption fork of [VeraCrypt](https://github.com/veracrypt/VeraCrypt).
 
-You may use the source code contained in this archive only if you accept and
-agree to the license terms contained in the file 'License.txt', which is
-included in this archive.
+Based on TrueCrypt, freely available at [http://www.truecrypt.org/](http://www.truecrypt.org/).
 
-Note that the license specifies, for example, that a derived work must not be
-called 'TrueCrypt' or 'VeraCrypt'
+The Unix command is `lambcrypt`. The macOS application is `LambCrypt.app`.
+The app and bundled documentation are in English. Existing VeraCrypt containers keep their original format. See [Upstream and compatibility](UPSTREAM.md)
+for the inherited components and identifiers.
+
+[Documentation](doc/html/en/Documentation.html) · [Report an issue](https://github.com/e3742526/LambCrypt/issues) · [License](License.txt)
 
 # Contents
 
@@ -26,11 +26,11 @@ called 'TrueCrypt' or 'VeraCrypt'
 
 # I. Windows
 
-## Requirements for Building VeraCrypt for Windows:
+## Inherited Windows build and signing instructions
 
-A detailed guide on how to build VeraCrypt on Windows can be found in
-the [documentation](./doc/html/en/CompilingGuidelineWin.html) in the repository and
-it is also available [online](https://veracrypt.jp/en/CompilingGuidelineWin.html) or on the [mirror](https://veracrypt.io/en/CompilingGuidelineWin.html).
+The Windows source includes inherited VeraCrypt driver, installer and boot
+components. See the [upstream Windows build guide](./doc/html/en/CompilingGuidelineWin.html)
+for the original toolchain and signing requirements.
 
 IMPORTANT:
 
@@ -53,7 +53,7 @@ the compiler, or if you install a different or no service pack for Visual
 Studio, or different hotfixes for it, or if you use different versions of
 the required SDKs).
 
-## Instructions for Signing and Packaging VeraCrypt for Windows:
+## Upstream Windows signing and packaging
 
 First, create an environment variable 'WSDK81' pointing to the Windows SDK
 for Windows 8.1 installation directory.
@@ -70,18 +70,16 @@ To generate MSI packages, WiX Toolset v3.11 must be installed.
 
 ## VeraCrypt EFI Boot Loader:
 
-VeraCrypt source code contains pre-built EFI binaries under src\Boot\EFI.
+This repository contains upstream pre-built EFI binaries under src\Boot\EFI.
 The source code of VeraCrypt EFI Boot Loader is licensed under LGPL and
 it is available at https://github.com/veracrypt/VeraCrypt-DCS.
 For build instructions, please refer to the file src\Boot\EFI\Readme.txt.
 
 # II. Linux and Mac OS X
 
-A detailed guide on how to build VeraCrypt on Linux can be found in
-the [documentation](./doc/html/en/CompilingGuidelineLinux.html) in the repository and
-it is also available [online](https://veracrypt.jp/en/CompilingGuidelineLinux.html) or on the [mirror](https://veracrypt.io/en/CompilingGuidelineLinux.html).
+See the [Linux build guide](./doc/html/en/CompilingGuidelineLinux.html) for dependencies and build commands.
 
-## Requirements for Building VeraCrypt for Linux and Mac OS X:
+## Requirements for Building LambCrypt for Linux and Mac OS X:
 
 - GNU Make
 - GNU C++ Compiler 4.0 or compatible
@@ -94,12 +92,12 @@ it is also available [online](https://veracrypt.jp/en/CompilingGuidelineLinux.ht
   and https://macfuse.github.io/)
 - PCSC-lite library and header files (available at https://github.com/LudovicRousseau/PCSC)
 
-## Instructions for Building VeraCrypt for Linux and Mac OS X:
+## Instructions for Building LambCrypt for Linux and Mac OS X:
 
-1. Change the current directory to the root of the VeraCrypt source code.
+1. Run `cd src` from the checkout root.
 
 2. If you have no wxWidgets shared library installed, run the following
-   command to configure the wxWidgets static library for VeraCrypt and to
+   command to configure the wxWidgets static library for LambCrypt and to
    build it:
 
    `$ make WXSTATIC=1 WX_ROOT=/usr/src/wxWidgets wxbuild`
@@ -108,7 +106,7 @@ it is also available [online](https://veracrypt.jp/en/CompilingGuidelineLinux.ht
    wxWidgets library. Output files will be placed in the './wxrelease/'
    directory.
 
-3. To build VeraCrypt, run the following command:
+3. To build LambCrypt, run the following command:
 
    `$ make`
 
@@ -116,15 +114,15 @@ it is also available [online](https://veracrypt.jp/en/CompilingGuidelineLinux.ht
 
    `$ make WXSTATIC=1`
 
-4. If successful, the VeraCrypt executable should be located in the directory
-   'Main'.
+4. If successful, the LambCrypt executable should be located in the directory
+   `src/Main` as `lambcrypt` on Linux and BSD or `LambCrypt` on macOS.
 
 Reproducible build note: when `SOURCE_DATE_EPOCH` is not set, a build from a
 git checkout uses the HEAD commit timestamp, while a build from a release
 tarball uses the release date in `src/Common/Tcdefs.h` at 00:00 UTC. To
 reproduce official release artifacts from a git checkout, set
 `SOURCE_DATE_EPOCH` explicitly or build from the release tarball. Vendored
-VeraCrypt sources tracked in another git checkout are treated the same way and
+LambCrypt sources tracked in another git checkout are treated the same way and
 use that checkout's HEAD timestamp.
 
 Both the generated `.deb` and `.rpm` packages are reproducible, including with
@@ -156,7 +154,7 @@ in the environment when running makepkg:
 `$ INDICATOR=1 makepkg -si`
 
 This adds `libayatana-appindicator` to the package dependencies and passes
-`INDICATOR=1` to the VeraCrypt build. Leave the variable unset or set it to `0`
+`INDICATOR=1` to the LambCrypt build. Leave the variable unset or set it to `0`
 to disable support. If a package has already been built, add `-f` to rebuild it.
 The [Ayatana package](https://archlinux.org/packages/extra/x86_64/libayatana-appindicator/)
 provides both the development files and the runtime library.
@@ -183,7 +181,7 @@ Ayatana AppIndicator support in the GUI package:
 
 Both scripts accept the same options and build GUI and console packages with
 static wxWidgets libraries. They expect the wxWidgets 3.2.5 sources in a
-directory named `wxWidgets-3.2.5` next to the VeraCrypt checkout or in `/tmp`,
+directory named `wxWidgets-3.2.5` next to the LambCrypt checkout or in `/tmp`,
 along with the usual build dependencies, CMake and `rpmbuild`.
 
 The build selects GTK3 when `pkg-config` finds `gtk+-3.0`, and GTK2 otherwise.
@@ -235,10 +233,9 @@ You also need system dependencies
 
 After installing dependencies via brew, you can build a local development build
 
-`$ ./src/Build/build_veracrypt_macosx.sh -b`
+`$ ./src/Build/build_lambcrypt_macosx.sh -b`
 
-If you want to build the package, you must pass `-p` to the build script above. The built
-executable will be in `.src/Main`
+If you want to build the package, you must pass `-p` to the build script above. The app bundle is written to `src/Main/LambCrypt.app`.
 
 If you prefer to build from sources, or without homebrew, pkg-config and packages must be installed.
 
@@ -254,23 +251,22 @@ compile using the following commands:
 After making sure pkg-config is available, download and install macFUSE from
 https://macfuse.github.io/
 
-The [build_veracrypt_macosx.sh](./src/Build/build_veracrypt_macosx.sh) script performs the
-full build of VeraCrypt including the creation of the installer pkg. It expects
-to find the wxWidgets 3.2.5 sources at the same level as where you put
-VeraCrypt sources (i.e. if "src" path is "/Users/joe/Projects/VeraCrypt/src"
-then wxWidgets should be at "/Users/joe/Projects/wxWidgets-3.2.5")
+The [build_lambcrypt_macosx.sh](./src/Build/build_lambcrypt_macosx.sh) script performs the
+full build of LambCrypt including the creation of the installer pkg. It expects
+to find the wxWidgets sources at the same level as where you put
+LambCrypt sources (i.e. if "src" path is "/Users/joe/Projects/LambCrypt/src"
+then wxWidgets should be at "/Users/joe/Projects/wxWidgets-3.2.10" by default)
 
-The make build process uses Code Signing certificates whose ID is specified in
-src/Main/Main.make (look for lines containing "Developer ID Application" and
-"Developer ID Installer"). You'll have to modify these lines to put the ID of
-your Code Signing certificates or comment them out if you don't have one.
+Local development builds can be prepared without Developer ID certificates.
+For signed builds, set `VC_APP_SIGN_IDENTITY` and `VC_INSTALLER_SIGN_IDENTITY` to
+your signing identities. The notarization script also requires `VC_SIGN_TEAM_ID`
+and a configured `VC_NOTARY_PROFILE`.
 
 Because of incompatibility issues with macFUSE, the SDK 10.9 generates a
-VeraCrypt binary that has issues communicating with the macFUSE kernel extension.
-Thus, we recommend using a different macOS SDK version for building VeraCrypt.
+LambCrypt binary that has issues communicating with the macFUSE kernel extension.
+Thus, we recommend using a different macOS SDK version for building LambCrypt.
 
-The Packages installer that is used for the VeraCrypt official build has been notarized by IDRIX and it is available at
-https://github.com/idrassi/packages/releases
+The macOS Package build can use the upstream-maintained [Packages tool](https://github.com/idrassi/packages/releases).
 
 # III. FreeBSD and OpenBSD
 
@@ -281,22 +277,15 @@ should be used instead of make.
 
 # IV. Third-Party Developers (Contributors)
 
-If you intend to implement a feature, please contact us first to make sure:
-
-1. That the feature has not been implemented (we may have already implemented
-   it, but haven't released the code yet).
-2. That the feature is acceptable.
-3. Whether we need the help of third-party developers with implementing the feature.
-
-Information on how to contact us can be found at:
-https://veracrypt.jp or
-https://veracrypt.io (mirror)
+Use the [LambCrypt issue tracker](https://github.com/e3742526/LambCrypt/issues) to report bugs or discuss changes.
+Submit pull requests against `main`.
 
 # V. Legal Information
 
 ## Copyright Information
 
-This software as a whole:  
+Upstream VeraCrypt copyright notice
+
 Copyright (c) 2026 AM Crypto. All rights reserved.  
 
 Portions of this software:  
@@ -323,5 +312,6 @@ documentation, are the sole property of their respective owners.
 
 # VI. Further Information
 
-https://veracrypt.jp  
-https://veracrypt.io (mirror)
+- [LambCrypt releases](https://github.com/e3742526/LambCrypt/releases)
+- [Upstream VeraCrypt documentation](https://veracrypt.jp/en/Documentation.html)
+- [Upstream attribution and compatibility](UPSTREAM.md)

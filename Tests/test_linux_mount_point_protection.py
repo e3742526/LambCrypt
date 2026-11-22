@@ -50,7 +50,7 @@ def text(result):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--veracrypt",
-                        default=shutil.which("veracrypt") or "veracrypt")
+                        default=shutil.which("lambcrypt") or "lambcrypt")
     args = parser.parse_args()
     if os.geteuid() != 0:
         sys.exit("Run as root: the test mounts volumes")

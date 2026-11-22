@@ -1,8 +1,8 @@
 # OpenWrt packaging
 
 This directory contains the canonical OpenWrt package template and local test
-configuration for building VeraCrypt console-only with the OpenWrt SDK.
-It is a maintainer build-and-test harness for the VeraCrypt working tree, not
+configuration for building LambCrypt console-only with the OpenWrt SDK.
+It is a maintainer build-and-test harness for the LambCrypt working tree, not
 an OpenWrt packages-feed submission recipe.
 
 The current supported target is `x86/64`, matching the QEMU runtime smoke test.
@@ -20,25 +20,25 @@ The build uses:
 
 The package installs only:
 
-- `/usr/bin/veracrypt`
-- `/sbin/mount.veracrypt`
-- `/usr/share/licenses/veracrypt/License.txt`
+- `/usr/bin/lambcrypt`
+- `/sbin/mount.lambcrypt`
+- `/usr/share/licenses/lambcrypt/License.txt`
 
-`mount.veracrypt` is a POSIX shell script and runs with BusyBox `ash`, so the
+`mount.lambcrypt` is a POSIX shell script and runs with BusyBox `ash`, so the
 package does not depend on `bash`.
 
 ## Build
 
-From the VeraCrypt checkout root:
+From the LambCrypt checkout root:
 
 ```sh
-src/Build/build_veracrypt_openwrt.sh
+src/Build/build_lambcrypt_openwrt.sh
 ```
 
 The script downloads and verifies the OpenWrt SDK against a pinned SHA-256 for
 the supported release/target, downloads and verifies wxWidgets 3.2.10, installs
 the required OpenWrt feeds, renders
-`package/utils/veracrypt/Makefile` inside the SDK, builds the `.ipk`, and
+`package/utils/lambcrypt/Makefile` inside the SDK, builds the `.ipk`, and
 also builds the local userland `fuse3`, `util-linux`, and `lvm2` feed
 packages used by the QEMU runtime test. Kernel modules for the stock OpenWrt
 image are resolved by the test from the official OpenWrt kmod feed for the
@@ -47,17 +47,17 @@ selected release and target.
 Default output location:
 
 ```text
-../openwrt-veracrypt/openwrt-sdk-24.10.6-x86-64_gcc-13.3.0_musl.Linux-x86_64/bin/packages/x86_64/base/veracrypt_<version>-r1_x86_64.ipk
+../openwrt-lambcrypt/openwrt-sdk-24.10.6-x86-64_gcc-13.3.0_musl.Linux-x86_64/bin/packages/x86_64/base/lambcrypt_<version>-r1_x86_64.ipk
 ```
 
 Useful options:
 
 ```sh
-src/Build/build_veracrypt_openwrt.sh --fresh-sdk
-src/Build/build_veracrypt_openwrt.sh --work-dir /tmp/veracrypt-openwrt
-src/Build/build_veracrypt_openwrt.sh --sdk-dir /path/to/openwrt-sdk
-src/Build/build_veracrypt_openwrt.sh --sdk-url URL --sdk-sha256 HASH
-src/Build/build_veracrypt_openwrt.sh --wx-version 3.2.10
+src/Build/build_lambcrypt_openwrt.sh --fresh-sdk
+src/Build/build_lambcrypt_openwrt.sh --work-dir /tmp/lambcrypt-openwrt
+src/Build/build_lambcrypt_openwrt.sh --sdk-dir /path/to/openwrt-sdk
+src/Build/build_lambcrypt_openwrt.sh --sdk-url URL --sdk-sha256 HASH
+src/Build/build_lambcrypt_openwrt.sh --wx-version 3.2.10
 ```
 
 Custom SDK URLs or unsupported OpenWrt release/target combinations must pass
@@ -79,8 +79,8 @@ sudo apt install qemu-system-x86
 Then run:
 
 ```sh
-python3 src/Build/test_veracrypt_openwrt_qemu.py \
-  --ipk ../openwrt-veracrypt/openwrt-sdk-24.10.6-x86-64_gcc-13.3.0_musl.Linux-x86_64/bin/packages/x86_64/base/veracrypt_<version>-r1_x86_64.ipk
+python3 src/Build/test_lambcrypt_openwrt_qemu.py \
+  --ipk ../openwrt-lambcrypt/openwrt-sdk-24.10.6-x86-64_gcc-13.3.0_musl.Linux-x86_64/bin/packages/x86_64/base/lambcrypt_<version>-r1_x86_64.ipk
 ```
 
 The test script downloads and verifies the matching OpenWrt x86/64 ext4 image,
@@ -91,13 +91,13 @@ serves those packages to the guest, and installs them with `opkg`. It verifies
 that Bash is unavailable, then runs:
 
 ```sh
-veracrypt --text --version
-veracrypt --text --test
+lambcrypt --text --version
+lambcrypt --text --test
 ```
 
 By default it also creates a 16 MiB AES/SHA-512 test container, opens it with
-`--filesystem=none`, verifies it appears in `veracrypt --text --list`, and
-unmounts it. It repeats the mount/list/unmount check through `mount.veracrypt`.
+`--filesystem=none`, verifies it appears in `lambcrypt --text --list`, and
+unmounts it. It repeats the mount/list/unmount check through `mount.lambcrypt`.
 The test password must not contain commas because the helper uses comma-separated
 options. Use `--skip-container` to run only the package install, Bash absence,
 version, and algorithm self-test path.
@@ -107,10 +107,10 @@ and firmware directory explicitly:
 
 ```sh
 LD_LIBRARY_PATH=/path/to/qemu-libs \
-python3 src/Build/test_veracrypt_openwrt_qemu.py \
+python3 src/Build/test_lambcrypt_openwrt_qemu.py \
   --qemu /path/to/qemu-system-x86_64 \
   --qemu-data-dir /path/to/pc-bios \
-  --ipk /path/to/veracrypt_<version>-r1_x86_64.ipk
+  --ipk /path/to/lambcrypt_<version>-r1_x86_64.ipk
 ```
 
 The runner defaults to one QEMU vCPU because TCG with multiple vCPUs can
@@ -119,7 +119,7 @@ The runner does not require external package feed access from the guest; all
 runtime packages are served over the host-to-guest QEMU user-networking link.
 Local userland packages come from the SDK `bin/` directory, while stock-image
 kmods are downloaded by the host from the official OpenWrt kmod feed and staged
-locally. If the VeraCrypt `.ipk` is not below the SDK `bin/` directory, pass
+locally. If the LambCrypt `.ipk` is not below the SDK `bin/` directory, pass
 `--package-bin-dir /path/to/sdk/bin`.
 
 For custom images whose kernel does not match the official release feed, pass
@@ -129,12 +129,12 @@ kmods from `--package-bin-dir`.
 The test log is written to:
 
 ```text
-../openwrt-veracrypt/openwrt-qemu-test.log
+../openwrt-lambcrypt/openwrt-qemu-test.log
 ```
 
 ## Runtime Packages
 
-The VeraCrypt package itself declares the direct userland dependencies using
+The LambCrypt package itself declares the direct userland dependencies using
 OpenWrt package symbols:
 
 - `libstdcpp`

@@ -32,7 +32,6 @@ static wchar_t *szFiles[]=
 	L"Averacrypt.sys",
 	L"Dveracrypt.sys",
 	L"AVeraCrypt Setup.exe",
-	L"XLanguages.zip",
 	L"Xdocs.zip",
 };
 
@@ -53,7 +52,6 @@ static wchar_t *szCompressedFiles[]=
 	L"veracrypt-x64.sys",
 	L"veracrypt-arm64.cat",
 	L"veracrypt-arm64.sys",
-	L"Languages.zip",
 	L"docs.zip"
 };
 

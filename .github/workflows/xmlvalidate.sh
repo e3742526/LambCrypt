@@ -26,8 +26,8 @@ log_detail_magenta() { echo -e "    ${COLOR_MAGENTA}$1${COLOR_RESET}"; }
 
 # --- Parameter Validation ---
 if [ "$#" -ne 1 ]; then
-    log_error "Usage: $SCRIPT_NAME <Path_To_VeraCrypt_Root>"
-    log_error "Example: $SCRIPT_NAME /path/to/VeraCrypt"
+    log_error "Usage: $SCRIPT_NAME <Path_To_LambCrypt_Root>"
+    log_error "Example: $SCRIPT_NAME /path/to/LambCrypt"
     exit 1
 fi
 
@@ -85,7 +85,7 @@ FILES_TO_PROCESS=()
 FILES_TO_PROCESS+=("$COMMON_FILE")
 
 if [ ! -d "$TRANSLATION_FOLDER" ]; then
-    log_warning "Translations folder not found at path: $TRANSLATION_FOLDER. Skipping translation files."
+    log_info "Validating the built-in English strings."
 else
     # Use find to get translation files. nullglob helps avoid errors if no files match.
     shopt -s nullglob
