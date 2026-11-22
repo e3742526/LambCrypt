@@ -26,7 +26,7 @@ rm -fr /usr/share/lambcrypt || removal_failed
 rm -fr /usr/share/doc/lambcrypt || removal_failed
 rm -f /usr/local/share/icons/hicolor/scalable/apps/lambcrypt.svg || removal_failed
 rm -f /usr/local/share/icons/hicolor/symbolic/apps/lambcrypt-symbolic.svg || removal_failed
-for res in 16 22 24 32 48 64 256 512 1024; do \
+for res in 16 22 24 32 48 64 128 256 512 1024; do \
 		rm -f /usr/local/share/icons/hicolor/${res}x${res}/apps/lambcrypt.png || removal_failed ;\
 done
 gtk-update-icon-cache -q -t -f /usr/local/share/icons/hicolor >/dev/null 2>&1 || true

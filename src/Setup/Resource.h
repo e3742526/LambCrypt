@@ -17,7 +17,6 @@
 #define IDD_WIZARD_MODE_PAGE_DLG        112
 #define IDD_PROGRESS_PAGE_DLG           113
 #define IDD_DONATIONS_PAGE_DLG          114
-#define IDD_INSTALL_LANGUAGE            115
 #define IDC_DESTINATION                 1000
 #define IDC_BOX_TITLE                   1001
 #define IDC_BROWSE                      1002
@@ -51,8 +50,6 @@
 #define IDC_BITMAP_SETUP_WIZARD         1030
 #define IDC_MAIN_CONTENT_CANVAS         1031
 #define IDC_DONATE                      1032
-#define IDC_LANGUAGES_LIST              1033
-#define IDC_SELECT_LANGUAGE_LABEL       1034
 #define IDC_DISABLE_SCREEN_PROTECTION   1181
 
 // Next default values for new objects

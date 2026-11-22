@@ -5,7 +5,8 @@ LambCrypt is an independently maintained disk-encryption fork of [VeraCrypt](htt
 Based on TrueCrypt, freely available at [http://www.truecrypt.org/](http://www.truecrypt.org/).
 
 The Unix command is `lambcrypt`. The macOS application is `LambCrypt.app`.
-The app and bundled documentation are in English. Existing VeraCrypt containers keep their original format. See [Upstream and compatibility](UPSTREAM.md)
+English is the only supported language for the application, installers, and bundled documentation.
+Existing VeraCrypt containers keep their original format. See [Upstream and compatibility](UPSTREAM.md)
 for the inherited components and identifiers.
 
 [Documentation](doc/html/en/Documentation.html) · [Report an issue](https://github.com/e3742526/LambCrypt/issues) · [License](License.txt)

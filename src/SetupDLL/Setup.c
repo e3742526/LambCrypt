@@ -813,10 +813,6 @@ void Applink_Dll (MSIHANDLE hInstaller, const char *dest)
 		StringCbCopyW (url, sizeof (url), TC_HOMEPAGE);
 		buildUrl = FALSE;
 	}
-	else if (strcmp(dest,"localizations") == 0)
-	{
-		StringCbCopyW (page, sizeof (page),L"Language%20Packs.html");
-	}
 	else if (strcmp(dest, "beginnerstutorial") == 0 || strcmp(dest,"tutorial") == 0)
 	{
 		StringCbCopyW (page, sizeof (page),L"Beginner%27s%20Tutorial.html");
@@ -2076,8 +2072,7 @@ end:
 /* 
  * Same as Setup.c, function InitApp(), but 
  * replaced unnecessary calls,
- * forced english as language,
- * replaced LoadLanguageFile() with LoadLanguageFromResource() to be able to set bForceSilent.
+ * loads the embedded English strings with silent error handling.
  */
 BOOL InitDll (MSIHANDLE hInstaller)
 {
@@ -2091,10 +2086,8 @@ BOOL InitDll (MSIHANDLE hInstaller)
 	SetErrorMode (SetErrorMode (0) | SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX);
 	CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
 
-	// Force language to english to read strings from the default Language.xml embedded in the DLL.
-	SetPreferredLangId ("en");
 	bUserSetLanguage = TRUE;
-	LoadLanguageFromResource (0, FALSE, TRUE);
+	LoadLanguageFile (TRUE);
 
 	SetUnhandledExceptionFilter (ExceptionHandler);
 	_set_invalid_parameter_handler (InvalidParameterHandler);

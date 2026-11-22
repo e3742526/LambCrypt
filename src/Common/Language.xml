@@ -224,7 +224,6 @@
     <entry lang="en" key="IDM_HOMEPAGE">&amp;Homepage </entry>
     <entry lang="en" key="IDM_HOTKEY_SETTINGS">Hot Keys…</entry>
     <entry lang="en" key="IDM_KEYFILE_GENERATOR">Keyfile Generator</entry>
-    <entry lang="en" key="IDM_LANGUAGE">Language…</entry>
     <entry lang="en" key="IDM_LICENSE">Legal Notices</entry>
     <entry lang="en" key="IDM_MANAGE_TOKEN_KEYFILES">Manage Security Token Keyfiles…</entry>
     <entry lang="en" key="IDM_MOUNTALL">Auto-Mount All Device-Hosted Volumes</entry>
@@ -311,7 +310,6 @@
     <entry lang="en" key="IDC_EXPORT">&amp;Export…</entry>
     <entry lang="en" key="IDC_GENERATE_AND_SAVE_KEYFILE">Generate and Save Keyfile…</entry>
     <entry lang="en" key="IDC_GENERATE_KEYFILE">&amp;Generate Random Keyfile…</entry>
-    <entry lang="en" key="IDC_GET_LANG_PACKS">Download language pack</entry>
     <entry lang="en" key="IDC_HW_AES_LABEL_LINK">Hardware-accelerated AES:</entry>
     <entry lang="en" key="IDC_IMPORT_KEYFILE">&amp;Import Keyfile to Token…</entry>
     <entry lang="en" key="IDC_KEYADD">Add &amp;Files…</entry>
@@ -338,7 +336,6 @@
     <entry lang="en" key="IDD_COMMANDHELP_DLG">Command Line Help</entry>
     <entry lang="en" key="IDD_KEYFILES">LambCrypt - Keyfiles</entry>
     <entry lang="en" key="IDD_KEYFILE_GENERATOR">LambCrypt - Keyfile Generator</entry>
-    <entry lang="en" key="IDD_LANGUAGE">LambCrypt - Language</entry>
     <entry lang="en" key="IDD_MOUNT_OPTIONS">LambCrypt - Mount Options</entry>
     <entry lang="en" key="IDD_NEW_TOKEN_KEYFILE">New Security Token Keyfile Properties</entry>
     <entry lang="en" key="IDD_RANDOM_POOL_ENRICHMENT">LambCrypt - Random Pool Enrichment</entry>
@@ -346,7 +343,6 @@
     <entry lang="en" key="IDD_STATIC_MODELESS_WAIT_DLG">LambCrypt</entry>
     <entry lang="en" key="IDD_TOKEN_KEYFILES">Security Token Keyfiles</entry>
     <entry lang="en" key="IDD_TOKEN_PASSWORD">Security token password/PIN required</entry>
-    <entry lang="en" key="IDT_ACTIVE_LANG_PACK">Active language pack</entry>
     <entry lang="en" key="IDT_BOX_BENCHMARK_INFO">Speed is affected by CPU load and storage device characteristics.\n\nThese tests take place in RAM.</entry>
     <entry lang="en" key="IDT_BUFFER_SIZE">Buffer Size:</entry>
     <entry lang="en" key="IDT_CIPHER">Cipher:</entry>
@@ -359,7 +355,6 @@
     <entry lang="en" key="IDT_NUMBER_KEYFILES">Number of keyfiles:</entry>
     <entry lang="en" key="IDT_KEYFILES_SIZE">Keyfiles size:</entry>
     <entry lang="en" key="IDT_KEYFILES_BASE_NAME">Keyfiles base name:</entry>
-    <entry lang="en" key="IDT_LANGPACK_AUTHORS">Translated by:</entry>
     <entry lang="en" key="IDT_PLAINTEXT">Plaintext size:</entry>
     <entry lang="en" key="IDT_PLAINTEXT_SIZE_UNIT">bits</entry>
     <entry lang="en" key="IDT_POOL_CONTENTS">Current Pool Content</entry>
@@ -523,7 +518,7 @@
     <entry lang="en" key="HIDDEN_VOL_WIZARD_MODE_DIRECT_HELP">If you select this option, you will create a hidden volume within an existing LambCrypt volume. It will be assumed that you have already created a LambCrypt volume that is suitable to host the hidden volume.</entry>
     <entry lang="en" key="HIDDEN_VOL_WIZARD_MODE_TITLE">Volume Creation Mode</entry>
     <entry lang="en" key="HIDVOL_FORMAT_FINISHED_TITLE">Hidden Volume Created</entry>
-    <entry lang="en" key="HIDVOL_FORMAT_FINISHED_HELP">The hidden LambCrypt volume has been successfully created and is ready for use. If all the instructions have been followed and if the precautions and requirements listed in the section "Security Requirements and Precautions Pertaining to Hidden Volumes" in the LambCrypt User's Guide are followed, it should be impossible to prove that the hidden volume exists, even when the outer volume is mounted.\n\nWARNING: IF YOU DO NOT PROTECT THE HIDDEN VOLUME (FOR INFORMATION ON HOW TO DO SO, REFER TO THE SECTION "PROTECTION OF HIDDEN VOLUMES AGAINST DAMAGE" IN THE VERACRYPT USER'S GUIDE), DO NOT WRITE TO THE OUTER VOLUME. OTHERWISE, YOU MAY OVERWRITE AND DAMAGE THE HIDDEN VOLUME!</entry>
+    <entry lang="en" key="HIDVOL_FORMAT_FINISHED_HELP">The hidden LambCrypt volume has been successfully created and is ready for use. If all the instructions have been followed and if the precautions and requirements listed in the section "Security Requirements and Precautions Pertaining to Hidden Volumes" in the LambCrypt User's Guide are followed, it should be impossible to prove that the hidden volume exists, even when the outer volume is mounted.\n\nWARNING: IF YOU DO NOT PROTECT THE HIDDEN VOLUME (FOR INFORMATION ON HOW TO DO SO, REFER TO THE SECTION "PROTECTION OF HIDDEN VOLUMES AGAINST DAMAGE" IN THE LAMBCRYPT USER'S GUIDE), DO NOT WRITE TO THE OUTER VOLUME. OTHERWISE, YOU MAY OVERWRITE AND DAMAGE THE HIDDEN VOLUME!</entry>
     <entry lang="en" key="FIRST_HIDDEN_OS_BOOT_INFO">You have started the hidden operating system. As you may have noticed, the hidden operating system appears to be installed on the same partition as the original operating system. However, in reality, it is installed within the partition behind it (in the hidden volume). All read and write operations are being transparently redirected from the original system partition to the hidden volume.\n\nNeither the operating system nor applications will know that data written to and read from the system partition are actually written to and read from the partition behind it (from/to a hidden volume). Any such data is encrypted and decrypted on the fly as usual (with an encryption key different from the one that will be used for the decoy operating system).\n\n\nPlease click Next to continue.</entry>
     <entry lang="en" key="HIDVOL_HOST_FILLING_HELP_SYSENC">The outer volume has been created and mounted as drive %hc:. To this outer volume you should now copy some sensitive-looking files that you actually do NOT want to hide. They will be there for anyone forcing you to disclose the password for the first partition behind the system partition, where both the outer volume and the hidden volume (containing the hidden operating system) will reside. You will be able to reveal the password for this outer volume, and the existence of the hidden volume (and of the hidden operating system) will remain secret.\n\nIMPORTANT: The files you copy to the outer volume should not occupy more than %s. Otherwise, there may not be enough free space on the outer volume for the hidden volume (and you will not be able to continue). After you finish copying, click Next (do not unmount the volume).</entry>
     <entry lang="en" key="HIDVOL_HOST_FILLING_HELP">Outer volume has been successfully created and mounted as drive %hc:. To this volume you should now copy some sensitive-looking files that you actually do NOT want to hide. The files will be there for anyone forcing you to disclose your password. You will reveal only the password for this outer volume, not for the hidden one. The files that you really care about will be stored in the hidden volume, which will be created later on. When you finish copying, click Next. Do not unmount the volume.\n\nNote: After you click Next, cluster bitmap of the outer volume will be scanned to determine the size of uninterrupted area of free space whose end is aligned with the end of the volume. This area will accommodate the hidden volume, so it will limit its maximum possible size. Cluster bitmap scanning ensures that no data on the outer volume are overwritten by the hidden volume.</entry>
@@ -596,7 +591,7 @@
     <entry lang="en" key="SELECT_PKCS11_MODULE">Select PKCS #11 Library</entry>
     <entry lang="en" key="OUTOFMEMORY">Out of Memory</entry>
     <entry lang="en" key="FORMAT_DEVICE_FOR_ADVANCED_ONLY">IMPORTANT: We strongly recommend that inexperienced users create a LambCrypt file container on the selected device/partition, instead of attempting to encrypt the entire device/partition.\n\nWhen you create a LambCrypt file container (as opposed to encrypting a device or partition) there is, for example, no risk of destroying a large number of files. Note that a LambCrypt file container (even though it contains a virtual encrypted disk) is actually just like any normal file. For more information, see the chapter Beginner's Tutorial in the LambCrypt User Guide.\n\nAre you sure you want to encrypt the entire device/partition?</entry>
-    <entry lang="en" key="OVERWRITEPROMPT">WARNING: The file '%s' already exists!\n\nIMPORTANT: VERACRYPT WILL NOT ENCRYPT THE FILE, BUT IT WILL DELETE IT. Are you sure you want to delete the file and replace it with a new LambCrypt container?</entry>
+    <entry lang="en" key="OVERWRITEPROMPT">WARNING: The file '%s' already exists!\n\nIMPORTANT: LAMBCRYPT WILL NOT ENCRYPT THE FILE, BUT IT WILL DELETE IT. Are you sure you want to delete the file and replace it with a new LambCrypt container?</entry>
     <entry lang="en" key="OVERWRITEPROMPT_DEVICE">CAUTION: ALL FILES CURRENTLY STORED ON THE SELECTED %s '%s'%s WILL BE ERASED AND LOST (THEY WILL NOT BE ENCRYPTED)!\n\nAre you sure you want to proceed with format?</entry>
     <entry lang="en" key="NONSYS_INPLACE_ENC_CONFIRM">WARNING: You will not be able to mount the volume or access any files stored on it until it has been fully encrypted.\n\nAre you sure you want to start encrypting the selected %s '%s'%s?</entry>
     <entry lang="en" key="NONSYS_INPLACE_DEC_CONFIRM">WARNING: You will not be able to mount the volume or access any files stored on it until it has been fully decrypted.\n\nAre you sure you want to start decrypting the selected %s '%s'%s?</entry>
@@ -854,7 +849,7 @@
     <entry lang="en" key="TC_INSTALLER_IS_RUNNING">LambCrypt Installer is currently running on this system and performing or preparing installation or update of LambCrypt. Before you proceed, please wait for it to finish or close it. If you cannot close it, please restart your computer before proceeding.</entry>
     <entry lang="en" key="INSTALL_FAILED">Installation failed.</entry>
     <entry lang="en" key="UNINSTALL_FAILED">Uninstallation failed.</entry>
-    <entry lang="en" key="DIST_PACKAGE_CORRUPTED">This distribution package is damaged. Please try downloading it again (preferably from the official LambCrypt website at https://veracrypt.jp).</entry>
+    <entry lang="en" key="DIST_PACKAGE_CORRUPTED">This distribution package is damaged. Please download a fresh copy from LambCrypt Releases (https://github.com/e3742526/LambCrypt/releases).</entry>
     <entry lang="en" key="CANNOT_WRITE_FILE_X">Cannot write file %s</entry>
     <entry lang="en" key="EXTRACTING_VERB">Extracting</entry>
     <entry lang="en" key="CANNOT_READ_FROM_PACKAGE">Cannot read data from the package.</entry>
@@ -1055,7 +1050,6 @@
     <entry lang="en" key="UNEXPECTED_STATE">Error: Unexpected state.\n\n\n(If you report a bug in connection with this, please include the following technical information in the bug report:\n%hs)</entry>
     <entry lang="en" key="NO_SYS_ENC_PROCESS_TO_RESUME">There is no interrupted process of encryption/decryption of the system partition/drive to resume.\n\nNote: If you want to resume an interrupted process of encryption/decryption of a non-system partition/volume, select 'Volumes' &gt; 'Resume Interrupted Process'.</entry>
     <entry lang="en" key="HIDVOL_PROT_BKG_TASK_WARNING">WARNING: LambCrypt Background Task is disabled. After you exit LambCrypt, you will not be notified if damage to hidden volume is prevented.\n\nNote: You may shut down the Background Task anytime by right-clicking the LambCrypt tray icon and selecting 'Exit'.\n\nEnable LambCrypt Background Task?</entry>
-    <entry lang="en" key="LANG_PACK_VERSION">Language pack version:  %s</entry>
     <entry lang="en" key="CHECKING_FS">Checking the file system on the LambCrypt volume mounted as %s…</entry>
     <entry lang="en" key="REPAIRING_FS">Attempting to repair the file system on the LambCrypt volume mounted as %s…</entry>
     <entry lang="en" key="WARN_64_BIT_BLOCK_CIPHER">Warning: This volume is encrypted with a legacy encryption algorithm.\n\nAll 64-bit-block encryption algorithms (e.g., Blowfish, CAST-128, or Triple DES) are deprecated. It will be possible to mount this volume using future versions of LambCrypt. However, there will be no further enhancements to the implementations of these legacy encryption algorithms. We recommend that you create a new LambCrypt volume encrypted with a 128-bit-block encryption algorithm (e.g., AES, Serpent, Twofish, etc.) and that you move all files from this volume to the new volume.</entry>
@@ -1307,7 +1301,7 @@
     <entry lang="en" key="CONFIRM_SETTING_DEGRADES_PERFORMANCE">WARNING: This setting may degrade performance.\n\nAre you sure you want to use this setting?</entry>
     <entry lang="en" key="HOST_DEVICE_REMOVAL_UNMOUNT_WARN_TITLE">Warning: LambCrypt volume auto-unmounted</entry>
     <entry lang="en" key="HOST_DEVICE_REMOVAL_UNMOUNT_WARN">Before you physically remove or turn off a device containing a mounted volume, you should always unmount the volume in LambCrypt first.\n\nUnexpected spontaneous unmount is usually caused by an intermittently failing cable, drive (enclosure), etc.</entry>
-    <entry lang="en" key="UNSUPPORTED_TRUECRYPT_FORMAT">This volume was created with TrueCrypt %x.%x but VeraCrypt supports only TrueCrypt volumes created with TrueCrypt 6.x/7.x series</entry>
+    <entry lang="en" key="UNSUPPORTED_TRUECRYPT_FORMAT">This TrueCrypt %x.%x volume uses an unsupported format.</entry>
     <entry lang="en" key="TEST">Test</entry>
     <entry lang="en" key="KEYFILE">Keyfile</entry>
     <entry lang="en" key="VKEY_08">Backspace</entry>
@@ -1424,7 +1418,6 @@
     <entry lang="en" key="SYSENC_EFI_UNSUPPORTED_SECUREBOOT">It is currently not possible to encrypt a system if SecureBoot is enabled and if VeraCrypt custom keys are not loaded into the machine firmware. SecureBoot needs to be disabled in the BIOS configuration in order to allow system encryption to proceed.</entry>
     <entry lang="en" key="PASSWORD_PASTED_TRUNCATED">Pasted text truncated because the password maximum length is %d characters</entry>
     <entry lang="en" key="PASSWORD_MAXLENGTH_REACHED">Password already reached its maximum length of %d characters.\nNo additional character is allowed.</entry>
-    <entry lang="en" key="IDC_SELECT_LANGUAGE_LABEL">Select the language to use during the installation:</entry>
     <entry lang="en" key="VOLUME_TOO_LARGE_FOR_HOST">ERROR: The size of the file container is larger than the available free space on disk.</entry>
     <entry lang="en" key="IDC_ALLOW_WINDOWS_DEFRAG">Allow Windows Disk Defragmenter to defragment non-system partition/drive</entry>    
     <entry lang="en" key="CONFIRM_ALLOW_WINDOWS_DEFRAG">WARNING: Defragmenting non-system partitions/drives may leak metadata about their content or cause issues with hidden volumes they may contain.\n\nContinue?</entry>

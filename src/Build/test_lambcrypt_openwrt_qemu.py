@@ -738,9 +738,10 @@ def run_guest_tests(args, console, http_port, packages):
             f"-o {quoted_helper_options}",
         ):
             console.run(mount_command, timeout=240)
-            list_output = console.run("lambcrypt --text --list", timeout=120)
-            if "/dev/mapper/lambcrypt" not in list_output:
-                raise TestError("container did not appear in lambcrypt --list output")
+            list_output = console.run("lambcrypt --text --list /tmp/openwrt-test.hc", timeout=120)
+            # The Linux device-mapper prefix is shared with VeraCrypt.
+            if "/dev/mapper/veracrypt" not in list_output:
+                raise TestError("container was not listed with a VeraCrypt-compatible mapper device")
             console.run("lambcrypt --text --unmount /tmp/openwrt-test.hc", timeout=180)
 
 

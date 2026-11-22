@@ -96,7 +96,6 @@
 #define IDM_SELECT_FILE                 40022
 #define IDM_SELECT_DEVICE               40023
 #define IDM_VOLUME_PROPERTIES           40024
-#define IDM_LANGUAGE                    40025
 #define IDM_MOUNT_FAVORITE_VOLUMES      40026
 #define IDM_SAVE_FAVORITE_VOLUMES       40027
 #define IDM_BACKUP_VOL_HEADER           40028

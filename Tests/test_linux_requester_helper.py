@@ -218,7 +218,7 @@ int main (int argc, char **argv)
         catch (const ExternalException &e)
         {
             string text = StringConverter::ToSingle (e.GetSubject());
-            Require (text.find ("Cannot start VeraCrypt's requester-access process (/proc/self/exe)") != string::npos
+            Require (text.find ("Cannot start LambCrypt's requester-access process (/proc/self/exe)") != string::npos
                 && text.find (strerror (ENOENT)) != string::npos, "startup diagnostic lost context or errno");
         }
         std::cout << "PASS exact startup errno, diagnostic, and no fork-only/read-only fallback\n";
@@ -284,7 +284,7 @@ def main():
         parser.error("--user must be unprivileged")
     library = args.build_dir.resolve() / "Platform" / "Platform.a"
     if not library.is_file():
-        parser.error("build VeraCrypt first, or supply --build-dir")
+        parser.error("build LambCrypt first, or supply --build-dir")
     with tempfile.TemporaryDirectory(prefix="vc-requester-helper-") as directory:
         root = Path(directory)
         root.chmod(0o755)

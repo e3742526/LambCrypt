@@ -5735,24 +5735,6 @@ BOOL CALLBACK TravelerDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lPa
 				}
 			}
 
-			if (strcmp (GetPreferredLangId (), "en") != 0)
-			{
-				// Language pack
-				StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\Languages", dstDir);
-				if (!CreateDirectoryW (dstPath, NULL))
-				{
-					handleWin32Error (hwndDlg, SRC_POS);
-					goto stop;
-				}
-				StringCbPrintfW (srcPath, sizeof(srcPath), L"%s\\Languages\\Language.%hs.xml", appDir, GetPreferredLangId ());
-				StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\Languages\\Language.%hs.xml", dstDir, GetPreferredLangId ());
-				if (!TCCopyFile (srcPath, dstPath))
-				{
-					handleWin32Error (hwndDlg, SRC_POS);
-					goto stop;
-				}
-			}
-
 			// AutoRun
 			StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\autorun.inf", dstDir);
 			DeleteFileW (dstPath);
@@ -10105,26 +10087,6 @@ BOOL CALLBACK MainDialogProc (HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPa
 				ShowWaitDialog(hwndDlg, TRUE, RestoreHeaderWaitThreadProc, &threadParam);
 
 				NormalCursor ();
-			}
-			return 1;
-		}
-
-		if (lw == IDM_LANGUAGE)
-		{
-			BOOL p;
-			HWND wndParent = (lParam != 0)? (HWND) lParam : hwndDlg;
-			if (DialogBoxParamW (hInst, MAKEINTRESOURCEW (IDD_LANGUAGE), wndParent,
-				(DLGPROC) LanguageDlgProc, (LPARAM) 0) == IDOK)
-			{
-				LoadLanguageFile ();
-				SaveSettings (hwndDlg);
-
-				p = LocalizationActive;
-				LocalizationActive = TRUE;
-				InitMainDialog (hwndDlg);
-				InvalidateRect (hwndDlg, NULL, FALSE);
-				LocalizationActive = p;
-				DrawMenuBar (hwndDlg);
 			}
 			return 1;
 		}

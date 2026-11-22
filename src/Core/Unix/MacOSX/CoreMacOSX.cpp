@@ -747,7 +747,7 @@ namespace VeraCrypt
 			if (!AuxiliaryControlFileHasVirtualDevice (auxMountPoint, virtualDev))
 			{
 				stringstream logMessage;
-				logMessage << "VeraCrypt auxiliary mount did not report hdiutil device after mount: "
+				logMessage << "LambCrypt auxiliary mount did not report hdiutil device after mount: "
 					<< string (auxMountPoint) << FuseService::GetControlPath()
 					<< ", expected " << string (virtualDev);
 				SystemLog::WriteError (logMessage.str());
@@ -775,7 +775,7 @@ namespace VeraCrypt
 		if (!AuxiliaryControlFileHasVirtualDevice (auxMountPoint, virtualDev, 10))
 		{
 			stringstream logMessage;
-			logMessage << "VeraCrypt auxiliary mount did not report hdiutil device after mount: "
+			logMessage << "LambCrypt auxiliary mount did not report hdiutil device after mount: "
 				<< string (auxMountPoint) << FuseService::GetControlPath()
 				<< ", expected " << string (virtualDev)
 				<< "; continuing with hdiutil device";

@@ -17,7 +17,9 @@ Update scripts and any `fstab` entries that use the old helper name.
 The macOS app is `LambCrypt.app`. The Unix app uses its own preferences
 directory. Recreate your preferences and favorites there as needed.
 
-LambCrypt retains the VeraCrypt volume format and `.hc` extension. The Unix
+LambCrypt retains the VeraCrypt volume format and `.hc` extension. On macOS,
+the type identifier `org.idrix.veracrypt.hc` and MIME type
+`application/veracrypt` preserve the existing file association. The Unix
 mount backend retains its inherited device, mount tracking and lock identifiers
 so both builds can recognize existing mounts. The default mount path and
 `VERACRYPT_MOUNT_PREFIX` on Linux and BSD remain valid.

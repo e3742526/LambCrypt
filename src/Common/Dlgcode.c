@@ -137,7 +137,6 @@ LONG DriverVersion;
 
 char *LastDialogId;
 wchar_t szHelpFile[TC_MAX_PATH];
-wchar_t szHelpFile2[TC_MAX_PATH];
 wchar_t SecurityTokenLibraryPath[TC_MAX_PATH];
 char CmdTokenPin [TC_MAX_PATH] = {0};
 
@@ -3079,7 +3078,6 @@ void ExceptionHandlerThread (void *threadArg)
 	// char modPath[MAX_PATH];
 	// int crc = 0;
 	// char url[MAX_URL_LENGTH];
-	// char lpack[128];
 	// stringstream callStack;
 	// addr = (DWORD) ep->ExceptionRecord->ExceptionAddress;
 	// PDWORD sp = (PDWORD) ep->ContextRecord->Esp;
@@ -3230,14 +3228,7 @@ void ExceptionHandlerThread (void *threadArg)
 
 	GetSystemInfo (&si);
 
-	if (LocalizationActive)
-		sprintf_s (lpack, sizeof (lpack), "&langpack=%s_%s", GetPreferredLangId (), GetActiveLangPackVersion ());
-	else
-		lpack[0] = 0;
-
-	
-	sprintf (url, TC_APPLINK_SECURE "&dest=err-report%s&os=%s&osver=%d.%d.%d&arch=%s&cpus=%d&app=%s&cksum=%x&dlg=%s&err=%x&addr=%x"
-		, lpack
+	sprintf (url, TC_APPLINK_SECURE "&dest=err-report&os=%s&osver=%d.%d.%d&arch=%s&cpus=%d&app=%s&cksum=%x&dlg=%s&err=%x&addr=%x"
 		, GetWindowsEdition().c_str()
 		, CurrentOSMajor
 		, CurrentOSMinor
@@ -4163,7 +4154,7 @@ void InitApp (HINSTANCE hInstance, wchar_t *lpszCommandLine)
 #if !defined(SETUP) && !defined(VCSDK_DLL)
 	GetModuleFileNameW (NULL, modPath, ARRAYSIZE (modPath));
 	if (!VerifyModuleSignature (modPath))
-		AbortProcessDirect (L"This distribution package is damaged. Please try downloading it again (preferably from the official VeraCrypt website at https://veracrypt.jp).");
+		AbortProcessDirect (L"This distribution package is damaged. Please download a fresh copy from LambCrypt Releases (" TC_HOMEPAGE L"/releases).");
 
 	/* enable drag-n-drop when we are running elevated */
 	AllowMessageInUIPI (WM_DROPFILES);
@@ -4182,19 +4173,17 @@ void InitApp (HINSTANCE hInstance, wchar_t *lpszCommandLine)
 	SetCurrentProcessExplicitAppUserModelID (TC_APPLICATION_ID);
 #endif
 
-	// Language
 	langId[0] = 0;
-	SetPreferredLangId (ConfigReadString ("Language", "", langId, sizeof (langId)));
+	ConfigReadString ("Language", "", langId, sizeof (langId));
 
 #if !defined(SETUP) && !defined(VCSDK_DLL)
 	if (langId[0] == 0)
 	{
-		// check if user selected a language during installation
+		// Preserve the installer handoff that triggers the first settings save.
 		WCHAR uiLang[6];
 		ReadRegistryString (L"Software\\VeraCrypt", L"SetupUILanguage", L"", uiLang, sizeof (uiLang));
 		if (0 < WideCharToMultiByte (CP_ACP, 0, uiLang, -1, langId, sizeof (langId), NULL, NULL))
 		{
-			SetPreferredLangId (langId);
 			bLanguageSetInSetup = TRUE;
 		}
 	}
@@ -4206,24 +4195,7 @@ void InitApp (HINSTANCE hInstance, wchar_t *lpszCommandLine)
 
 #endif
 	
-	if (langId[0] == 0)
-	{
-		if (IsNonInstallMode ())
-		{
-			// only support automatic use of a language file in portable mode
-			// this is achieved by placing a unique language XML file in the same
-			// place as portable VeraCrypt binaries.
-			DialogBoxParamW (hInst, MAKEINTRESOURCEW (IDD_LANGUAGE), NULL,
-				(DLGPROC) LanguageDlgProc, (LPARAM) 1);
-		}
-		else
-		{
-			// when installed, force using English as default language
-			SetPreferredLangId ("en");
-		}
-	}
-
-	LoadLanguageFile ();
+	LoadLanguageFile (FALSE);
 
 #if !defined(SETUP) && !defined(VCSDK_DLL)
 	// UAC elevation moniker cannot be used in portable mode.
@@ -4348,32 +4320,8 @@ void InitHelpFileName (void)
 	lpszTmp = wcsrchr (szHelpFile, L'\\');
 	if (lpszTmp)
 	{
-		wchar_t szTemp[TC_MAX_PATH];
-
-		++lpszTmp;
-		*lpszTmp = 0; // add null terminating character to prepare for append operations
-
-		// Primary file name
-		if (strcmp (GetPreferredLangId(), "en") == 0
-			|| strlen(GetPreferredLangId()) == 0)
-		{
-			StringCbCatW (szHelpFile, sizeof(szHelpFile), L"docs\\VeraCrypt User Guide.chm");
-		}
-		else
-		{
-			StringCbPrintfW (szTemp, sizeof(szTemp), L"docs\\VeraCrypt User Guide.%S.chm", GetPreferredLangId());
-			StringCbCatW (szHelpFile, sizeof(szHelpFile), szTemp);
-		}
-
-		// Secondary file name (used when localized documentation is not found).
-		GetModuleFileNameW (NULL, szHelpFile2, ARRAYSIZE (szHelpFile2));
-		lpszTmp = wcsrchr (szHelpFile2, L'\\');
-		if (lpszTmp)
-		{
-			++lpszTmp;
-			*lpszTmp = 0;
-			StringCbCatW (szHelpFile2, sizeof(szHelpFile2), L"docs\\VeraCrypt User Guide.chm");
-		}
+		lpszTmp[1] = 0;
+		StringCbCatW (szHelpFile, sizeof (szHelpFile), L"docs\\VeraCrypt User Guide.chm");
 	}
 }
 
@@ -11495,7 +11443,7 @@ BOOL ConfigWriteEnd (HWND hwnd)
 }
 
 
-BOOL ConfigWriteString (char *configKey, char *configValue)
+BOOL ConfigWriteString (char *configKey, const char *configValue)
 {
 	char *c;
 	if (ConfigFileHandle == NULL)
@@ -11631,8 +11579,6 @@ void OpenPageHelp (HWND hwndDlg, int nPage)
 	{
 		if (FileExists (szHelpFile))
 			SafeOpenURL (szHelpFile);
-		else if (FileExists (szHelpFile2))
-			SafeOpenURL (szHelpFile2);
 		else
 			Applink ("help");
 	}
@@ -11640,17 +11586,10 @@ void OpenPageHelp (HWND hwndDlg, int nPage)
 	{
 		INT_PTR r = (INT_PTR)ShellExecuteW (NULL, L"open", szHelpFile, NULL, NULL, SW_SHOWNORMAL);
 
-		if (r == ERROR_FILE_NOT_FOUND)
+		if (r == ERROR_FILE_NOT_FOUND || r == ERROR_PATH_NOT_FOUND)
 		{
-			// Try the secondary help file
-			r = (INT_PTR)ShellExecuteW (NULL, L"open", szHelpFile2, NULL, NULL, SW_SHOWNORMAL);
-
-			if (r == ERROR_FILE_NOT_FOUND)
-			{
-				// Open local HTML help. It will fallback to online help if not found.
-				Applink ("help");
-				return;
-			}
+			Applink ("help");
+			return;
 		}
 
 		if (r == SE_ERR_NOASSOC)
@@ -12053,19 +11992,6 @@ std::wstring GetWindowsEdition ()
 extern wchar_t InstallationPath[TC_MAX_PATH];
 #endif
 
-// Check if given language has a corresponding translated documentation
-BOOL HasTranslatedDocumentation(const char* language)
-{
-    // hardcoded list of languages for which a translated documentation exists
-    const char* supportedLanguages[] = { "en" };
-    for (size_t i = 0; i < sizeof(supportedLanguages) / sizeof(supportedLanguages[0]); i++)
-    {
-        if (strcmp(language, supportedLanguages[i]) == 0)
-            return TRUE;
-    }
-    return FALSE;
-}
-
 void Applink (const char *dest)
 {
 	wchar_t url [MAX_URL_LENGTH] = {0};
@@ -12073,20 +11999,6 @@ void Applink (const char *dest)
 	wchar_t installDir[TC_MAX_PATH] = {0};
 	BOOL buildUrl = TRUE;
 	INT_PTR r;
-	wchar_t currentLanguage[8];
-	if (strcmp (GetPreferredLangId(), "en") == 0
-	|| strlen(GetPreferredLangId()) == 0
-    || !HasTranslatedDocumentation(GetPreferredLangId()))
-	{
-		// set currentLanguage to "en"
-		StringCbCopyW(currentLanguage, sizeof(currentLanguage), L"en");
-	}
-	else
-	{
-        // set currentLanguage to return value of GetPreferredLangId()
-        StringCbPrintfW(currentLanguage, sizeof(currentLanguage), L"%S", GetPreferredLangId());
-	}
-
 	ArrowWaitCursor ();
 	
 #ifdef SETUP
@@ -12103,10 +12015,6 @@ void Applink (const char *dest)
 	{
 		StringCbCopyW (url, sizeof (url), TC_HOMEPAGE);
 		buildUrl = FALSE;
-	}
-	else if (strcmp(dest,"localizations") == 0)
-	{
-		StringCbCopyW (page, sizeof (page),L"Language%20Packs.html");
 	}
 	else if (strcmp(dest, "beginnerstutorial") == 0 || strcmp(dest,"tutorial") == 0)
 	{
@@ -12251,24 +12159,7 @@ void Applink (const char *dest)
 #endif
 		if (buildUrl)
 		{
-            // first check that directory of translated documentation exists
-            BOOL bFallbackToEnglish = FALSE;
-            if (wcscmp(currentLanguage, L"en") != 0)
-			{
-				std::wstring pageFullPath = installDir;
-				pageFullPath += L"docs\\html\\";
-				pageFullPath += currentLanguage;
-
-				if (!FileExists(pageFullPath.c_str()))
-				{
-					// fallback to English
-                    bFallbackToEnglish = TRUE;
-				}
-			}
-			if (bFallbackToEnglish)
-                StringCbPrintfW (url, sizeof (url), L"file:///%sdocs/html/en/%s", installDir, page);
-			else
-				StringCbPrintfW (url, sizeof (url), L"file:///%sdocs/html/%s/%s", installDir, currentLanguage, page);
+			StringCbPrintfW (url, sizeof (url), L"file:///%sdocs/html/en/%s", installDir, page);
 			CorrectURL (url);
 		}
 	}
@@ -12286,9 +12177,7 @@ void Applink (const char *dest)
 			if (S_OK == UrlUnescapeW (pageFileName, pageFileName, &cchUnescaped, URL_UNESCAPE_INPLACE))
 			{
 				std::wstring pageFullPath = installDir;
-				pageFullPath += L"docs\\html\\";
-                pageFullPath += currentLanguage;
-				pageFullPath += L"\\";
+				pageFullPath += L"docs\\html\\en\\";
 				pageFullPath += pageFileName;
 			
 				if (!FileExists (pageFullPath.c_str()))

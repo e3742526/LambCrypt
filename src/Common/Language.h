@@ -30,14 +30,10 @@ typedef struct
 	int Size;
 } Font;
 
-BOOL CALLBACK LanguageDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lParam);
 wchar_t *GetString (const char *stringId);
 Font *GetFont (char *fontType);
-BOOL LoadLanguageFile ();
-BOOL LoadLanguageFromResource (int resourceid, BOOL bSetPreferredLanguage, BOOL bForceSilent);
-char *GetPreferredLangId ();
-void SetPreferredLangId (char *langId);
-char *GetActiveLangPackVersion ();
+BOOL LoadLanguageFile (BOOL bForceSilent);
+const char *GetPreferredLangId ();
 
 #ifdef __cplusplus
 }

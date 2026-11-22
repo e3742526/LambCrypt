@@ -142,7 +142,6 @@ enum
 extern char *LastDialogId;
 extern char *ConfigBuffer;
 extern wchar_t szHelpFile[TC_MAX_PATH];
-extern wchar_t szHelpFile2[TC_MAX_PATH];
 extern wchar_t SecurityTokenLibraryPath[TC_MAX_PATH];
 extern char CmdTokenPin [TC_MAX_PATH];
 extern HFONT hFixedDigitFont;
@@ -543,7 +542,7 @@ int AskErrNoYes (char *stringId, HWND hwnd);
 int AskMultiChoice (void *strings[], BOOL bBold, HWND hwnd);
 BOOL ConfigWriteBegin ();
 BOOL ConfigWriteEnd (HWND hwnd);
-BOOL ConfigWriteString (char *configKey, char *configValue);
+BOOL ConfigWriteString (char *configKey, const char *configValue);
 BOOL ConfigWriteStringW (char *configKey, wchar_t *configValue);
 BOOL ConfigWriteInt (char *configKey, int configValue);
 int ConfigReadInt (char *configKey, int defaultValue);

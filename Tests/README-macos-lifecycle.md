@@ -58,7 +58,8 @@ These tests exercise state and serialization contracts. They do not establish
 real backend timing, GUI rendering, or filesystem behavior under forced unmount.
 
 For an ordinary integration check with a FUSE-T GUI build, close other LambCrypt
-processes and dismount their volumes first. In a logged-in macOS desktop session:
+and VeraCrypt processes and dismount their volumes first. Run the tests from a
+logged-in macOS desktop session.
 
 ```sh
 python3 Tests/test_macos_gui_lifecycle.py --binary "$VC_TEST_BUILD_SRC/Main/LambCrypt"

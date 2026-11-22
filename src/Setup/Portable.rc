@@ -144,18 +144,6 @@ BEGIN
     PUSHBUTTON      L"Donate now\x2026",IDC_DONATE,124,94,96,14
 END
 
-IDD_INSTALL_LANGUAGE DIALOGEX 0, 0, 213, 87
-STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "VeraCrypt Setup Wizard"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
-BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,102,66,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,156,66,50,14
-    ICON            501,IDC_STATIC,10,10,32,32
-    LTEXT           "Select the language to use during the installation:",IDC_SELECT_LANGUAGE_LABEL,42,13,157,26
-    COMBOBOX        IDC_LANGUAGES_LIST,42,44,164,155,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-END
-
 /////////////////////////////////////////////////////////////////////////////
 //
 // Icon
@@ -242,13 +230,6 @@ BEGIN
         BOTTOMMARGIN, 147
     END
 
-    IDD_INSTALL_LANGUAGE, DIALOG
-    BEGIN
-        LEFTMARGIN, 7
-        RIGHTMARGIN, 206
-        TOPMARGIN, 7
-        BOTTOMMARGIN, 80
-    END
 END
 #endif    // APSTUDIO_INVOKED
 

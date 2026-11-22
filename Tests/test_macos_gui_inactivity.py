@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Inactivity auto-dismount in the background GUI; no sudo required.
 
-Requires a logged-in macOS desktop and no other VeraCrypt processes or mounts.
+Requires a logged-in macOS desktop and no other LambCrypt or VeraCrypt processes or mounts.
 Two disposable containers are mounted without a filesystem, so nothing else
 reads or writes them. The GUI's automatic unmount of the first volume must not
 restart the idle timer of the second. Takes about two minutes.
@@ -24,15 +24,16 @@ def main():
     binary = args.binary.resolve(strict=True)
     mounts = lambda: subprocess.check_output(["/sbin/mount"], text=True)
     if ".veracrypt_aux_mnt" in mounts():
-        raise RuntimeError("Dismount existing VeraCrypt volumes before this isolated GUI test")
+        raise RuntimeError("Dismount existing LambCrypt or VeraCrypt volumes before this isolated GUI test")
     processes = subprocess.check_output(["/bin/ps", "-axo", "comm="], text=True)
-    if any(Path(line.strip()).name.lower() == "veracrypt" for line in processes.splitlines()):
-        raise RuntimeError("Close other VeraCrypt processes before this isolated GUI test")
+    if any(Path(line.strip()).name.lower() in {"lambcrypt", "veracrypt"}
+           for line in processes.splitlines()):
+        raise RuntimeError("Close other LambCrypt or VeraCrypt processes before this isolated GUI test")
 
     root = Path(tempfile.mkdtemp(prefix="vc-gui-inactivity-")).resolve()
     print("Artifacts:", root, flush=True)
     temporary = root / "tmp"
-    config = root / "config" / "VeraCrypt"
+    config = root / "config" / "LambCrypt"
     temporary.mkdir(mode=0o700)
     config.mkdir(parents=True)
     prefs = dict(BackgroundTaskEnabled=1, CloseBackgroundTaskOnNoVolumes=1, DismountOnInactivity=1,
@@ -42,13 +43,13 @@ def main():
         f'<config key="{key}">{value}</config>' for key, value in prefs.items()
     ) + "</configuration></VeraCrypt>")
     env = dict(os.environ, TMPDIR=str(temporary) + "/", XDG_CONFIG_HOME=str(root / "config"))
-    contents = root / "VeraCryptTest.app" / "Contents"
-    executable = contents / "MacOS" / "VeraCrypt"
+    contents = root / "LambCryptTest.app" / "Contents"
+    executable = contents / "MacOS" / "LambCrypt"
     executable.parent.mkdir(parents=True)
     shutil.copy2(binary, executable)
     (contents / "Info.plist").write_bytes(plistlib.dumps(dict(
-        CFBundleExecutable="VeraCrypt", CFBundleName="VeraCrypt Inactivity Test",
-        CFBundleIdentifier=f"org.idrix.veracrypt.inactivity-test.{os.getpid()}",
+        CFBundleExecutable="LambCrypt", CFBundleName="LambCrypt Inactivity Test",
+        CFBundleIdentifier=f"io.github.e3742526.LambCrypt.inactivity-test.{os.getpid()}",
         CFBundlePackageType="APPL", NSHighResolutionCapable=True)))
     password = "Disposable-inactivity-only"
     volumes = {name: root / f"{name}.hc" for name in ("first", "second")}

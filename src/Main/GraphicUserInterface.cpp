@@ -1548,10 +1548,6 @@ namespace VeraCrypt
 			url = L"https://github.com/e3742526/LambCrypt/blob/main/doc/html/en/Documentation.html";
 			buildUrl = false;
 		}
-		else if (linkId == L"localizations")
-		{
-			url = L"Language Packs.html";
-		}
 		else if (linkId == L"beginnerstutorial" || linkId == L"tutorial")
 		{
 			url = L"Beginner's Tutorial.html";

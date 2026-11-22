@@ -253,7 +253,7 @@ endif
 
 	cp $(BASE_DIR)/Resources/Icons/LambCrypt.icns $(APPNAME).app/Contents/Resources
 	cp $(BASE_DIR)/Resources/Icons/LambCrypt_Volume.icns $(APPNAME).app/Contents/Resources
-	cp -R $(BASE_DIR)/../doc/html/* $(APPNAME).app/Contents/Resources/doc/HTML
+	cp -R $(BASE_DIR)/../doc/html/en $(APPNAME).app/Contents/Resources/doc/HTML
 
 	echo -n APPLTRUE >$(APPNAME).app/Contents/PkgInfo
 ifdef VC_LEGACY_BUILD
@@ -404,7 +404,7 @@ ifneq "$(INSTALL_LICENSE)" "0"
 endif
 ifneq "$(INSTALL_DOCS)" "0"
 	mkdir -p $(BASE_DIR)/Setup/Linux/usr/share/doc/$(APPNAME)/HTML
-	cp -R $(BASE_DIR)/../doc/html/* "$(BASE_DIR)/Setup/Linux/usr/share/doc/$(APPNAME)/HTML"
+	cp -R $(BASE_DIR)/../doc/html/en "$(BASE_DIR)/Setup/Linux/usr/share/doc/$(APPNAME)/HTML"
 endif
 
 ifneq "$(INSTALL_MOUNT_HELPER)" "0"
@@ -428,7 +428,7 @@ ifneq "$(INSTALL_ICONS)" "0"
 	cp $(BASE_DIR)/Resources/Icons/LambCrypt-256x256.xpm $(BASE_DIR)/Setup/Linux/usr/share/pixmaps/$(APPNAME).xpm
 	cp $(BASE_DIR)/Resources/Icons/LambCrypt.svg $(BASE_DIR)/Setup/Linux/usr/share/icons/hicolor/scalable/apps/$(APPNAME).svg
 
-	for res in 16 22 24 32 48 64 256 512 1024; do \
+	for res in 16 22 24 32 48 64 128 256 512 1024; do \
 		mkdir -p $(BASE_DIR)/Setup/Linux/usr/share/icons/hicolor/$${res}x$${res}/apps ;\
 		cp $(BASE_DIR)/Resources/Icons/LambCrypt-$${res}x$${res}.png $(BASE_DIR)/Setup/Linux/usr/share/icons/hicolor/$${res}x$${res}/apps/$(APPNAME).png ;\
 	done
@@ -724,7 +724,7 @@ prepare: $(APPNAME)
 	cp $(BASE_DIR)/Setup/FreeBSD/$(APPNAME)-uninstall.sh $(BASE_DIR)/Setup/FreeBSD/usr/bin/$(APPNAME)-uninstall.sh
 	chmod +x $(BASE_DIR)/Setup/FreeBSD/usr/bin/$(APPNAME)-uninstall.sh
 	cp $(BASE_DIR)/License.txt $(BASE_DIR)/Setup/FreeBSD/usr/share/doc/$(APPNAME)/License.txt
-	cp -R $(BASE_DIR)/../doc/html/* "$(BASE_DIR)/Setup/FreeBSD/usr/share/doc/$(APPNAME)/HTML"
+	cp -R $(BASE_DIR)/../doc/html/en "$(BASE_DIR)/Setup/FreeBSD/usr/share/doc/$(APPNAME)/HTML"
 
 ifndef TC_NO_GUI
 	mkdir -p $(BASE_DIR)/Setup/FreeBSD/usr/local/share/applications
@@ -737,7 +737,7 @@ ifndef TC_NO_GUI
 	cp $(BASE_DIR)/Resources/Icons/LambCrypt-256x256.xpm $(BASE_DIR)/Setup/FreeBSD/usr/local/share/pixmaps/$(APPNAME).xpm
 	cp $(BASE_DIR)/Resources/Icons/LambCrypt.svg $(BASE_DIR)/Setup/FreeBSD/usr/local/share/icons/hicolor/scalable/apps/$(APPNAME).svg
 
-	for res in 16 22 24 32 48 64 256 512 1024; do \
+	for res in 16 22 24 32 48 64 128 256 512 1024; do \
 		mkdir -p $(BASE_DIR)/Setup/FreeBSD/usr/local/share/icons/hicolor/$${res}x$${res}/apps ;\
 		cp $(BASE_DIR)/Resources/Icons/LambCrypt-$${res}x$${res}.png $(BASE_DIR)/Setup/FreeBSD/usr/local/share/icons/hicolor/$${res}x$${res}/apps/$(APPNAME).png ;\
 	done

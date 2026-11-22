@@ -2,7 +2,7 @@
 """Exercise macOS FUSE-T dismount using a disposable file container, without sudo.
 
 Usage:
-  python3 Tests/test_fuset_dismount.py --binary /path/to/patched/VeraCrypt
+  python3 Tests/test_fuset_dismount.py --binary /path/to/patched/LambCrypt
 
 Optional compatibility checks use binaries built from these protocol generations:
   --released-binary /Applications/LambCrypt.app/Contents/MacOS/LambCrypt
@@ -205,7 +205,7 @@ class DismountChecks:
         before = self.mounted_paths()
         options = ["--force"] if force else []
         result = self.vc(label, *options, "--unmount", self.volume, expected=1)
-        if "version of VeraCrypt that mounted it" not in result.stdout + result.stderr:
+        if "version of LambCrypt that mounted it" not in result.stdout + result.stderr:
             raise AssertionError("Missing actionable compatibility message")
         self.assert_volume_unchanged(before)
 

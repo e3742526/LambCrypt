@@ -2,7 +2,7 @@
 """Automatic GUI unmounts while a volume's service is slow; no sudo required.
 
 Requires a logged-in macOS desktop, clang, an unsigned local build, and no other
-VeraCrypt processes or mounts. Disposable containers are mounted without a
+LambCrypt or VeraCrypt processes or mounts. Disposable containers are mounted without a
 filesystem; fuset_startup_faults.c slows down only their own services.
 
 1. A normal quit request (the quit Apple event also sent by logout) arrives while
@@ -41,7 +41,7 @@ class Leg:
         self.parent, self.name = parent, name
         self.root = parent / name
         self.temporary = self.root / "tmp"
-        config = self.root / "config" / "VeraCrypt"
+        config = self.root / "config" / "LambCrypt"
         self.temporary.mkdir(parents=True, mode=0o700)
         config.mkdir(parents=True)
         defaults = dict(BackgroundTaskEnabled=1, DismountOnInactivity=1, MaxVolumeIdleTime=1, ForceAutoDismount=1,
@@ -115,20 +115,21 @@ def main():
     args = parser.parse_args()
     binary = args.binary.resolve(strict=True)
     if ".veracrypt_aux_mnt" in subprocess.check_output(["/sbin/mount"], text=True):
-        raise RuntimeError("Dismount existing VeraCrypt volumes before this isolated GUI test")
+        raise RuntimeError("Dismount existing LambCrypt or VeraCrypt volumes before this isolated GUI test")
     processes = subprocess.check_output(["/bin/ps", "-axo", "comm="], text=True)
-    if any(Path(line.strip()).name.lower() == "veracrypt" for line in processes.splitlines()):
-        raise RuntimeError("Close other VeraCrypt processes before this isolated GUI test")
+    if any(Path(line.strip()).name.lower() in {"lambcrypt", "veracrypt"}
+           for line in processes.splitlines()):
+        raise RuntimeError("Close other LambCrypt or VeraCrypt processes before this isolated GUI test")
 
     root = Path(tempfile.mkdtemp(prefix="vc-gui-teardown-")).resolve()
     print("Artifacts:", root, flush=True)
-    contents = root / "VeraCryptTest.app" / "Contents"
-    bundle = contents / "MacOS" / "VeraCrypt"
+    contents = root / "LambCryptTest.app" / "Contents"
+    bundle = contents / "MacOS" / "LambCrypt"
     bundle.parent.mkdir(parents=True)
     shutil.copy2(binary, bundle)
     (contents / "Info.plist").write_bytes(plistlib.dumps(dict(
-        CFBundleExecutable="VeraCrypt", CFBundleName="VeraCrypt Teardown Test",
-        CFBundleIdentifier=f"org.idrix.veracrypt.teardown-test.{os.getpid()}",
+        CFBundleExecutable="LambCrypt", CFBundleName="LambCrypt Teardown Test",
+        CFBundleIdentifier=f"io.github.e3742526.LambCrypt.teardown-test.{os.getpid()}",
         CFBundlePackageType="APPL", NSHighResolutionCapable=True)))
     faults = root / "service-faults.dylib"
     subprocess.run(["/usr/bin/xcrun", "clang", "-dynamiclib", "-Wall", "-Wextra", "-O2",

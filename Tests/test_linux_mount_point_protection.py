@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression test for issue #1973, against the installed veracrypt.
+"""Regression test for issue #1973, against the installed LambCrypt.
 
 Usage (as root, after installing a package):
   python3 Tests/test_linux_mount_point_protection.py [--veracrypt PATH]
@@ -56,7 +56,7 @@ def main():
         sys.exit("Run as root: the test mounts volumes")
 
     work = Path(tempfile.mkdtemp(prefix="vc-regression-"))
-    config = work / "config" / "VeraCrypt"
+    config = work / "config" / "LambCrypt"
     config.mkdir(parents=True)
     env = dict(os.environ, XDG_CONFIG_HOME=str(work / "config"))
     (work / "random").write_bytes(os.urandom(4096))
@@ -77,7 +77,7 @@ def main():
         if r.returncode != 0:
             if "No volumes mounted" in text(r):
                 return {}
-            raise RuntimeError("veracrypt --list failed: " + text(r))
+            raise RuntimeError("lambcrypt --list failed: " + text(r))
         volumes = {}
         for line in text(r).splitlines():
             fields = line.split()

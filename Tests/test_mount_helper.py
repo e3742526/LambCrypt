@@ -12,11 +12,11 @@ mounted through the helper and through mount(8). Checked:
 - password= mounts the volume;
 - the helper itself rejects -N, unknown options, a missing -o or -t
   argument (also when another flag follows) and extra arguments; these
-  run with -f, so veracrypt cannot be what refused them;
+  run with -f, so LambCrypt cannot be what refused them;
 - readonly is rejected, including in fstab with an rw override; ro in
   fstab can be overridden with rw;
 - -f checks the options and does not mount;
-- the last of ro/rw sets both VeraCrypt's protection and the filesystem;
+- the last of ro/rw sets both LambCrypt's protection and the filesystem;
   repeated -o lists are joined and empty elements ignored.
 """
 
@@ -110,7 +110,7 @@ def main():
                 (mnt / "Dummy.txt").read_text() == "Dummy")
         unmount()
 
-        # Rejected by the helper itself: with -f, veracrypt never runs.
+        # Rejected by the helper itself: with -f, LambCrypt never runs.
         pw = "password=" + PASSWORD
         for desc, options, extra in (
                 ("-N namespace", pw, ("-N", "1")),
@@ -135,7 +135,7 @@ def main():
                 r.returncode == 0 and not mounted(), text(r))
         unmount()
 
-        # ro/rw: the last one wins for VeraCrypt and the filesystem.
+        # ro/rw: the last one wins for LambCrypt and the filesystem.
         for desc, options, extra, read_only in (
                 ("ro", pw + ",ro", (), True),
                 ("ro,rw", pw + ",ro,rw", (), False),
@@ -147,7 +147,7 @@ def main():
                               "--verbose", str(volume)]))
             vc_ro = re.search(r"read-only:\s*yes", props, re.I) is not None
             fs = fs_mode(mnt)
-            c.check("%s: read-only %s for VeraCrypt and the filesystem"
+            c.check("%s: read-only %s for LambCrypt and the filesystem"
                     % (desc, read_only),
                     r.returncode == 0 and vc_ro == read_only
                     and fs == ("ro" if read_only else "rw"),
@@ -160,7 +160,7 @@ def main():
                           .replace("\t", "\\011").replace("\n", "\\012")
                           for p in (volume, mnt))
         for mode in ("ro", "readonly"):
-            fstab.write_text("%s %s veracrypt %s,%s 0 0\n"
+            fstab.write_text("%s %s lambcrypt %s,%s 0 0\n"
                              % (source, target, pw, mode))
             r = run(["mount", "--fstab", str(fstab), "-o", "rw", str(mnt)])
             if mode == "ro":
@@ -176,10 +176,10 @@ def main():
 
         r = run(["mount", "-f", "-t", "lambcrypt", "-o", pw, str(volume),
                  str(mnt)])
-        c.check("mount -f -t veracrypt does not mount",
+        c.check("mount -f -t lambcrypt does not mount",
                 r.returncode == 0 and not mounted(), text(r))
         unmount()
-        c.check("no VeraCrypt FUSE mount left", not aux_mounts(),
+        c.check("no LambCrypt FUSE mount left", not aux_mounts(),
                 b"".join(aux_mounts()).decode("utf-8", "replace"))
     finally:
         unmount()

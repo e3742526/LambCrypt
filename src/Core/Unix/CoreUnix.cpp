@@ -771,7 +771,7 @@ namespace VeraCrypt
 				if (!volumePath.IsEmpty())
 				{
 					stringstream logMessage;
-					logMessage << "Failed to read VeraCrypt auxiliary mount control file after retries: "
+					logMessage << "Failed to read LambCrypt auxiliary mount control file after retries: "
 						<< string (mf.MountPoint) << FuseService::GetControlPath();
 					if (!controlFileError.empty())
 						logMessage << ": " << controlFileError;

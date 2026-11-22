@@ -50,6 +50,9 @@ namespace VeraCrypt
 		XmlParser catalogue (wxString::FromUTF8 (reinterpret_cast<const char*> (LanguageXml)));
 		foreach (XmlNode node, catalogue.GetNodes (L"entry"))
 		{
+			if (node.Attributes[L"lang"] != L"en")
+				continue;
+
 			wxString text = node.InnerText;
 			text.Replace (L"\\n", L"\n");
 			Map[StringConverter::ToSingle (wstring (node.Attributes[L"key"]))] = text;

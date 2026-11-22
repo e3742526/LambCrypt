@@ -14,7 +14,6 @@
 #define IDD_RAWDEVICES_DLG              510
 #define IDC_HOMEPAGE                    511
 #define IDR_COMMON_RSRC_HEADER          512
-#define IDD_LANGUAGE                    513
 #define IDD_CIPHER_TEST_DLG             514
 #define IDR_LICENSE                     515
 #define IDD_AUXILIARY_DLG               516
@@ -150,18 +149,12 @@
 #define IDC_BENCHMARK_SORT_METHOD       5067
 #define IDC_PASSWORD_PROT_HIDVOL        5068
 #define IDT_BUFFER_SIZE                 5069
-#define IDC_LANGLIST                    5070
 #define IDC_KEYFILES_ENABLE_HIDVOL_PROT 5071
 #define IDT_KEYFILES_NOTE               5072
 #define IDT_KEYFILE_WARNING             5073
 #define IDT_KEYFILE_GENERATOR_NOTE      5074
 #define IDC_GENERATE_AND_SAVE_KEYFILE   5075
 #define IDT_POOL_CONTENTS               5076
-#define IDC_GET_LANG_PACKS              5077
-#define IDT_LANGPACK_AUTHORS            5078
-#define IDC_LANGPACK_CREDITS            5079
-#define IDC_LANGPACK_VERSION            5080
-#define IDT_ACTIVE_LANG_PACK            5081
 #define IDC_DISPLAY_POOL_CONTENTS       5082
 #define IDC_XTS_MODE_ENABLED            5083
 #define IDC_MULTI_CHOICE_MSG            5084

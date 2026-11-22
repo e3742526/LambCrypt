@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Ordinary FUSE-T container and background GUI lifecycle; no sudo required.
 
-Requires a logged-in macOS desktop and no other VeraCrypt processes or mounts.
+Requires a logged-in macOS desktop and no other LambCrypt or VeraCrypt processes or mounts.
 Uses only a disposable container, isolated preferences, and a local app bundle.
 No fault injection, device reassignment, or forced unmount is performed.
 """
@@ -29,16 +29,17 @@ def main():
     release = args.release_binary.resolve(strict=True) if args.release_binary else binary
     mounts = lambda: subprocess.check_output(["/sbin/mount"], text=True)
     if ".veracrypt_aux_mnt" in mounts():
-        raise RuntimeError("Dismount existing VeraCrypt volumes before this isolated GUI test")
+        raise RuntimeError("Dismount existing LambCrypt or VeraCrypt volumes before this isolated GUI test")
     processes = subprocess.check_output(["/bin/ps", "-axo", "comm="], text=True)
-    if any(Path(line.strip()).name.lower() == "veracrypt" for line in processes.splitlines()):
-        raise RuntimeError("Close other VeraCrypt processes before this isolated GUI test")
+    if any(Path(line.strip()).name.lower() in {"lambcrypt", "veracrypt"}
+           for line in processes.splitlines()):
+        raise RuntimeError("Close other LambCrypt or VeraCrypt processes before this isolated GUI test")
 
     root = Path(tempfile.mkdtemp(prefix="vc-gui-lifecycle-")).resolve()
     print("Artifacts:", root, flush=True)
     temporary = root / "tmp"
     mountpoint = root / "mount"
-    config = root / "config" / "VeraCrypt"
+    config = root / "config" / "LambCrypt"
     temporary.mkdir(mode=0o700)
     mountpoint.mkdir()
     config.mkdir(parents=True)
@@ -56,13 +57,13 @@ def main():
         in_app_bundle = (binary.parent.name == "MacOS" and contents.name == "Contents"
                          and contents.parent.suffix == ".app" and (contents / "Info.plist").is_file())
         if not in_app_bundle:
-            contents = root / "VeraCryptTest.app" / "Contents"
-            executable = contents / "MacOS" / "VeraCrypt"
+            contents = root / "LambCryptTest.app" / "Contents"
+            executable = contents / "MacOS" / "LambCrypt"
             executable.parent.mkdir(parents=True)
             shutil.copy2(binary, executable)
             (contents / "Info.plist").write_bytes(plistlib.dumps(dict(
-                CFBundleExecutable="VeraCrypt", CFBundleName="VeraCrypt Lifecycle Test",
-                CFBundleIdentifier=f"org.idrix.veracrypt.lifecycle-test.{os.getpid()}",
+                CFBundleExecutable="LambCrypt", CFBundleName="LambCrypt Lifecycle Test",
+                CFBundleIdentifier=f"io.github.e3742526.LambCrypt.lifecycle-test.{os.getpid()}",
                 CFBundlePackageType="APPL", NSHighResolutionCapable=True)))
     volume = root / "ordinary.hc"
     password = "Disposable-normal-lifecycle-only"
