@@ -215,10 +215,6 @@ extern BOOL DisablePeriodicDeviceListUpdate;
 extern BOOL EnableMemoryProtection;
 extern BOOL EnableScreenProtection;
 
-#ifndef SETUP
-extern BOOL bLanguageSetInSetup;
-#endif
-
 enum tc_app_msg_ids
 {
 	/* WARNING: Changing these values or their meanings may cause incompatibility with other versions
@@ -445,7 +441,6 @@ BOOL UpdateDriveCustomLabel (int driveNo, wchar_t* effectiveLabel, BOOL bSetValu
 BOOL CheckCapsLock (HWND hwnd, BOOL quiet);
 BOOL CheckFileExtension (wchar_t *fileName);
 void CorrectFileName (wchar_t* fileName);
-void CorrectURL (wchar_t* fileName);
 void IncreaseWrongPwdRetryCount (int count);
 void ResetWrongPwdRetryCount (void);
 BOOL WrongPwdRetryCountOverLimit (void);
@@ -563,6 +558,7 @@ BOOL IsServerOS ();
 BOOL IsHiddenOSRunning (void);
 BOOL EnableWow64FsRedirection (BOOL enable);
 BOOL RestartComputer (BOOL bShutdown);
+BOOL GetLocalDocumentationUrl (const wchar_t *installDir, const wchar_t *page, wchar_t *url, DWORD urlLength);
 void Applink (const char *dest);
 wchar_t *RelativePath2Absolute (wchar_t *szFileName);
 void HandleDriveNotReadyError (HWND hwnd);

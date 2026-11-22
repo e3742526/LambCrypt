@@ -15,9 +15,12 @@ namespace VeraCrypt
 		};
 
 		VolumeIdentity NewVolumeIdentity ();
+		shared_ptr <VolumeInfo> ReadVolumeControl (const string &endpoint);
+		void FlushVolumeControl (const string &endpoint, const VolumeInfo &volume);
 
-		// Serve one bounded request on a connected local socket. The caller
-		// keeps the open volume alive and serializes requests for that volume.
+		// Serve one request with separate deadlines for receiving it and
+		// sending the reply. The caller keeps the volume alive and serializes
+		// its operations.
 		void ServeRequest (int connection, uid_t owner, Volume &volume, VolumeInfo &info,
 			const std::array <uint8, 16> &identifier);
 	}

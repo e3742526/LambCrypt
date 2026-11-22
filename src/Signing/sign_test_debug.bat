@@ -42,6 +42,7 @@ del docs.zip
 tar -a -cf docs.zip docs
 "VeraCrypt Setup.exe" /p
 call build_msi_x64.bat %VC_VERSION_NBRE%
+if errorlevel 1 exit /b 1
 del LICENSE
 del License.txt
 del NOTICE

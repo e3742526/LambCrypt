@@ -14,7 +14,10 @@ Based on TrueCrypt, freely available at [http://www.truecrypt.org/](http://www.t
 The Unix command is `lambcrypt`. The macOS application is `LambCrypt.app`.
 English is the only supported language for the application, installers, and bundled documentation.
 
-[Documentation](doc/html/en/Documentation.html) · [Report an issue](https://github.com/e3742526/LambCrypt/issues) · [License](License.txt)
+The Help menu opens the bundled English guide. Online Help and missing local
+topics use the rendered VeraCrypt reference for the inherited features.
+
+[Bundled guide source](doc/html/en/Documentation.html) · [VeraCrypt online reference](https://veracrypt.io/en/Documentation.html) · [Report an issue](https://github.com/e3742526/LambCrypt/issues) · [License](License.txt)
 
 # Contents
 
@@ -224,10 +227,9 @@ When packaging a GUI built with `make INDICATOR=1` through CMake directly, pass
 
 ## Mac OS X specifics:
 
-Under MacOSX, the latest installed SDK is used by default. To use a different version
-of the SDK when building using make, you can export the environment variable VC_OSX_SDK:
-
-`$ export VC_OSX_SDK=13.0`
+Build with the macOS SDK from the active Xcode installation. MacFUSE,
+FUSE-T, and FSKit builds default to a macOS 26.0 deployment target even when
+Xcode provides a newer SDK.
 
 For development dependencies management, you can use [homebrew](https://brew.sh).
 
@@ -268,10 +270,6 @@ signing values outside the checkout. Keep certificates and their private keys
 in Keychain. The experimental FSKit build supports Apple Development signing
 with a matching FSKit Module provisioning profile. The [FSKit migration
 plan](FSKIT-MIGRATION.md#integrator-checklist) covers setup and verification.
-
-Because of incompatibility issues with macFUSE, the SDK 10.9 generates a
-LambCrypt binary that has issues communicating with the macFUSE kernel extension.
-Thus, we recommend using a different macOS SDK version for building LambCrypt.
 
 The macOS Package build can use the upstream-maintained [Packages tool](https://github.com/idrassi/packages/releases).
 

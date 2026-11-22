@@ -16,16 +16,15 @@
 
 ::end of search paths
 
-set MSI_BUILDPATH=%~dp0
-cd %MSI_BUILDPATH%
+cd /d "%~dp0" || exit /b 1
 
 ::------------------------------------
-:: Look for MSI SDK tools
+:: Look for MsiInfo.exe
 ::------------------------------------
 
 @echo [INFO] Define default value for VC_DIR_PLATFORMSDK if not defined yet
 @echo [INFO] Input VC_DIR_PLATFORMSDK=%VC_DIR_PLATFORMSDK%
-@set FILE_TO_FIND="msitran.exe" "msidb.exe" "MsiInfo.exe"
+@set FILE_TO_FIND="MsiInfo.exe"
 @echo [INFO] Looking for files: %FILE_TO_FIND%
 
 @set FILE_NOT_FOUND=
@@ -57,9 +56,6 @@ cd %MSI_BUILDPATH%
 @if "%FILE_NOT_FOUND%"=="" goto found_mssdk
 @echo        Not found in "%VC_DIR_PLATFORMSDK%"
 
-@rem paths for Windows 8 SDK are slightly different
-@set FILE_TO_FIND="msitran.exe" "msidb.exe" "MsiInfo.exe"
-
 @set VC_DIR_PLATFORMSDK=%SEARCH_VC_DIR_PLATFORMSDK_4%
 @set FILE_NOT_FOUND=
 @for %%i in (%FILE_TO_FIND%) do @if not exist "%VC_DIR_PLATFORMSDK%\%%~i" set FILE_NOT_FOUND=%%~i
@@ -87,13 +83,13 @@ cd %MSI_BUILDPATH%
 @echo        Found in "%VC_DIR_PLATFORMSDK%"
 
 ::------------------------------------
-:: Look for candle.exe (and light.exe obviously)
+:: Look for the WiX compiler and linker
 ::------------------------------------
 
 @echo [INFO] Check if WiX is installed
 @echo [INFO] Default value for VC_DIR_WIX is set to %WIX%
 @set VC_DIR_WIX=%WIX%
-@set FILE_TO_FIND="candle.exe"
+@set FILE_TO_FIND="candle.exe" "light.exe"
 @echo [INFO] Looking for files: %FILE_TO_FIND%
 
 @set FILE_NOT_FOUND=
@@ -115,7 +111,7 @@ cd %MSI_BUILDPATH%
 @echo        Found in "%VC_DIR_WIX%"
 
 ::------------------------------------
-:: Create a MSI installer for each language
+:: Create the English x64 MSI installer
 :: We make use of -sice:ICE09 to silence ICE09 warnings generated because we install non-permanent elements to 'SystemFolder'
 ::------------------------------------
 @echo [INFO] Creating msi 64-bit installers
@@ -131,9 +127,8 @@ cd %MSI_BUILDPATH%
 @if NOT "%ERRORLEVEL%" == "0" goto msi_failed
 
 ::------------------------------------
-:: Join the language specific MSIs together
+:: Keep the established default and en-us package filenames.
 ::------------------------------------
-@echo [INFO] Joining msi 64-bit installers into 1 64-bit installer
 
 @set OUT_PATH=%cd%\out\64\
 @echo [INFO] OUT_PATH=%OUT_PATH%
@@ -141,28 +136,25 @@ cd %MSI_BUILDPATH%
 @set MSI_FILE_IN=VeraCrypt_Setup_%1
 @set MSI_FILE_OUT=VeraCrypt_Setup_x64_%1
 
-:: Check if all the MSI files were built
+:: Check that the English MSI was built
 @set LANG=en-us
-@IF NOT EXIST "%OUT_PATH%\%LANG%\%MSI_FILE_IN%_%LANG%.msi" goto NOT_%LANG%
+@IF NOT EXIST "%OUT_PATH%\%LANG%\%MSI_FILE_IN%_%LANG%.msi" goto msi_missing
 
-:: Take all the MSI files and process
-@set LANG=en-us
-@copy /Y "%OUT_PATH%\%LANG%\%MSI_FILE_IN%_%LANG%.msi" "%OUT_PATH%\%MSI_FILE_OUT%.msi"
+@copy /Y "%OUT_PATH%\%LANG%\%MSI_FILE_IN%_%LANG%.msi" "%OUT_PATH%\%MSI_FILE_OUT%.msi" || goto msi_copy_failed
 
 ::------------------------------------
-:: Add all available LCIDs
+:: Set the default package's platform and English language ID
 ::------------------------------------
 "%VC_DIR_PLATFORMSDK%\MsiInfo.Exe" "%OUT_PATH%\%MSI_FILE_OUT%.msi" /p x64;1033
-@if NOT "%ERRORLEVEL%" == "0" goto comb_msi_failed
+@if NOT "%ERRORLEVEL%" == "0" goto msi_summary_failed
 
 ::------------------------------------
 :: Copy to bin and remove out
 ::------------------------------------
-mkdir bin
-@copy /Y "%OUT_PATH%\%MSI_FILE_OUT%.msi" "%cd%\bin\%MSI_FILE_OUT%.msi"
-@set LANG=en-us
-@copy /Y "%OUT_PATH%\%LANG%\%MSI_FILE_IN%_%LANG%.msi" "%cd%\bin\%MSI_FILE_OUT%_%LANG%.msi"
-@rmdir /S /Q "%cd%\out"
+if not exist bin mkdir bin
+@copy /Y "%OUT_PATH%\%MSI_FILE_OUT%.msi" "%cd%\bin\%MSI_FILE_OUT%.msi" || goto msi_copy_failed
+@copy /Y "%OUT_PATH%\%LANG%\%MSI_FILE_IN%_%LANG%.msi" "%cd%\bin\%MSI_FILE_OUT%_%LANG%.msi" || goto msi_copy_failed
+@rmdir /S /Q "%cd%\out\64"
 
 goto END
 
@@ -170,19 +162,18 @@ goto END
 @echo [ERR ] failed to create the MSI
 @exit /B 1
 
-:comb_msi_failed
-@echo [ERR ] failed to combine the language specific MSI's
+:msi_summary_failed
+@echo [ERR ] failed to set the English MSI summary information
 @exit /B 1
 
-:NOT_en-us
+:msi_copy_failed
+@echo [ERR ] failed to copy the English MSI
+@exit /B 1
+
+:msi_missing
 @echo [ERR ] Missing file '%OUT_PATH%\%LANG%\%MSI_FILE_IN%_%LANG%.msi'
 @exit /B 1
 
-:NOT_lv-lv
-@echo [ERR ] Missing file '%OUT_PATH%\%LANG%\%MSI_FILE_IN%_%LANG%.msi'
-@exit /B 1
-
-@echo [INFO] Done creating multi-lang msi installers
 :END
 @echo end
 @exit /B 0

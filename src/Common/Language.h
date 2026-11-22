@@ -33,7 +33,6 @@ typedef struct
 wchar_t *GetString (const char *stringId);
 Font *GetFont (char *fontType);
 BOOL LoadLanguageFile (BOOL bForceSilent);
-const char *GetPreferredLangId ();
 
 #ifdef __cplusplus
 }

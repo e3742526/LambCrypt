@@ -185,9 +185,7 @@ BOOL bMountFavoritesOnLogon = FALSE;
 
 BOOL bHistory = FALSE;
 
-#ifndef SETUP
-BOOL bLanguageSetInSetup = FALSE;
-#else
+#ifdef SETUP
 extern BOOL bMakePackage;
 #endif
 
@@ -4109,7 +4107,6 @@ extern "C" {
 void InitApp (HINSTANCE hInstance, wchar_t *lpszCommandLine)
 {
 	WNDCLASSW wc;
-	char langId[6];	
 	SetDefaultDllDirectoriesPtr SetDefaultDllDirectoriesFn = NULL;
 #if !defined(SETUP) && !defined(VCSDK_DLL)
 	wchar_t modPath[MAX_PATH];
@@ -4173,28 +4170,6 @@ void InitApp (HINSTANCE hInstance, wchar_t *lpszCommandLine)
 	SetCurrentProcessExplicitAppUserModelID (TC_APPLICATION_ID);
 #endif
 
-	langId[0] = 0;
-	ConfigReadString ("Language", "", langId, sizeof (langId));
-
-#if !defined(SETUP) && !defined(VCSDK_DLL)
-	if (langId[0] == 0)
-	{
-		// Preserve the installer handoff that triggers the first settings save.
-		WCHAR uiLang[6];
-		ReadRegistryString (L"Software\\VeraCrypt", L"SetupUILanguage", L"", uiLang, sizeof (uiLang));
-		if (0 < WideCharToMultiByte (CP_ACP, 0, uiLang, -1, langId, sizeof (langId), NULL, NULL))
-		{
-			bLanguageSetInSetup = TRUE;
-		}
-	}
-
-#ifndef VCEXPANDER
-	// delete the registry key created by the installer (if any)
-	DeleteRegistryKey (HKEY_CURRENT_USER, L"Software\\VeraCrypt");
-#endif
-
-#endif
-	
 	LoadLanguageFile (FALSE);
 
 #if !defined(SETUP) && !defined(VCSDK_DLL)
@@ -8783,17 +8758,6 @@ void CorrectFileName (std::wstring& fileName)
 	}
 }
 
-void CorrectURL (wchar_t* fileName)
-{
-	/* replace '\' by '/' */
-	size_t i, len = wcslen (fileName);
-	for (i = 0; i < len; i++)
-	{
-		if (fileName [i] == L'\\')
-			fileName [i] = L'/';
-	}
-}
-
 void IncreaseWrongPwdRetryCount (int count)
 {
 	WrongPwdRetryCounter += count;
@@ -11992,6 +11956,26 @@ std::wstring GetWindowsEdition ()
 extern wchar_t InstallationPath[TC_MAX_PATH];
 #endif
 
+BOOL GetLocalDocumentationUrl (const wchar_t *installDir, const wchar_t *page, wchar_t *url, DWORD urlLength)
+{
+	if (!*installDir)
+		return FALSE;
+
+	wchar_t fileName[TC_MAX_PATH];
+	DWORD fileNameLength = ARRAYSIZE (fileName);
+	if (FAILED (StringCbCopyW (fileName, sizeof (fileName), page))
+		|| FAILED (UrlUnescapeW (fileName, fileName, &fileNameLength, URL_UNESCAPE_INPLACE)))
+		return FALSE;
+
+	// The existence check takes a filesystem path. Encode it only for opening in the browser.
+	std::wstring path = installDir;
+	if (path.back() != L'\\' && path.back() != L'/')
+		path += L'\\';
+	path += L"docs\\html\\en\\";
+	path += fileName;
+	return FileExists (path.c_str()) && SUCCEEDED (UrlCreateFromPathW (path.c_str(), url, &urlLength, 0));
+}
+
 void Applink (const char *dest)
 {
 	wchar_t url [MAX_URL_LENGTH] = {0};
@@ -12007,11 +11991,7 @@ void Applink (const char *dest)
 	GetModPath (installDir, TC_MAX_PATH);
 #endif
 
-	if (strcmp(dest, "donate") == 0)
-	{
-		StringCbCopyW (page, sizeof (page),L"Donation.html");
-	}
-	else if (strcmp(dest, "main") == 0)
+	if (strcmp(dest, "donate") == 0 || strcmp(dest, "main") == 0)
 	{
 		StringCbCopyW (url, sizeof (url), TC_HOMEPAGE);
 		buildUrl = FALSE;
@@ -12038,7 +12018,7 @@ void Applink (const char *dest)
 	}
 	else if (strcmp(dest, "onlinehelp") == 0)
 	{
-		StringCbPrintfW (url, sizeof (url),L"https://github.com/e3742526/LambCrypt/blob/main/doc/html/en/Documentation.html");
+		StringCbCopyW (url, sizeof (url), TC_UPSTREAM_DOCS L"Documentation.html");
 		buildUrl = FALSE;
 	}
 	else if (strcmp(dest, "keyfiles") == 0)
@@ -12147,62 +12127,29 @@ void Applink (const char *dest)
 		buildUrl = FALSE;
 	}
 	
+	BOOL localTopic = FALSE;
 	if (buildUrl)
 	{
 		// in case of setup, open the online documentation if we are connected to Internet because existing documentation may be outdated
 #ifdef SETUP
-		if (IsInternetConnected())
-		{
-			StringCbPrintfW (url, sizeof (url), L"https://github.com/e3742526/LambCrypt/blob/main/doc/html/en/%s", page);
-			buildUrl = FALSE;
-		}
+		if (!IsInternetConnected())
 #endif
-		if (buildUrl)
-		{
-			StringCbPrintfW (url, sizeof (url), L"file:///%sdocs/html/en/%s", installDir, page);
-			CorrectURL (url);
-		}
+			localTopic = GetLocalDocumentationUrl (installDir, page, url, ARRAYSIZE (url));
+		if (!localTopic)
+			StringCbPrintfW (url, sizeof (url), TC_UPSTREAM_DOCS L"%s", page);
 	}
 
 	if (IsAdmin ())
 	{
-		int openDone = 0;
-		if (buildUrl)
-		{
-			wchar_t pageFileName [TC_MAX_PATH] = {0};
-			DWORD cchUnescaped = ARRAYSIZE(pageFileName);
-
-			StringCbCopyW (pageFileName, sizeof(pageFileName), page);
-			/* remove escape sequences from the page name before calling FileExists function */
-			if (S_OK == UrlUnescapeW (pageFileName, pageFileName, &cchUnescaped, URL_UNESCAPE_INPLACE))
-			{
-				std::wstring pageFullPath = installDir;
-				pageFullPath += L"docs\\html\\en\\";
-				pageFullPath += pageFileName;
-			
-				if (!FileExists (pageFullPath.c_str()))
-				{
-					// fallback to online resources
-					StringCbPrintfW (url, sizeof (url), L"https://github.com/e3742526/LambCrypt/blob/main/doc/html/en/%s", page);
-					SafeOpenURL (url);
-					openDone = 1;
-				}
-			}
-		}
-
-		if (!openDone)
-		{
-			SafeOpenURL (url);
-		}
+		SafeOpenURL (url);
 	}
 	else
 	{
 		r = (INT_PTR) ShellExecuteW (NULL, L"open", url, NULL, NULL, SW_SHOWNORMAL);
 
-		if (((r == ERROR_FILE_NOT_FOUND) || (r == ERROR_PATH_NOT_FOUND)) && buildUrl)
+		if (localTopic && (r == ERROR_FILE_NOT_FOUND || r == ERROR_PATH_NOT_FOUND))
 		{
-			// fallback to online resources
-			StringCbPrintfW (url, sizeof (url), L"https://github.com/e3742526/LambCrypt/blob/main/doc/html/en/%s", page);
+			StringCbPrintfW (url, sizeof (url), TC_UPSTREAM_DOCS L"%s", page);
 			ShellExecuteW (NULL, L"open", url, NULL, NULL, SW_SHOWNORMAL);
 		}			
 	}

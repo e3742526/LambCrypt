@@ -271,11 +271,11 @@ ifdef VC_LEGACY_BUILD
 else
 	sed -e 's/_VERSION_/$(patsubst %a,%.1,$(patsubst %b,%.2,$(TC_VERSION)))/' ../Build/Resources/MacOSX/Info.plist.xml >$(APPNAME).app/Contents/Info.plist
 endif
+	plutil -replace LSMinimumSystemVersion -string "$(VC_OSX_TARGET)" $(APPNAME).app/Contents/Info.plist
 ifeq "$(VC_OSX_FSKIT)" "1"
 	plutil -replace CFBundleIdentifier -string io.github.e3742526.LambCrypt.fskit $(APPNAME).app/Contents/Info.plist
 	plutil -replace CFBundleExecutable -string $(APPNAME) $(APPNAME).app/Contents/Info.plist
 	plutil -replace CFBundleName -string "LambCrypt FSKit" $(APPNAME).app/Contents/Info.plist
-	plutil -replace LSMinimumSystemVersion -string "$(VC_OSX_TARGET)" $(APPNAME).app/Contents/Info.plist
 	mkdir -p "$(FSKIT_EXTENSION)/Contents/MacOS"
 	rm -f "$(FSKIT_EXTENSION)/Contents/embedded.provisionprofile"
 	sed -e 's/_VERSION_/$(patsubst %a,%.1,$(patsubst %b,%.2,$(TC_VERSION)))/g' \

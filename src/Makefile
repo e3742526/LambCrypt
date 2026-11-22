@@ -329,14 +329,12 @@ ifeq "$(shell uname -s)" "Darwin"
 
 	PLATFORM := MacOSX
 	APPNAME := LambCrypt
+	export VC_OSX_TARGET ?= 26.0
 
 ifeq "$(VC_OSX_FSKIT)" "1"
 	APPNAME := LambCrypt-FSKit
-	export VC_OSX_TARGET ?= 26.0
 	C_CXX_FLAGS += -DVC_MACOSX_FSKIT
 	LFLAGS += -framework Foundation
-else
-	export VC_OSX_TARGET ?= 12
 endif
 	# use the output of the command "xcrun --show-sdk-version" to set the SDK version if not set
 	export VC_OSX_SDK ?= $(shell xcrun --show-sdk-version)

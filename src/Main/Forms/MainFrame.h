@@ -22,6 +22,7 @@
 #include "Forms.h"
 #include "ChangePasswordDialog.h"
 #ifdef TC_MACOSX
+#include <tuple>
 #include <wx/display.h>
 #include "Main/VolumeSnapshot.h"
 #endif
@@ -198,6 +199,9 @@ namespace VeraCrypt
 		void OnWipeCacheButtonClick (wxCommandEvent& event);
 		void OrganizeFavorites (const FavoriteVolumeList &favorites, size_t newItemCount = 0);
 		void OpenSelectedVolume () const;
+#ifdef TC_MACOSX
+		void OpenMountedVolume (const shared_ptr <VolumeInfo> &selected) const;
+#endif
 		void SavePreferences () const;
 		long SlotNumberToItemIndex (uint32 slotNumber) const;
 		void SetVolumePath (const VolumePath &path) { VolumePathComboBox->SetValue (wstring (path)); }
@@ -238,20 +242,21 @@ namespace VeraCrypt
 
 		struct VolumeActivityMapEntry
 		{
-			VolumeActivityMapEntry () { }
-
 			VolumeActivityMapEntry (const VolumeInfo &volume, wxLongLong lastActivityTime)
 				: LastActivityTime (lastActivityTime),
-				SerialInstanceNumber (volume.SerialInstanceNumber),
 				TotalDataRead (volume.TotalDataRead),
 				TotalDataWritten (volume.TotalDataWritten)
 			{ }
 
 			wxLongLong LastActivityTime;
-			uint64 SerialInstanceNumber;
 			uint64 TotalDataRead;
 			uint64 TotalDataWritten;
 		};
+#ifdef TC_MACOSX
+		using VolumeActivityKey = std::tuple <wstring, wstring, VolumeSlotNumber, uint64>;
+#else
+		using VolumeActivityKey = std::pair <wstring, uint64>;
+#endif
 
 		map <int, FavoriteVolume> FavoriteVolumesMenuMap;
 		bool ListItemRightClickEventPending;
@@ -265,7 +270,7 @@ namespace VeraCrypt
 		long SelectedItemIndex;
 		VolumeSlotNumber SelectedSlotNumber;
 		int ShowRequestFifo;
-		map <wstring, VolumeActivityMapEntry> VolumeActivityMap;
+		map <VolumeActivityKey, VolumeActivityMapEntry> VolumeActivityMap;
 	};
 }
 

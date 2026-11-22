@@ -94,7 +94,6 @@ BOOL bPromptReleaseNotes = FALSE;
 BOOL bPromptTutorial = FALSE;
 BOOL bUpdateRescueDisk = FALSE;
 BOOL bRepairMode = FALSE;
-BOOL bUserSetLanguage = FALSE;
 
 // A deferred custom action cannot inherit a driver handle from another action.
 // Keep our connection alive until post-install backup validation has finished.
@@ -804,11 +803,7 @@ void Applink_Dll (MSIHANDLE hInstaller, const char *dest)
 
 	StringCbCopyW (installDir, sizeof (installDir), InstallationPath);
 
-	if (strcmp(dest, "donate") == 0)
-	{
-		StringCbCopyW (page, sizeof (page),L"Donation.html");
-	}
-	else if (strcmp(dest, "main") == 0)
+	if (strcmp(dest, "donate") == 0 || strcmp(dest, "main") == 0)
 	{
 		StringCbCopyW (url, sizeof (url), TC_HOMEPAGE);
 		buildUrl = FALSE;
@@ -835,7 +830,7 @@ void Applink_Dll (MSIHANDLE hInstaller, const char *dest)
 	}
 	else if (strcmp(dest, "onlinehelp") == 0)
 	{
-		StringCbCopyW (url, sizeof (url),L"https://github.com/e3742526/LambCrypt/blob/main/doc/html/en/Documentation.html");
+		StringCbCopyW (url, sizeof (url), TC_UPSTREAM_DOCS L"Documentation.html");
 		buildUrl = FALSE;
 	}
 	else if (strcmp(dest, "keyfiles") == 0)
@@ -936,38 +931,27 @@ void Applink_Dll (MSIHANDLE hInstaller, const char *dest)
 		buildUrl = FALSE;
 	}
 	
+	BOOL localTopic = FALSE;
 	if (buildUrl)
 	{
-		StringCbPrintfW (url, sizeof (url), L"file:///%sdocs/html/en/%s", installDir, page);
-		CorrectURL (url);
+		localTopic = GetLocalDocumentationUrl (installDir, page, url, ARRAYSIZE (url));
+		if (!localTopic)
+			StringCbPrintfW (url, sizeof (url), TC_UPSTREAM_DOCS L"%s", page);
 	}
 
 	MSILog(hInstaller, MSI_INFO_LEVEL, L"Applink_Dll: url(%s)", url);
 
 	if (IsAdmin ())
 	{
-		// TODO: FileExists always returns FALSE
-		//		 This is due to the fact that waccess does not like url encoded as 'file:///%sdocs/html/en/%s'.
-		//		 It fails with '0x0000007B: The filename, directory name, or volume label syntax is incorrect.'.
-		if (buildUrl && !FileExists (url))
-		{
-			// fallbacl to online resources
-			StringCbPrintfW (url, sizeof (url), L"https://github.com/e3742526/LambCrypt/blob/main/doc/html/en/%s", page);
-			SafeOpenURL (url);
-		}
-		else
-		{
-			SafeOpenURL (url);
-		}
+		SafeOpenURL (url);
 	}
 	else
 	{
 		r = (int) ShellExecuteW (NULL, L"open", url, NULL, NULL, SW_SHOWNORMAL);
 
-		if (((r == ERROR_FILE_NOT_FOUND) || (r == ERROR_PATH_NOT_FOUND)) && buildUrl)
+		if (localTopic && (r == ERROR_FILE_NOT_FOUND || r == ERROR_PATH_NOT_FOUND))
 		{
-			// fallbacl to online resources
-			StringCbPrintfW (url, sizeof (url), L"https://github.com/e3742526/LambCrypt/blob/main/doc/html/en/%s", page);
+			StringCbPrintfW (url, sizeof (url), TC_UPSTREAM_DOCS L"%s", page);
 			ShellExecuteW (NULL, L"open", url, NULL, NULL, SW_SHOWNORMAL);
 		}			
 	}
@@ -2086,7 +2070,6 @@ BOOL InitDll (MSIHANDLE hInstaller)
 	SetErrorMode (SetErrorMode (0) | SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX);
 	CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
 
-	bUserSetLanguage = TRUE;
 	LoadLanguageFile (TRUE);
 
 	SetUnhandledExceptionFilter (ExceptionHandler);
@@ -2604,7 +2587,6 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_PreInstall(MSIHANDLE hInstaller)
 			RegSetValueEx (hkey, L"bPromptTutorial", 0, REG_DWORD, (const BYTE*)(&bPromptTutorial), sizeof(BOOL));
 			RegSetValueEx (hkey, L"bUpdateRescueDisk", 0, REG_DWORD, (const BYTE*)(&bUpdateRescueDisk), sizeof(BOOL));
 			RegSetValueEx (hkey, L"bRepairMode", 0, REG_DWORD, (const BYTE*)(&bRepairMode), sizeof(BOOL));
-			RegSetValueEx (hkey, L"bUserSetLanguage", 0, REG_DWORD, (const BYTE*)(&bUserSetLanguage), sizeof(BOOL));
 
 			RegCloseKey (hkey);
 
@@ -2798,8 +2780,6 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_PostInstall(MSIHANDLE hInstaller)
 		bUpdateRescueDisk = (dwValue == 1);
 		RegQueryValueEx (hkey, L"bRepairMode", NULL, NULL, (LPBYTE) &dwValue, &cbValue);
 		bRepairMode = (dwValue == 1);
-		RegQueryValueEx (hkey, L"bUserSetLanguage", NULL, NULL, (LPBYTE) &dwValue, &cbValue);
-		bUserSetLanguage = (dwValue == 1);
 
 		RegCloseKey (hkey);
 	}
@@ -3230,14 +3210,6 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_PostInstall(MSIHANDLE hInstaller)
 	{
 		//	This is part of MainDialogProc, WM_CLOSE, after PostMessage (MainDlg, bOK ? TC_APPMSG_INSTALL_SUCCESS : TC_APPMSG_INSTALL_FAILURE, 0, 0);
 
-		/* if user selected a language, use for GUI in the next run */
-		if (bUserSetLanguage)
-		{
-			WCHAR langId[6];
-			MultiByteToWideChar (CP_ACP, 0, GetPreferredLangId(), -1, langId, ARRAYSIZE (langId));
-			WriteRegistryString (L"Software\\VeraCrypt", L"SetupUILanguage", langId);
-		}
-
 		if (bPromptFastStartup && AskWarnYesNo ("CONFIRM_DISABLE_FAST_STARTUP", hwndDlg) == IDYES)
 		{
 			WriteLocalMachineRegistryDword (L"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power", L"HiberbootEnabled", 0);
@@ -3281,7 +3253,6 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_PostInstall(MSIHANDLE hInstaller)
 			RegSetValueEx (hkey, L"bPromptTutorial", 0, REG_DWORD, (const BYTE*)(&bPromptTutorial), sizeof(BOOL));
 			RegSetValueEx (hkey, L"bUpdateRescueDisk", 0, REG_DWORD, (const BYTE*)(&bUpdateRescueDisk), sizeof(BOOL));
 			RegSetValueEx (hkey, L"bRepairMode", 0, REG_DWORD, (const BYTE*)(&bRepairMode), sizeof(BOOL));
-			RegSetValueEx (hkey, L"bUserSetLanguage", 0, REG_DWORD, (const BYTE*)(&bUserSetLanguage), sizeof(BOOL));
 
 			RegCloseKey (hkey);
 
@@ -3521,7 +3492,6 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_PreUninstall(MSIHANDLE hInstaller)
 			RegSetValueEx (hkey, L"bPromptTutorial", 0, REG_DWORD, (const BYTE*)(&bPromptTutorial), sizeof(BOOL));
 			RegSetValueEx (hkey, L"bUpdateRescueDisk", 0, REG_DWORD, (const BYTE*)(&bUpdateRescueDisk), sizeof(BOOL));
 			RegSetValueEx (hkey, L"bRepairMode", 0, REG_DWORD, (const BYTE*)(&bRepairMode), sizeof(BOOL));
-			RegSetValueEx (hkey, L"bUserSetLanguage", 0, REG_DWORD, (const BYTE*)(&bUserSetLanguage), sizeof(BOOL));
 
 			RegCloseKey (hkey);
 
@@ -3696,8 +3666,6 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_PostUninstall(MSIHANDLE hInstaller)
 		bUpdateRescueDisk = (dwValue == 1);
 		RegQueryValueEx (hkey, L"bRepairMode", NULL, NULL, (LPBYTE) &dwValue, &cbValue);
 		bRepairMode = (dwValue == 1);
-		RegQueryValueEx (hkey, L"bUserSetLanguage", NULL, NULL, (LPBYTE) &dwValue, &cbValue);
-		bUserSetLanguage = (dwValue == 1);
 
 		RegCloseKey (hkey);
 	}
@@ -3845,7 +3813,6 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_PostUninstall(MSIHANDLE hInstaller)
 			RegSetValueEx (hkey, L"bPromptTutorial", 0, REG_DWORD, (const BYTE*)(&bPromptTutorial), sizeof(BOOL));
 			RegSetValueEx (hkey, L"bUpdateRescueDisk", 0, REG_DWORD, (const BYTE*)(&bUpdateRescueDisk), sizeof(BOOL));
 			RegSetValueEx (hkey, L"bRepairMode", 0, REG_DWORD, (const BYTE*)(&bRepairMode), sizeof(BOOL));
-			RegSetValueEx (hkey, L"bUserSetLanguage", 0, REG_DWORD, (const BYTE*)(&bUserSetLanguage), sizeof(BOOL));
 
 			RegCloseKey (hkey);
 
@@ -3976,8 +3943,6 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_DoChecks(MSIHANDLE hInstaller)
 		bUpdateRescueDisk = (dwValue == 1);
 		RegQueryValueEx (hkey, L"bRepairMode", NULL, NULL, (LPBYTE) &dwValue, &cbValue);
 		bRepairMode = (dwValue == 1);
-		RegQueryValueEx (hkey, L"bUserSetLanguage", NULL, NULL, (LPBYTE) &dwValue, &cbValue);
-		bUserSetLanguage = (dwValue == 1);
 
 		RegCloseKey (hkey);
 	}

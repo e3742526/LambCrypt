@@ -682,6 +682,10 @@ namespace VeraCrypt
 
 	shared_ptr <VolumeInfo> CoreUnix::ReadAuxiliaryVolumeInfo (const DirectoryPath &auxMountPoint)
 	{
+#ifdef VC_MACOSX_FSKIT
+		if (FSKit::IsAuxiliaryMountPoint (auxMountPoint))
+			return FSKit::ReadVolumeInfo (auxMountPoint);
+#endif
 		File control;
 		control.Open (string (auxMountPoint) + FuseService::GetControlPath());
 		Buffer buffer (8192);
@@ -1322,7 +1326,9 @@ namespace VeraCrypt
 		throw_sys_if (errno != EWOULDBLOCK);
 		return false;
 	}
+#endif
 
+#if defined(TC_LINUX) || defined(VC_MACOSX_FSKIT)
 	int CoreUnix::ReserveMountSlot (MountOptions &options) const
 	{
 		const bool hasMountPoint = options.MountPoint && !options.MountPoint->IsEmpty();
@@ -1333,16 +1339,27 @@ namespace VeraCrypt
 		if (automatic)
 			slot = GetFirstFreeSlotNumber();
 
+#ifdef TC_LINUX
 		const string lockDirectory = GetMountLockDirectory();
+#endif
 		for (; IsSlotNumberValid (slot); ++slot)
 		{
-			int fd = OpenMountLock (lockDirectory, "slot-" + StringConverter::ToSingle (slot));
+#ifdef TC_LINUX
+			const int fd = OpenMountLock (lockDirectory, "slot-" + StringConverter::ToSingle (slot));
+#else
+			const int fd = FSKit::TryReserveSlot (slot);
+#endif
 			bool reserved = false;
-			finally_do_arg2 (int, fd, bool &, reserved, { if (!finally_arg2) close (finally_arg); });
+			finally_do_arg2 (int, fd, bool &, reserved, { if (finally_arg >= 0 && !finally_arg2) close (finally_arg); });
 
 			// Check after taking the lock so already-mounted volumes and
 			// deferred mappings also reserve their slot.
-			if (TryAcquireMountLock (fd) && IsSlotNumberAvailable (slot) && !IsMountSlotUsedByKernel (slot))
+#ifdef TC_LINUX
+			const bool available = TryAcquireMountLock (fd) && IsSlotNumberAvailable (slot) && !IsMountSlotUsedByKernel (slot);
+#else
+			const bool available = fd >= 0 && IsSlotNumberAvailable (slot);
+#endif
+			if (available)
 			{
 				options.SlotNumber = slot;
 				if (!options.NoFilesystem && !hasMountPoint)
@@ -1355,7 +1372,9 @@ namespace VeraCrypt
 		}
 		throw VolumeSlotUnavailable (SRC_POS);
 	}
+#endif
 
+#ifdef TC_LINUX
 	int CoreUnix::ReserveMountVolume (const File &volumeFile, bool readOnly) const
 	{
 		struct stat identity;
@@ -1398,8 +1417,8 @@ namespace VeraCrypt
 
 	shared_ptr <VolumeInfo> CoreUnix::MountVolume (MountOptions &options)
 	{
-#ifdef TC_LINUX
-		int slotLock = ReserveMountSlot (options);
+#if defined(TC_LINUX) || defined(VC_MACOSX_FSKIT)
+		const int slotLock = ReserveMountSlot (options);
 		finally_do_arg (int, slotLock, { close (finally_arg); });
 #else
 		CoalesceSlotNumberAndMountPoint (options);
@@ -1523,6 +1542,10 @@ namespace VeraCrypt
 #if defined(VC_MACOSX_FUSET) || defined(VC_MACOSX_FSKIT)
 		uint64 mountServiceSerialInstanceNumber;
 #endif
+#ifdef VC_MACOSX_FSKIT
+		int activationChannel = -1;
+		finally_do_arg (int &, activationChannel, { if (finally_arg >= 0) close (finally_arg); });
+#endif
 
 		try
 		{
@@ -1538,7 +1561,8 @@ namespace VeraCrypt
 			fuseMountPoint = canonicalPath;
 #endif
 #if defined(VC_MACOSX_FSKIT)
-			mountServiceSerialInstanceNumber = FSKit::Mount (volume, options.SlotNumber, fuseMountPoint);
+			mountServiceSerialInstanceNumber = FSKit::Mount (volume, options.SlotNumber, fuseMountPoint,
+				slotLock, activationChannel);
 #elif defined(VC_MACOSX_FUSET)
 			mountServiceSerialInstanceNumber = FuseService::Mount (volume, options.SlotNumber, fuseMountPoint);
 #elif defined(TC_LINUX)
@@ -1696,6 +1720,15 @@ namespace VeraCrypt
 			if (!mountedVolume)
 				throw ParameterIncorrect (SRC_POS);
 
+#ifdef VC_MACOSX_FSKIT
+			// The attach result and the fresh inventory must identify the same disk.
+			// If either is inconclusive, let the worker retry by exact image path.
+			if (mountedVolume->Discovery == VolumeInfo::ImageAttached && mountedVolume->VirtualDevice == mountedVirtualDevice)
+				FSKit::ObserveAttachedMedia (activationChannel, mountedVirtualDevice);
+			else
+				FSKit::ObserveLateAttachedMedia (activationChannel);
+#endif
+
 #ifdef TC_LINUX
 			mountedVolume->RequesterBacked = volume->GetFile()->IsRequesterBacked();
 #endif
@@ -1708,8 +1741,9 @@ namespace VeraCrypt
 #ifdef VC_MACOSX_FSKIT
 		catch (const MountServiceCleanupFailed &)
 		{
-			// The disk may still be attaching. Preserve its backing service for
-			// a later dismount once Disk Images can confirm the mount state.
+			// Keep serving I/O and watch for the disk image that Disk Images
+			// may publish after this caller reports the timeout.
+			FSKit::ObserveLateAttachedMedia (activationChannel);
 			throw;
 		}
 #endif

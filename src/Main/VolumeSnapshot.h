@@ -29,6 +29,7 @@ namespace VeraCrypt
 		}
 		void Invalidate () { Current = false; }
 		bool HasSample () const { return Available; }
+		Clock::time_point GetSampleTime () const { return SampledAt; }
 		bool IsComplete () const { return Current && Complete; }
 		bool IsFresh (Clock::time_point now = Clock::now()) const
 		{

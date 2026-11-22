@@ -347,6 +347,19 @@ namespace VeraCrypt
 #endif
 	}
 
+	static map <VolumeSlotNumber, shared_ptr <VolumeInfo>> GetMountedVolumesBySlot (const VolumeInfoList &volumes)
+	{
+		map <VolumeSlotNumber, shared_ptr <VolumeInfo>> slots;
+		for (const auto &volume : volumes)
+		{
+			// Unreadable entries are appended after live discovery results. Keep
+			// the live volume when both entries use the same visible slot.
+			if (Core->IsSlotNumberValid (volume->SlotNumber))
+				slots.emplace (volume->SlotNumber, volume);
+		}
+		return slots;
+	}
+
 	shared_ptr <VolumeInfo> MainFrame::GetSelectedVolume () const
 	{
 #ifdef TC_MACOSX
@@ -656,14 +669,15 @@ namespace VeraCrypt
 				// An unverified empty list must not imply that the volumes are locked.
 				popup->AppendSeparator();
 				const bool fresh = Frame->VolumeSnapshot.IsFresh();
-				const auto volumes = Frame->GetDisplayedVolumes();
+				const auto volumes = GetMountedVolumesBySlot (Frame->MountedVolumes);
 				if (!fresh || !Frame->VolumeSnapshot.IsComplete() || Gui->HasUnconfirmedCleanupWarnings())
 					popup->Append (wxID_ANY, LangString[fresh && !Gui->HasUnconfirmedCleanupWarnings() ? "VOLUME_DISCOVERY_PARTIAL" : "VOLUME_STATUS_UNKNOWN"])->Enable (false);
 				else if (Frame->CanConfirmNoMountedVolumes())
 					popup->Append (wxID_ANY, LangString["NO_VOLUMES_MOUNTED"])->Enable (false);
 
-				for (const auto &volume : volumes)
+				for (const auto &entry : volumes)
 				{
+					const auto &volume = entry.second;
 					wxString label { wstring (volume->Path) };
 					label.Replace (L"\t", L" "); // wx treats tabs as accelerator separators.
 					label.Replace (L"\n", L" ");
@@ -681,7 +695,10 @@ namespace VeraCrypt
 					{
 						auto *item = actions->Append (wxID_ANY, LangString["MACOSX_OPEN_IN_FINDER"]);
 						item->Enable (operationsEnabled && fresh && volume->Discovery == VolumeInfo::ImageAttached);
-						actions->Bind (wxEVT_MENU, [this, volume] (wxCommandEvent&) { OpenMountedVolume (volume); }, item->GetId());
+						actions->Bind (wxEVT_MENU, [this, volume] (wxCommandEvent&)
+						{
+							if (!Busy) Frame->OpenMountedVolume (volume);
+						}, item->GetId());
 					}
 					if (Gui->GetPreferences().BackgroundTaskMenuDismountItemsEnabled)
 					{
@@ -751,23 +768,6 @@ namespace VeraCrypt
 #endif
 				return popup.release();
 			}
-
-#ifdef TC_MACOSX
-			void OpenMountedVolume (const shared_ptr <VolumeInfo> &selected)
-			{
-				if (Busy || Gui->GetWaitDialog()) return;
-				if (Frame->VolumeSnapshot.IsFresh())
-					for (const auto &current : Frame->GetDisplayedVolumes())
-						if (current->SerialInstanceNumber == selected->SerialInstanceNumber
-							&& current->SlotNumber == selected->SlotNumber && current->Path == selected->Path
-							&& current->Discovery == VolumeInfo::ImageAttached && !current->MountPoint.IsEmpty())
-						{
-							Gui->OpenExplorerWindow (current->MountPoint);
-							return;
-						}
-				Gui->ShowWarning (LangString["MACOSX_REOPEN_VOLUME_MENU"]);
-			}
-#endif
 
 			void OnDismountAllMenuItemSelected (wxCommandEvent& event) { Busy = true; Frame->OnDismountAllButtonClick (event); Busy = false; }
 			void OnDismountMenuItemSelected (wxCommandEvent& event) { Busy = true; Frame->DismountVolume (DismountMap[event.GetId()]); Busy = false; }
@@ -1167,7 +1167,7 @@ namespace VeraCrypt
 
 	void MainFrame::OnHiddenVolumeProtectionTriggered (shared_ptr <VolumeInfo> protectedVolume)
 	{
-		Gui->ShowWarningTopMost (StringFormatter (LangString["DAMAGE_TO_HIDDEN_VOLUME_PREVENTED"], wstring (protectedVolume->Path)));
+		Gui->ShowWarningTopMost (StringFormatter (LangString["DAMAGE_TO_HIDDEN_VOLUME_PREVENTED_PATH"], wstring (protectedVolume->Path)));
 	}
 
 	void MainFrame::OnHotkey (wxKeyEvent& event)
@@ -1556,29 +1556,36 @@ namespace VeraCrypt
 					VolumeInfoList inactiveVolumes;
 #ifdef TC_MACOSX
 					wxLongLong currentTime = chrono::duration_cast <chrono::milliseconds> (chrono::steady_clock::now().time_since_epoch()).count();
+						// A reused snapshot proves inactivity only through its own observation.
+						wxLongLong sampleTime = chrono::duration_cast <chrono::milliseconds> (VolumeSnapshot.GetSampleTime().time_since_epoch()).count();
 #else
 					wxLongLong currentTime = wxGetLocalTimeMillis().GetValue();
+						wxLongLong sampleTime = currentTime;
 #endif
 
-					map <wstring, VolumeActivityMapEntry> newActivityTimeMap;
+						decltype (VolumeActivityMap) newActivityTimeMap;
 
 					foreach (shared_ptr <VolumeInfo> volume, MountedVolumes)
 					{
+#ifdef TC_MACOSX
+							const VolumeActivityKey key (volume->Path, volume->AuxMountPoint, volume->SlotNumber, volume->SerialInstanceNumber);
+#else
+							const VolumeActivityKey key (volume->Path, volume->SerialInstanceNumber);
+#endif
+							const auto entry = VolumeActivityMap.find (key);
 #ifdef TC_MACOSX
 						// A retained entry has no current counters. Keep its idle state until
 						// they can be read again: unchanged cumulative counters prove idleness.
 						if (volume->Discovery == VolumeInfo::ControlUnavailable)
 						{
-							map <wstring, VolumeActivityMapEntry>::const_iterator entry = VolumeActivityMap.find (volume->Path);
-							if (entry != VolumeActivityMap.end() && entry->second.SerialInstanceNumber == volume->SerialInstanceNumber)
-								newActivityTimeMap[volume->Path] = entry->second;
+								if (entry != VolumeActivityMap.end())
+									newActivityTimeMap.emplace (key, entry->second);
 							continue;
 						}
 #endif
-						if (VolumeActivityMap.find (volume->Path) != VolumeActivityMap.end()
-							&& VolumeActivityMap[volume->Path].SerialInstanceNumber == volume->SerialInstanceNumber)
+							if (entry != VolumeActivityMap.end())
 						{
-							VolumeActivityMapEntry ae = VolumeActivityMap[volume->Path];
+								VolumeActivityMapEntry ae = entry->second;
 
 							if (volume->TotalDataRead != ae.TotalDataRead || volume->TotalDataWritten != ae.TotalDataWritten)
 							{
@@ -1586,23 +1593,23 @@ namespace VeraCrypt
 								ae.TotalDataRead = volume->TotalDataRead;
 								ae.TotalDataWritten = volume->TotalDataWritten;
 							}
-							else if ((currentTime - ae.LastActivityTime) > GetPreferences().MaxVolumeIdleTime * 1000LL * 60)
+								else if ((sampleTime - ae.LastActivityTime) > GetPreferences().MaxVolumeIdleTime * 1000LL * 60)
 							{
 								inactiveVolumes.push_back (volume);
 							}
 
-							newActivityTimeMap[volume->Path] = ae;
+								newActivityTimeMap.emplace (key, ae);
 						}
 						else
 						{
-							newActivityTimeMap[volume->Path] = VolumeActivityMapEntry (*volume, currentTime);
+								newActivityTimeMap.emplace (key, VolumeActivityMapEntry (*volume, currentTime));
 						}
 					}
 
-					VolumeActivityMap = newActivityTimeMap;
+						VolumeActivityMap.swap (newActivityTimeMap);
 
 					if (!inactiveVolumes.empty())
-						Gui->AutoDismountVolumes (inactiveVolumes);
+						Gui->AutoDismountVolumes (inactiveVolumes, false);
 				}
 
 				// Screen saver auto-dismount
@@ -1717,6 +1724,9 @@ namespace VeraCrypt
 
 	void MainFrame::OpenSelectedVolume () const
 	{
+#ifdef TC_MACOSX
+		OpenMountedVolume (GetSelectedVolume());
+#else
 		shared_ptr <VolumeInfo> selectedVolume = GetSelectedVolume();
 		if (selectedVolume)
 		{
@@ -1730,7 +1740,36 @@ namespace VeraCrypt
 				Gui->ShowError (e);
 			}
 		}
+#endif
 	}
+
+#ifdef TC_MACOSX
+	void MainFrame::OpenMountedVolume (const shared_ptr <VolumeInfo> &selected) const
+	{
+		if (!selected || selected->MountPoint.IsEmpty() || Gui->GetWaitDialog()) return;
+		if (VolumeSnapshot.IsFresh())
+		{
+			const auto volumes = GetMountedVolumesBySlot (MountedVolumes);
+			const auto entry = volumes.find (selected->SlotNumber);
+			if (entry != volumes.end())
+			{
+				const auto &current = entry->second;
+				if (current->IsSameMountInstance (*selected)
+					&& current->Discovery == VolumeInfo::ImageAttached && !current->MountPoint.IsEmpty())
+				{
+					try
+					{
+						wxBusyCursor busy;
+						Gui->OpenExplorerWindow (current->MountPoint);
+					}
+					catch (exception &e) { Gui->ShowError (e); }
+					return;
+				}
+			}
+		}
+		Gui->ShowWarning (LangString["MACOSX_VOLUME_OPEN_UNAVAILABLE"]);
+	}
+#endif
 
 	void MainFrame::OrganizeFavorites (const FavoriteVolumeList &favorites, size_t newItemCount)
 	{
@@ -1878,7 +1917,7 @@ namespace VeraCrypt
 		}
 		VolumeSnapshot.Invalidate();
 		VolumeListChange change = event.GetPayload <VolumeListChange>();
-		MountedVolumes.remove_if ([&change] (shared_ptr <VolumeInfo> volume) { return volume->SerialInstanceNumber == change.Volume->SerialInstanceNumber; });
+		MountedVolumes.remove_if ([&change] (const shared_ptr <VolumeInfo> &volume) { return volume->IsSameMountInstance (*change.Volume); });
 		if (change.Mounted) MountedVolumes.push_back (change.Volume);
 #endif
 		UpdateVolumeList();
@@ -1911,7 +1950,7 @@ namespace VeraCrypt
 					// New unresolved candidates remain separate, without invented slots.
 					foreach (shared_ptr <VolumeInfo> old, MountedVolumes)
 						if (find (result.UnresolvedMounts.begin(), result.UnresolvedMounts.end(), old->AuxMountPoint) != result.UnresolvedMounts.end()
-							&& none_of (result.Volumes.begin(), result.Volumes.end(), [&old] (shared_ptr <VolumeInfo> volume) { return volume->SerialInstanceNumber == old->SerialInstanceNumber; }))
+							&& none_of (result.Volumes.begin(), result.Volumes.end(), [&old] (const shared_ptr <VolumeInfo> &volume) { return volume->IsSameMountInstance (*old); }))
 						{
 							shared_ptr <VolumeInfo> unknown = old->Clone();
 							unknown->Discovery = VolumeInfo::ControlUnavailable;
@@ -1951,13 +1990,7 @@ namespace VeraCrypt
 		MountedVolumes = Core->GetMountedVolumes();
 #endif
 
-		map < VolumeSlotNumber, shared_ptr <VolumeInfo> > mountedVolumesMap;
-		foreach (shared_ptr <VolumeInfo> volume, MountedVolumes)
-		{
-			// A live replacement may share a slot with a retained unreadable entry.
-			// Keep the visible row and selection on the first (live) instance.
-			mountedVolumesMap.insert (make_pair (volume->SlotNumber, volume));
-		}
+		const auto mountedVolumesMap = GetMountedVolumesBySlot (MountedVolumes);
 
 		VolumeInfoList protectionTriggeredVolumes;
 
@@ -1968,9 +2001,10 @@ namespace VeraCrypt
 			long itemIndex = SlotNumberToItemIndex (slotNumber);
 			vector <wstring> fields (SlotListCtrl->GetColumnCount());
 
-			if (mountedVolumesMap.find (slotNumber) != mountedVolumesMap.end())
+			const auto entry = mountedVolumesMap.find (slotNumber);
+			if (entry != mountedVolumesMap.end())
 			{
-				shared_ptr <VolumeInfo> volume = mountedVolumesMap[slotNumber];
+				const auto &volume = entry->second;
 
 #ifdef TC_WINDOWS
 				fields[ColumnSlot] = volume->MountPoint;

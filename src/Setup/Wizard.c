@@ -62,8 +62,6 @@ BOOL bPromptTutorial = FALSE;
 BOOL bPromptReleaseNotes = FALSE;
 BOOL bPromptFastStartup = FALSE;
 
-extern BOOL bUserSetLanguage;
-
 int nPbar = 0;			/* Control ID of progress bar */
 
 static HFONT hDonTextFont;
@@ -1117,14 +1115,6 @@ BOOL CALLBACK MainDialogProc (HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPa
 	case TC_APPMSG_INSTALL_SUCCESS:
 
 		/* Installation completed successfully */
-
-		/* if user selected a language, use for GUI in the next run */
-		if (bUserSetLanguage)
-		{
-			WCHAR langId[6];
-			MultiByteToWideChar (CP_ACP, 0, GetPreferredLangId(), -1, langId, ARRAYSIZE (langId));
-			WriteRegistryString (L"Software\\VeraCrypt", L"SetupUILanguage", langId);
-		}
 
 		bInProgress = FALSE;
 

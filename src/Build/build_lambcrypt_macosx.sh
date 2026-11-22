@@ -21,8 +21,8 @@ PARENTDIR=$(cd "$(dirname "$SCRIPTPATH/../../../.")" && pwd)
 DEFAULT_WX_VERSION="3.2.10"
 WX_VERSION="$DEFAULT_WX_VERSION"
 
-# Default macOS deployment target for wxWidgets source builds
-DEFAULT_OSX_TARGET="12"
+# Default macOS deployment target for both build paths
+DEFAULT_OSX_TARGET="26.0"
 OSX_TARGET=""
 
 # Initialize flags
@@ -39,7 +39,7 @@ usage() {
     echo "  -p           Create a package after building"
     echo "  -f           Build with FUSE-T support"
     echo "  -l           Use local wxWidgets and disable universal binaries"
-    echo "  -t <target>  Set VC_OSX_TARGET (default: $DEFAULT_OSX_TARGET; SDK with -b)"
+    echo "  -t <target>  Set the macOS deployment target (default: $DEFAULT_OSX_TARGET)"
     echo "  -v <version> Specify wxWidgets version (default: $DEFAULT_WX_VERSION)"
     echo "  -h           Display this help message"
     exit 1
@@ -73,6 +73,7 @@ do
 done
 
 export VC_OSX_FUSET=$([ "$fuset" = true ] && echo 1 || echo 0)
+export VC_OSX_TARGET=${OSX_TARGET:-$DEFAULT_OSX_TARGET}
 
 if [ "$fuset" = true ]; then
     echo "Building LambCrypt with FUSE-T support"
@@ -86,8 +87,8 @@ if [ "$brew" = true ]; then
         exit 1
     fi
 
-    export VC_OSX_SDK=$(xcrun --show-sdk-version) # use the latest version installed, this might fail
-    export VC_OSX_TARGET=${OSX_TARGET:-${VC_OSX_SDK}}
+    VC_OSX_SDK=$(xcrun --sdk macosx --show-sdk-version)
+    export VC_OSX_SDK
     echo "Using MacOSX SDK $VC_OSX_SDK with target set to $VC_OSX_TARGET"
     cd "$SOURCEPATH"
 
@@ -147,9 +148,8 @@ export WX_ROOT="$PARENTDIR/wxWidgets-$WX_VERSION"
 # this will be the temporary wxWidgets directory
 export WX_BUILD_DIR="$PARENTDIR/wxBuild-$WX_VERSION"
 
-# define the SDK version to use and OSX minimum target. We target 12 by default
-export VC_OSX_TARGET=${OSX_TARGET:-$DEFAULT_OSX_TARGET}
-export VC_OSX_SDK=$(xcrun --show-sdk-version) #use the latest version installed
+VC_OSX_SDK=$(xcrun --sdk macosx --show-sdk-version)
+export VC_OSX_SDK
 echo "Using MacOSX SDK $VC_OSX_SDK with target set to $VC_OSX_TARGET"
 
 cd "$SOURCEPATH"

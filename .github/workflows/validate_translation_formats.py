@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate translation text and format contracts without platform-specific libraries.
 
-Run with: python3 .github/workflows/validate_translation_formats.py [repo-root]
+Run with: python3 .github/workflows/validate_translation_formats.py --english-only [repo-root]
 
 The key lists describe the formatting engines used by the callers. Keep them in
 sync when adding formatted messages; guessing from '%' alone would misinterpret
@@ -64,7 +64,7 @@ for _prefix in ("DEVICE_FREE_", "DISK_FREE_", "MAX_HIDVOL_SIZE_"):
 
 STRING_FORMATTER_ARGUMENTS = {
     "CHECKING_FS": 1,
-    "DAMAGE_TO_HIDDEN_VOLUME_PREVENTED": 1,
+    "DAMAGE_TO_HIDDEN_VOLUME_PREVENTED_PATH": 1,
     "DISK_FREE": 1,
     "ENTER_PASSWORD_FOR": 1,
     "FORMAT_STAGE_CREATING_FILESYSTEM": 1,
@@ -237,7 +237,7 @@ def check_entry_entities(xml):
     parser.Parse(raw, True)
 
 
-def read_catalogue(path):
+def read_catalogue(path, *, english_only=False):
     xml = path.read_text(encoding="utf-8")
     # VeraCrypt's XML readers do not expand numeric or custom entities. Reject
     # them before ElementTree can turn them into otherwise missing format fields.
@@ -252,12 +252,23 @@ def read_catalogue(path):
         )
     root = ET.fromstring(xml)
     check_entry_entities(xml)
+    if english_only:
+        for tag, attribute in (("language", "langid"), ("font", "lang"), ("entry", "lang")):
+            for node in root.iter(tag):
+                if node.get(attribute) != "en":
+                    label = node.get("key", tag)
+                    raise ValueError(f"{label}: expected {attribute}=\"en\" in the built-in catalogue")
     entries = {}
     for entry in root.iter("entry"):
         key = entry.attrib["key"]
         if key in entries:
             raise ValueError(f"duplicate key {key}")
-        entries[key] = entry.text or ""
+        text = entry.text or ""
+        # Match the escapes accepted by the Windows embedded catalogue loader.
+        for match in re.finditer(r"\\[\s\S]?", text):
+            if match.group() not in (r"\\", r"\n", r"\t"):
+                raise ValueError(f"{key}: invalid backslash escape {match.group()!r}")
+        entries[key] = text
     language = root.find(".//language")
     if language is None:
         raise ValueError("missing language declaration")
@@ -265,7 +276,8 @@ def read_catalogue(path):
 
 
 def check_catalogue(language, entries, reference):
-    errors = []
+    missing = reference.keys() - entries.keys() - PRINTF_KEYS - STRING_FORMATTER_ARGUMENTS.keys()
+    errors = [f"{key}: missing catalogue entry" for key in sorted(missing)]
     omissions = 0
     for key in sorted(PRINTF_KEYS | STRING_FORMATTER_ARGUMENTS.keys()):
         if key not in entries:
@@ -294,16 +306,19 @@ def check_catalogue(language, entries, reference):
     return errors, omissions
 
 
-def validate(root):
+def validate(root, *, english_only=False):
     reference_path = root / "src/Common/Language.xml"
     try:
-        _, reference = read_catalogue(reference_path)
+        language, reference = read_catalogue(reference_path, english_only=english_only)
     except (OSError, ET.ParseError, KeyError, ValueError) as error:
         print(f"{reference_path}: {error}", file=sys.stderr)
         return 1
-    paths = [reference_path] + sorted((root / "Translations").glob("Language.*.xml"))
-    errors = []
-    omissions = 0
+    external = sorted((root / "Translations").glob("Language.*.xml"))
+    problems, omissions = check_catalogue(language, reference, reference)
+    errors = [f"{reference_path}: {problem}" for problem in problems]
+    if english_only:
+        errors.extend(f"{path}: external language catalogues are disabled" for path in external)
+    paths = [] if english_only else external
     for path in paths:
         try:
             language, entries = read_catalogue(path)
@@ -316,7 +331,7 @@ def validate(root):
         print("\n".join(errors), file=sys.stderr)
         return 1
     print(
-        f"Format validation passed: {len(paths)} catalogues, {len(PRINTF_KEYS)} printf "
+        f"Format validation passed: {1 + len(paths)} catalogues, {len(PRINTF_KEYS)} printf "
         f"and {len(STRING_FORMATTER_ARGUMENTS)} StringFormatter contracts; "
         f"{omissions} recorded omissions."
     )
@@ -325,5 +340,7 @@ def validate(root):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--english-only", action="store_true", help="allow only the built-in English catalogue")
     parser.add_argument("root", type=Path, nargs="?", default=Path(__file__).resolve().parents[2])
-    sys.exit(validate(parser.parse_args().root))
+    args = parser.parse_args()
+    sys.exit(validate(args.root, english_only=args.english_only))

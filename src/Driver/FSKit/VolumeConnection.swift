@@ -1,4 +1,5 @@
 import Darwin
+import Dispatch
 import Foundation
 
 // The core service owns the open Volume and its keys. The extension exchanges
@@ -21,7 +22,10 @@ struct VolumeConnection {
 
     static let maximumTransfer = 1024 * 1024
     private static let signature: UInt32 = 0x3346434c
-    private let endpoint: URL
+    private static let unboundIdentifier = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+    private static let transferTimeout = DispatchTimeInterval.seconds(10)
+    private let endpointPath: ContiguousArray<CChar>
+    private let socketAddress: sockaddr_un?
     private let owner: uid_t
 
     init(resource: URL) throws {
@@ -33,7 +37,19 @@ struct VolumeConnection {
             throw POSIXError(.EACCES)
         }
         owner = info.st_uid
-        endpoint = resource.appendingPathComponent("io")
+        let path = resource.appendingPathComponent("io").path.utf8CString
+        endpointPath = path
+        var address = sockaddr_un()
+        address.sun_family = sa_family_t(AF_UNIX)
+        address.sun_len = UInt8(MemoryLayout<sockaddr_un>.size)
+        if path.count <= MemoryLayout.size(ofValue: address.sun_path) {
+            withUnsafeMutableBytes(of: &address.sun_path) { destination in
+                path.withUnsafeBytes { destination.copyBytes(from: $0) }
+            }
+            socketAddress = address
+        } else {
+            socketAddress = nil
+        }
     }
 
     func inspect(expectedIdentifier: UUID? = nil) throws -> Metadata {
@@ -46,7 +62,13 @@ struct VolumeConnection {
         }
         let id = bytes.withUnsafeBytes { UUID(uuid: $0.loadUnaligned(fromByteOffset: 16, as: uuid_t.self)) }
         let readOnly = bytes.withUnsafeBytes { UInt64(littleEndian: $0.loadUnaligned(fromByteOffset: 32, as: UInt64.self)) }
-        guard size > 0, control <= Self.maximumTransfer, readOnly <= 1 else { throw POSIXError(.EIO) }
+        // FSKit addresses the image with signed file offsets. Only initial
+        // inspection requests may omit a generation.
+        guard size > 0, size <= UInt64(off_t.max),
+              control > 0, control <= Self.maximumTransfer,
+              id != Self.unboundIdentifier, readOnly <= 1 else {
+            throw POSIXError(.EIO)
+        }
         if let expectedIdentifier, id != expectedIdentifier { throw POSIXError(.ESTALE) }
         return Metadata(imageSize: size, controlSize: control, identifier: id, readOnly: readOnly == 1)
     }
@@ -87,11 +109,17 @@ struct VolumeConnection {
                          sending contents: UnsafeRawBufferPointer = UnsafeRawBufferPointer(start: nil, count: 0)) throws -> Int {
         let length = max(buffer.count, contents.count)
         guard length <= Self.maximumTransfer else { throw POSIXError(.EINVAL) }
-        let fd = try connectToService()
+        let sendDeadline = DispatchTime.now() + Self.transferTimeout
+        let fd = try connectToService(deadline: sendDeadline)
         defer { Darwin.close(fd) }
+        // The default Unix stream buffer is small compared with a bulk image write.
+        if contents.count > 8 * 1024 {
+            var sendBufferSize: Int32 = 256 * 1024
+            _ = setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sendBufferSize, socklen_t(MemoryLayout<Int32>.size))
+        }
 
         // The fixed-width fields are little-endian, followed by the generation UUID.
-        var request = Data()
+        var request = Data(capacity: 40)
         append(Self.signature, to: &request)
         append(operation.rawValue, to: &request)
         append(offset, to: &request)
@@ -103,65 +131,69 @@ struct VolumeConnection {
             request.append(Data(count: 16))
         }
         try request.withUnsafeBytes { bytes in
-            try transfer(bytes.count) { start, remaining in
+            try transfer(bytes.count, on: fd, events: Int16(POLLOUT), deadline: sendDeadline) { start, remaining in
                 Darwin.send(fd, bytes.baseAddress?.advanced(by: start), remaining, 0)
             }
         }
-        try transfer(contents.count) { start, remaining in
+        try transfer(contents.count, on: fd, events: Int16(POLLOUT), deadline: sendDeadline) { start, remaining in
             Darwin.send(fd, contents.baseAddress?.advanced(by: start), remaining, 0)
         }
 
         // The response starts with a POSIX error number and a payload length.
-        var header = [UInt32](repeating: 0, count: 2)
-        try header.withUnsafeMutableBytes { bytes in
-            try transfer(bytes.count) { start, remaining in
+        // Keep the same deadline for the header and payload, including partial replies.
+        let replyDeadline = DispatchTime.now() + Self.transferTimeout
+        var header: UInt64 = 0
+        try withUnsafeMutableBytes(of: &header) { bytes in
+            try transfer(bytes.count, on: fd, events: Int16(POLLIN), deadline: replyDeadline) { start, remaining in
                 Darwin.recv(fd, bytes.baseAddress?.advanced(by: start), remaining, 0)
             }
         }
-        let code = UInt32(littleEndian: header[0])
-        let count = Int(UInt32(littleEndian: header[1]))
+        let reply = UInt64(littleEndian: header)
+        let code = UInt32(truncatingIfNeeded: reply)
+        let count = Int(reply >> 32)
         if code != 0 {
             throw POSIXError(Int32(exactly: code).flatMap(POSIXError.Code.init(rawValue:)) ?? .EIO)
         }
         guard count <= buffer.count else { throw POSIXError(.EIO) }
-        try transfer(count) { start, remaining in
+        try transfer(count, on: fd, events: Int16(POLLIN), deadline: replyDeadline) { start, remaining in
             Darwin.recv(fd, buffer.baseAddress?.advanced(by: start), remaining, 0)
         }
         return count
     }
 
-    private func connectToService() throws -> Int32 {
+    private func connectToService(deadline: DispatchTime) throws -> Int32 {
         var info = stat()
-        guard lstat(endpoint.path, &info) == 0 else { throw Self.currentError() }
+        // Recheck the endpoint on each connection. utf8CString always includes a terminator.
+        let endpointStatus = endpointPath.withUnsafeBufferPointer { lstat($0.baseAddress!, &info) }
+        guard endpointStatus == 0 else { throw Self.currentError() }
         guard info.st_mode & S_IFMT == S_IFSOCK,
               info.st_uid == owner, info.st_mode & 0o077 == 0 else {
             throw POSIXError(.EACCES)
         }
-        let path = endpoint.path.utf8CString
-        var address = sockaddr_un()
-        let addressLength = socklen_t(MemoryLayout<sockaddr_un>.size)
-        address.sun_family = sa_family_t(AF_UNIX)
-        address.sun_len = UInt8(addressLength)
-        guard path.count <= MemoryLayout.size(ofValue: address.sun_path) else {
-            throw POSIXError(.ENAMETOOLONG)
-        }
-        withUnsafeMutableBytes(of: &address.sun_path) { destination in
-            path.withUnsafeBytes { destination.copyBytes(from: $0) }
-        }
+        guard var address = socketAddress else { throw POSIXError(.ENAMETOOLONG) }
+        let addressLength = socklen_t(address.sun_len)
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { throw Self.currentError() }
         do {
-            var timeout = timeval(tv_sec: 10, tv_usec: 0)
             var noSignal: Int32 = 1
-            guard setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size)) == 0,
-                  setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size)) == 0,
+            guard fcntl(fd, F_SETFL, O_NONBLOCK) == 0,
+                  fcntl(fd, F_SETFD, FD_CLOEXEC) == 0,
                   setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &noSignal, socklen_t(MemoryLayout<Int32>.size)) == 0 else {
                 throw Self.currentError()
             }
             let result = withUnsafePointer(to: &address) {
                 $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.connect(fd, $0, addressLength) }
             }
-            guard result == 0 else { throw Self.currentError() }
+            if result != 0 {
+                guard errno == EINPROGRESS || errno == EINTR else { throw Self.currentError() }
+                try waitForSocket(fd, events: Int16(POLLOUT), deadline: deadline)
+                var socketError: Int32 = 0
+                var size = socklen_t(MemoryLayout<Int32>.size)
+                guard getsockopt(fd, SOL_SOCKET, SO_ERROR, &socketError, &size) == 0 else { throw Self.currentError() }
+                if socketError != 0 {
+                    throw POSIXError(POSIXError.Code(rawValue: socketError) ?? .EIO)
+                }
+            }
             var peer: uid_t = 0
             var group: gid_t = 0
             guard getpeereid(fd, &peer, &group) == 0, peer == owner else {
@@ -174,11 +206,31 @@ struct VolumeConnection {
         }
     }
 
-    private func transfer(_ count: Int, _ operation: (Int, Int) -> Int) throws {
+    private func waitForSocket(_ fd: Int32, events: Int16, deadline: DispatchTime) throws {
+        var descriptor = pollfd(fd: fd, events: events, revents: 0)
+        while true {
+            let now = DispatchTime.now()
+            guard now < deadline else { throw POSIXError(.ETIMEDOUT) }
+            let remaining = deadline.uptimeNanoseconds - now.uptimeNanoseconds
+            let milliseconds = Int32((remaining + 999_999) / 1_000_000)
+            let ready = Darwin.poll(&descriptor, 1, milliseconds)
+            if ready > 0 { return }
+            if ready == 0 { throw POSIXError(.ETIMEDOUT) }
+            if errno != EINTR { throw Self.currentError() }
+        }
+    }
+
+    private func transfer(_ count: Int, on fd: Int32, events: Int16, deadline: DispatchTime,
+                          _ operation: (Int, Int) -> Int) throws {
         var completed = 0
         while completed < count {
+            guard DispatchTime.now() < deadline else { throw POSIXError(.ETIMEDOUT) }
             let result = operation(completed, count - completed)
             if result < 0 && errno == EINTR { continue }
+            if result < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) {
+                try waitForSocket(fd, events: events, deadline: deadline)
+                continue
+            }
             guard result >= 0 else { throw Self.currentError() }
             guard result > 0 else { throw POSIXError(.EIO) }
             completed += result

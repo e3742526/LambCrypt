@@ -11,6 +11,33 @@ using namespace VeraCrypt;
 
 int main (int argc, char **argv)
 {
+	if (argc == 6 && string (argv[1]) == "--flush")
+	{
+		try
+		{
+			VolumeInfo target;
+			target.SerialInstanceNumber = std::stoull (argv[3]);
+			target.Path = VolumePath (argv[4]);
+			target.SlotNumber = std::stoul (argv[5]);
+			FSKit::FlushVolumeControl (argv[2], target);
+			return 0;
+		}
+		catch (const SystemException &error) { return error.GetErrorCode() == ESTALE ? 4 : 1; }
+		catch (const ParameterIncorrect &) { return 5; }
+		catch (...) { return 1; }
+	}
+	if (argc == 3 && string (argv[1]) == "--control")
+	{
+		try
+		{
+			const auto info = FSKit::ReadVolumeControl (argv[2]);
+			std::cout << info->SerialInstanceNumber << ' ' << info->TotalDataRead << '\n';
+			return 0;
+		}
+		catch (const TimeOut &) { return 3; }
+		catch (const SystemException &error) { return error.GetErrorCode() == ESTALE ? 4 : 1; }
+		catch (...) { return 1; }
+	}
 	if (argc != 4 && (argc != 5 || strcmp (argv[4], "write") != 0))
 		return 2;
 

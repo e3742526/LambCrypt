@@ -3,6 +3,7 @@
 
 import importlib.util
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -61,6 +62,76 @@ class FormatGrammarTests(unittest.TestCase):
         for text in ("{", "}", "{10}", "{x}", "{0", "{0x}"):
             with self.subTest(text=text), self.assertRaises(ValueError):
                 FORMATS.formatter_arguments(text)
+
+
+class EnglishOnlyProductTests(unittest.TestCase):
+    def test_product_catalogues_are_english(self):
+        catalogue = ET.parse(ROOT / "src/Common/Language.xml")
+        self.assertEqual({node.attrib["langid"] for node in catalogue.iter("language")}, {"en"})
+        self.assertEqual({node.attrib["lang"] for node in catalogue.iter("entry")}, {"en"})
+        wix = ROOT / "src/Release/Setup Files"
+        self.assertEqual({path.name for path in wix.glob("*.wxl")}, {"Strings-en.wxl"})
+        self.assertEqual(ET.parse(wix / "Strings-en.wxl").getroot().attrib["Culture"], "en-us")
+
+    def test_english_msi_builders_only_require_the_tools_they_use(self):
+        wix = ROOT / "src/Release/Setup Files"
+        for architecture in ("x64", "arm64"):
+            with self.subTest(architecture=architecture):
+                source = (wix / f"build_msi_{architecture}.bat").read_text().lower()
+                self.assertIsNone(re.search(r"msitran\.exe|msidb\.exe", source),
+                                  "the English-only build requires translation tooling")
+                self.assertIn('set file_to_find="msiinfo.exe"', source)
+                self.assertIn('"%vc_dir_platformsdk%\\msiinfo.exe"', source)
+                self.assertIn("-cultures:en-us -loc strings-en.wxl", source)
+                copies = re.findall(r"^@copy /y .*", source, re.MULTILINE)
+                self.assertTrue(copies)
+                self.assertTrue(all("|| goto msi_copy_failed" in command for command in copies))
+
+    def test_windows_signing_stops_if_english_msi_build_fails(self):
+        for filename in ("sign.bat", "sign_test.bat", "sign_test_debug.bat"):
+            with self.subTest(filename=filename):
+                lines = (ROOT / "src/Signing" / filename).read_text().lower().splitlines()
+                msi_build = next(index for index, line in enumerate(lines) if line.startswith("call build_msi_x64.bat "))
+                self.assertEqual(lines[msi_build + 1], "if errorlevel 1 exit /b 1")
+
+    def test_msi_os_warning_matches_the_supported_windows_release(self):
+        wix = ROOT / "src/Release/Setup Files"
+        catalogue = ET.parse(wix / "Strings-en.wxl")
+        messages = {node.attrib["Id"]: node.text for node in catalogue.getroot()}
+        self.assertIn("Windows 10 version 1809", messages["MinOs"])
+        self.assertIn("Windows Server 2019", messages["MinOs"])
+
+    def test_windows_loads_embedded_language_without_registry_cleanup(self):
+        source = (ROOT / "src/Common/Dlgcode.c").read_text(encoding="utf-8")
+        start = source.index("void InitApp (")
+        end = source.index("// UAC elevation moniker", start)
+        init = source[start:end]
+        self.assertIn("LoadLanguageFile (FALSE);", init)
+        self.assertFalse("DeleteRegistryKey" in init, "startup must preserve the shared registry tree")
+        self.assertFalse("SetupUILanguage" in init, "startup must not read the legacy installer language")
+
+    def test_windows_does_not_track_the_legacy_language_setting(self):
+        for name in ("Common/Dlgcode.c", "Format/Tcformat.c", "Mount/Mount.c", "Setup/Wizard.c", "SetupDLL/Setup.c"):
+            with self.subTest(file=name):
+                source = (ROOT / "src" / name).read_text(encoding="utf-8")
+                self.assertIsNone(re.search(r'Config(?:Read|Write)\w*\s*\(\s*"Language"', source))
+                self.assertFalse("SetupUILanguage" in source, "obsolete installer language handoff")
+                self.assertFalse("bLanguageSetInSetup" in source, "obsolete startup settings write")
+
+    def test_hidden_volume_warning_matches_the_platform(self):
+        _, entries = FORMATS.read_catalogue(ROOT / "src/Common/Language.xml")
+        drive_warning = "DAMAGE_TO_HIDDEN_VOLUME_PREVENTED"
+        path_warning = "DAMAGE_TO_HIDDEN_VOLUME_PREVENTED_PATH"
+        self.assertEqual(FORMATS.printf_arguments(entries[drive_warning]), ("int32",))
+        self.assertIsNotNone(entries.get(path_warning), "missing hidden-volume warning for file paths")
+        self.assertEqual(FORMATS.formatter_arguments(entries[path_warning]), {0})
+        self.assertNotIn("Windows", entries[path_warning])
+        self.assertNotIn("restart", entries[path_warning].lower())
+        for file in ("UserInterface.cpp", "Forms/MainFrame.cpp"):
+            with self.subTest(file=file):
+                source = (ROOT / "src/Main" / file).read_text()
+                self.assertIn(f'LangString["{path_warning}"]', source)
+                self.assertNotIn(f'LangString["{drive_warning}"]', source)
 
 
 class CatalogueTests(unittest.TestCase):

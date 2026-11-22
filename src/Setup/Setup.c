@@ -90,8 +90,6 @@ BOOL bRegisterFileExt = TRUE;
 BOOL bAddToStartMenu = TRUE;
 BOOL bDesktopIcon = TRUE;
 
-BOOL bUserSetLanguage = FALSE;
-
 BOOL bDesktopIconStatusDetermined = FALSE;
 
 HMODULE volatile SystemRestoreDll = 0;

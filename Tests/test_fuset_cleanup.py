@@ -110,10 +110,19 @@ def check_dismount_reporting(work, build_dir):
     start = source.index("\tvoid UserInterface::DismountVolumes")
     helper = source.find("\tstatic void ThrowUnconfirmedCleanups")
     method = source[helper if 0 <= helper < start else start:end]
+    gui = (ROOT / "src/Main/GraphicUserInterface.cpp").read_text()
+    auto_dismount = gui[gui.index("\tvoid GraphicUserInterface::AutoDismountVolumes"):
+                        gui.index("\tvoid GraphicUserInterface::BackupVolumeHeaders")]
+    on_auto_dismount = gui[gui.index("\tvoid GraphicUserInterface::OnVolumesAutoDismounted"):
+                           gui.index("\tvoid GraphicUserInterface::OpenDocument")]
+    proxy = (ROOT / "src/Core/Unix/CoreServiceProxy.h").read_text()
+    wipe = proxy[proxy.index("\t\tvirtual void WipePasswordCache"):proxy.index("\n\t};\n}")]
     prelude = r"""
 #include "Volume/VolumeInfo.h"
 #include "Volume/VolumeException.h"
+#include "Volume/VolumePasswordCache.h"
 #include "Core/CoreException.h"
+#include "Core/FavoritePasswordCache.h"
 #include "Platform/ForEach.h"
 #include "Platform/StringConverter.h"
 #include <deque>
@@ -138,11 +147,30 @@ enum Outcome { Unmounted, Busy, Unconfirmed, Failed };
 static std::map <std::wstring, std::deque <Outcome> > Plan;
 static bool ForceAnswer;
 static std::wstring Info;
+static unsigned UnconfirmedReports;
+static unsigned TokenSessionCloseCalls;
+static bool ExpectEmptyCacheAtUnmount;
+static bool CacheStateMatchedAtUnmount;
+struct wxBusyCursor {};
+struct SystemLog {
+    static void WriteException (const exception &e) {
+        if (dynamic_cast <const DismountServiceCleanupFailed *> (&e)) ++UnconfirmedReports;
+    }
+};
+namespace {
+struct Token { static void CloseAllSessions () { ++TokenSessionCloseCalls; } };
+}
+static struct CacheOperations {
+""" + wipe + r"""
+} Cache;
+static CacheOperations *Core = &Cache;
 class UserInterface {
 public:
     struct BusyScope { BusyScope (const UserInterface *) {} };
     void DismountVolumes (VolumeInfoList volumes, bool ignoreOpenFiles, bool interactive, bool emergencyCleanupRequested = false) const;
     shared_ptr <VolumeInfo> DismountVolumeThread (shared_ptr <VolumeInfo> volume, bool, bool = true) const {
+        CacheStateMatchedAtUnmount &= VolumePasswordCache::IsEmpty() == ExpectEmptyCacheAtUnmount
+            && FavoritePasswordCache::IsEmpty() == ExpectEmptyCacheAtUnmount;
         std::deque <Outcome> &steps = Plan[wstring (volume->Path)];
         Outcome outcome = steps.empty() ? Unmounted : steps.front();
         if (!steps.empty()) steps.pop_front();
@@ -156,6 +184,14 @@ public:
     void ShowInfo (const std::wstring &text) const { Info = text; }
     static wxString ExceptionToMessage (const exception &e) { return StringConverter::ToExceptionString (e); }
     struct { bool Verbose; } Preferences = { false };
+};
+class GraphicUserInterface : public UserInterface {
+public:
+    struct AutoDismountPreferences { bool ForceAutoDismount; bool WipeCacheOnAutoDismount; } Prefs = { false, true };
+    const AutoDismountPreferences &GetPreferences () const { return Prefs; }
+    bool GetWaitDialog () const { return false; }
+    void AutoDismountVolumes (VolumeInfoList mountedVolumes, bool alwaysForce);
+    void OnVolumesAutoDismounted ();
 };
 """
     tests = r"""
@@ -182,6 +218,31 @@ static std::wstring Run (std::deque <Outcome> a, std::deque <Outcome> b, bool in
     catch (ParameterIncorrect &) { return L"<failed>"; }
 }
 static bool Has (const std::wstring &text, const wchar_t *part) { return text.find (part) != std::wstring::npos; }
+static void CheckAutoDismountCache () {
+    const uint8 passwordBytes[] = "Disposable auto-dismount credential";
+    const VolumePassword password (passwordBytes, sizeof (passwordBytes) - 1);
+    for (bool wipeEnabled : {true, false}) {
+        VolumePasswordCache::Store (password);
+        FavoritePasswordCache::Store (password, 1, Pkcs5Kdf::GetAlgorithm (L"HMAC-SHA-512"), false);
+        Require (!VolumePasswordCache::IsEmpty() && !FavoritePasswordCache::IsEmpty(), "test caches were not populated");
+        UnconfirmedReports = TokenSessionCloseCalls = 0;
+        ExpectEmptyCacheAtUnmount = wipeEnabled;
+        CacheStateMatchedAtUnmount = true;
+        Plan.clear();
+        Plan[L"A"] = {Unconfirmed};
+        Plan[L"B"] = {Busy, Busy};
+        GraphicUserInterface gui;
+        gui.Prefs.WipeCacheOnAutoDismount = wipeEnabled;
+        gui.AutoDismountVolumes (Volumes(), false);
+        Require (UnconfirmedReports == 1, "automatic dismount did not report the unconfirmed exit");
+        Require (CacheStateMatchedAtUnmount, "password cache state was wrong during automatic dismount");
+        Require (VolumePasswordCache::IsEmpty() == wipeEnabled, "ordinary cache did not honor the wipe preference");
+        Require (FavoritePasswordCache::IsEmpty() == wipeEnabled, "favorite cache did not honor the wipe preference");
+        Require (TokenSessionCloseCalls == (wipeEnabled ? 1 : 0), "token closure did not honor the wipe preference");
+    }
+    Core->WipePasswordCache();
+    std::cout << "PASS: automatic dismount honors credential wipe preference with an unconfirmed exit and busy volume\n";
+}
 int Run () {
     std::wstring r = Run ({Unconfirmed}, {Unmounted}, false);
     Require (Has (r, L"service of A"), "unconfirmed cleanup lost when the other volume unmounts");
@@ -205,16 +266,17 @@ int Run () {
     Require (Has (r, L"service of A") && Info == L"LINUX_VOL_UNMOUNTED B", "unconfirmed retry reported success");
     std::cout << "PASS: multi-volume unmount reports every unconfirmed cleanup with other failures and cancellation\n";
     std::cout << "PASS: verbose unmount reporting follows successful attempts, including second-pass retries\n";
+    CheckAutoDismountCache();
     return 0;
 }
 }
 int main () { try { return VeraCrypt::Run(); } catch (std::exception &e) { std::cerr << e.what() << '\n'; return 1; } }
 """
     unit = work / "dismount_reporting.cpp"
-    unit.write_text(prelude + method + tests)
+    unit.write_text(prelude + method + auto_dismount + on_auto_dismount + tests)
     command = ["clang++", "-std=c++11", "-DTC_UNIX", "-DTC_MACOSX"]
     command += ["-I" + str(ROOT / p) for p in ("src", "src/Crypto", "src/Common", "src/Crypto/Argon2/include")]
-    command += [str(unit)] + [str(build_dir.resolve() / name) for name in ("Volume/Volume.a", "Platform/Platform.a")]
+    command += [str(unit)] + [str(build_dir.resolve() / name) for name in ("Core/Core.a", "Volume/Volume.a", "Platform/Platform.a")]
     command += ["-Wl,-dead_strip", "-o", str(work / "dismount_reporting")]
     subprocess.run(command, check=True)
     subprocess.run([str(work / "dismount_reporting")], check=True, timeout=20)

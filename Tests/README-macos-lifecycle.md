@@ -53,7 +53,11 @@ remounted with the updated build to receive this protection.
 The discovery runner compiles the production plist and batch-refresh methods
 with an in-memory inventory provider. It checks exact and legacy alias matches,
 unresolved inventory, stale-field invalidation, one query per refresh, and fresh
-discovery before destructive operations. It also runs `macos_process_test.cpp`
+discovery before destructive operations. The auxiliary mount timeout check
+verifies that a mount already visible in the kernel table retains its worker
+for dismount. The teardown tests use a real directory lock and simulated
+kernel snapshots to check transient mount disappearance and worker exit.
+The runner also runs `macos_process_test.cpp`
 against the real platform archive, checking subprocess deadlines, output limits,
 descriptor isolation, error reporting, and child reaping with its own helper
 processes. `macos_volume_state_test.cpp` includes production headers directly to
@@ -66,10 +70,14 @@ unconfirmed service exits after auxiliary-mount removal, retryable busy
 unmounts, per-volume hidden-protection refresh, and responsive probes during
 busy startup rollback. It also runs the production multi-volume unmount loop
 with scripted outcomes: every unconfirmed service exit must be reported, even
-when another volume fails or a forced-unmount prompt is declined. Finally, it
-runs `macos_cleanup_state_test.cpp` against the real serialization code to
-check that cleanup failure details survive IPC and that local display state
-leaves the legacy `/control` bytes unchanged.
+when another volume fails or a forced-unmount prompt is declined. It exercises
+macOS automatic dismount with populated ordinary and favorite password caches,
+a simulated unconfirmed service exit, and a second volume that remains busy.
+It checks that both caches and the token-session close call honor the wipe
+preference before teardown. Finally, it runs `macos_cleanup_state_test.cpp`
+against the real serialization code to check that cleanup failure details
+survive IPC and that local display state leaves the legacy `/control` bytes
+unchanged.
 
 These tests exercise state and serialization contracts. They do not establish
 real backend timing, GUI rendering, or filesystem behavior under forced unmount.
@@ -92,9 +100,32 @@ reproduce all packaged-app behavior. The lifecycle check verifies
 write/fsync/remount integrity, background startup with a mounted
 volume, refresh after a CLI dismount, and automatic GUI exit. It checks service
 exit, closed backing-file handles, and removal of the auxiliary mount and
-shutdown endpoint. The inactivity check takes about two minutes: it verifies
-that automatically unmounting one idle volume does not restart another volume's
-idle timer. The teardown check needs an unsigned local build and clang, and
+shutdown endpoint. The default lifecycle check uses FUSE-T and a FAT fixture.
+For the signed FSKit scratch bundle, select `--fskit-external-eject` to use
+HFS+. This path verifies the exact Disk Images attachment and mount mode,
+checks binary extended attributes and POSIX advisory locks across processes,
+and verifies the attributes after a read-only remount. It then uses `diskutil`
+to eject the image and checks worker cleanup and background exit.
+
+```sh
+python3 Tests/test_macos_gui_lifecycle.py --fskit-external-eject --keep-artifacts \
+  --binary "$VC_FSKIT_BUILD_SRC/Main/LambCrypt-FSKit.app/Contents/MacOS/LambCrypt-FSKit"
+```
+
+The inactivity check takes about two minutes. It attaches two
+disposable HFS+ containers read-only and verifies independent idle timers. Use
+`--active-second` to read the second image and verify that only its deadline
+moves. Use `--busy-first` to hold the first filesystem open through its idle
+deadline with forced dismount disabled, then verify that it dismounts after
+release. For FSKit, pass the executable inside the signed scratch bundle so
+the test can reach the enabled extension.
+
+```sh
+python3 Tests/test_macos_gui_inactivity.py --active-second \
+  --binary "$VC_FSKIT_BUILD_SRC/Main/LambCrypt-FSKit.app/Contents/MacOS/LambCrypt-FSKit"
+```
+
+The teardown check needs an unsigned local build and clang, and
 takes about three minutes. It slows a service down with `fuset_startup_faults.c`
 and verifies two automatic-unmount cases: a normal quit request that arrives
 meanwhile is honored, including unmount on quit; and when service exit cannot be

@@ -155,7 +155,7 @@ BOOL LoadLanguageFile (BOOL bForceSilent)
 								case 'n': *out++ = 13; *out++ = 10; break;
 								default:
 									if (!bForceSilent)
-										MessageBoxA (0, pkey, "VeraCrypt: Unknown '\\' escape sequence in string", MB_ICONERROR);
+										MessageBoxA (0, pkey, "LambCrypt: Unknown '\\' escape sequence in string", MB_ICONERROR);
 									return FALSE;
 								}
 							}
@@ -170,7 +170,7 @@ BOOL LoadLanguageFile (BOOL bForceSilent)
 					if (len == 0)
 					{
 						if (!bForceSilent)
-							MessageBoxA (0, pkey, "VeraCrypt: Error while decoding UTF-8 string", MB_ICONERROR);
+							MessageBoxA (0, pkey, "LambCrypt: Error while decoding UTF-8 string", MB_ICONERROR);
 						return FALSE;
 					}
 
@@ -238,12 +238,6 @@ BOOL LoadLanguageFile (BOOL bForceSilent)
 
 	return TRUE;
 }
-
-const char *GetPreferredLangId ()
-{
-	return "en";
-}
-
 
 wchar_t *GetString (const char *stringId)
 {

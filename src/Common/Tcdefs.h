@@ -430,6 +430,7 @@ void EraseMemory (void *memory, int size);
 
 #define TC_HOMEPAGE L"https://github.com/e3742526/LambCrypt"
 #define TC_APPLINK L"https://github.com/e3742526/LambCrypt"
+#define TC_UPSTREAM_DOCS L"https://veracrypt.io/en/"
 
 enum
 {

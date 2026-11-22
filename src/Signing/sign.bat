@@ -42,6 +42,7 @@ signtool sign /v /sha1 86E1D426731E79117452F090188A828426B29B5F /ac GlobalSign_S
 
 cd "..\Release\Setup Files\"
 call build_msi_x64.bat %VC_VERSION_NBRE%
+if errorlevel 1 exit /b 1
 del LICENSE
 del License.txt
 del NOTICE

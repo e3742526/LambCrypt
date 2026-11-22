@@ -1,9 +1,16 @@
 #include "VolumeProtocol.h"
+#include "Platform/Finally.h"
 #include "Platform/MemoryStream.h"
 #include <algorithm>
 #include <cerrno>
+#include <chrono>
+#include <fcntl.h>
+#include <limits>
+#include <poll.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/un.h>
 #include <unistd.h>
 #include <uuid/uuid.h>
 
@@ -16,6 +23,8 @@ namespace VeraCrypt
 			const uint32 Signature = 0x3346434c;
 			const uint32 MaximumTransfer = 1024 * 1024;
 			enum Operation : uint32 { Inspect = 1, ReadImage, ReadControl, WriteImage, FlushImage };
+			using SocketClock = std::chrono::steady_clock;
+			const auto WorkerSocketTimeout = std::chrono::seconds (10);
 
 			uint64 LoadLittleEndian (const uint8 *bytes, size_t size)
 			{
@@ -31,34 +40,58 @@ namespace VeraCrypt
 					bytes[index] = static_cast <uint8> (value >> (index * 8));
 			}
 
-			bool Receive (int fd, uint8 *bytes, size_t size)
+			void WaitForSocket (int fd, short events, SocketClock::time_point deadline)
 			{
-				while (size != 0)
+				struct pollfd descriptor = {fd, events, 0};
+				while (true)
 				{
-					const ssize_t received = recv (fd, bytes, size, 0);
-					if (received < 0 && errno == EINTR)
-						continue;
-					if (received <= 0)
-						return false;
-					bytes += received;
-					size -= received;
+					const auto remaining = deadline - SocketClock::now();
+					if (remaining <= SocketClock::duration::zero())
+						throw TimeOut (SRC_POS);
+					const int timeout = static_cast <int> (std::chrono::duration_cast <std::chrono::milliseconds> (remaining).count()) + 1;
+					const int ready = poll (&descriptor, 1, timeout);
+					if (ready > 0)
+						return;
+					if (ready == 0)
+						throw TimeOut (SRC_POS);
+					throw_sys_if (errno != EINTR);
 				}
-				return true;
 			}
 
-			bool Send (int fd, const uint8 *bytes, size_t size)
+			template <typename OperationFunction>
+			void TransferSocket (int fd, short events, size_t size, SocketClock::time_point deadline, OperationFunction transfer)
 			{
-				while (size != 0)
+				for (size_t transferred = 0; transferred < size; )
 				{
-					const ssize_t sent = send (fd, bytes, size, 0);
-					if (sent < 0 && errno == EINTR)
+					if (SocketClock::now() >= deadline)
+						throw TimeOut (SRC_POS);
+					const ssize_t count = transfer (transferred, size - transferred);
+					if (count < 0 && errno == EINTR)
 						continue;
-					if (sent <= 0)
-						return false;
-					bytes += sent;
-					size -= sent;
+					if (count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+					{
+						WaitForSocket (fd, events, deadline);
+						continue;
+					}
+					throw_sys_if (count < 0);
+					if (count == 0)
+						throw ParameterIncorrect (SRC_POS);
+					transferred += count;
 				}
-				return true;
+			}
+
+			void Receive (int fd, uint8 *bytes, size_t size, SocketClock::time_point deadline)
+			{
+				TransferSocket (fd, POLLIN, size, deadline, [&] (size_t offset, size_t length) {
+					return recv (fd, bytes + offset, length, 0);
+				});
+			}
+
+			void Send (int fd, const uint8 *bytes, size_t size, SocketClock::time_point deadline)
+			{
+				TransferSocket (fd, POLLOUT, size, deadline, [&] (size_t offset, size_t length) {
+					return send (fd, bytes + offset, length, 0);
+				});
 			}
 
 			void Reply (int fd, int error, const uint8 *data = nullptr, size_t size = 0)
@@ -66,9 +99,112 @@ namespace VeraCrypt
 				uint8 header[8];
 				StoreLittleEndian (header, 4, error);
 				StoreLittleEndian (header + 4, 4, size);
-				if (Send (fd, header, sizeof (header)))
-					Send (fd, data, size);
+				const auto deadline = SocketClock::now() + WorkerSocketTimeout;
+				try
+				{
+					Send (fd, header, sizeof (header), deadline);
+					Send (fd, data, size, deadline);
+				}
+				catch (const Exception &) { }
 			}
+
+			void RequestControl (const string &endpoint, Operation operation, const std::array <uint8, 16> &identifier,
+				const BufferPtr &reply, SocketClock::time_point deadline)
+			{
+				struct stat info;
+				throw_sys_if (lstat (endpoint.c_str(), &info) != 0);
+				if (!S_ISSOCK (info.st_mode) || info.st_uid != getuid() || (info.st_mode & 0077) != 0)
+					throw ParameterIncorrect (SRC_POS);
+
+				sockaddr_un address = {};
+				address.sun_family = AF_UNIX;
+				address.sun_len = sizeof (address);
+				if (strlcpy (address.sun_path, endpoint.c_str(), sizeof (address.sun_path)) >= sizeof (address.sun_path))
+					throw ParameterTooLarge (SRC_POS);
+				const int fd = socket (AF_UNIX, SOCK_STREAM, 0);
+				throw_sys_if (fd < 0);
+				finally_do_arg (int, fd, { close (finally_arg); });
+				const int noSignal = 1;
+				throw_sys_if (fcntl (fd, F_SETFL, O_NONBLOCK) != 0 || fcntl (fd, F_SETFD, FD_CLOEXEC) != 0
+					|| setsockopt (fd, SOL_SOCKET, SO_NOSIGPIPE, &noSignal, sizeof (noSignal)) != 0);
+				if (connect (fd, reinterpret_cast <const sockaddr *> (&address), sizeof (address)) != 0)
+				{
+					throw_sys_if (errno != EINPROGRESS && errno != EINTR);
+					WaitForSocket (fd, POLLOUT, deadline);
+					int error;
+					socklen_t size = sizeof (error);
+					throw_sys_if (getsockopt (fd, SOL_SOCKET, SO_ERROR, &error, &size) != 0);
+					if (error != 0)
+					{
+						errno = error;
+						throw SystemException (SRC_POS);
+					}
+				}
+
+				uid_t peer;
+				gid_t group;
+				throw_sys_if (getpeereid (fd, &peer, &group) != 0);
+				if (peer != info.st_uid)
+					throw ParameterIncorrect (SRC_POS);
+
+				uint8 request[40] = {};
+				StoreLittleEndian (request, 4, Signature);
+				StoreLittleEndian (request + 4, 4, operation);
+				StoreLittleEndian (request + 16, 4, reply.Size());
+				std::copy (identifier.begin(), identifier.end(), request + 24);
+				Send (fd, request, sizeof (request), deadline);
+
+				uint8 header[8];
+				Receive (fd, header, sizeof (header), deadline);
+				const uint64 error = LoadLittleEndian (header, 4);
+				if (error != 0)
+				{
+					errno = error <= static_cast <uint64> (std::numeric_limits <int>::max()) ? static_cast <int> (error) : EIO;
+					throw SystemException (SRC_POS);
+				}
+				if (LoadLittleEndian (header + 4, 4) != reply.Size())
+					throw ParameterIncorrect (SRC_POS);
+				Receive (fd, reply.Get(), reply.Size(), deadline);
+			}
+
+			shared_ptr <VolumeInfo> ReadWorkerControl (const string &endpoint, std::array <uint8, 16> &identifier,
+				SocketClock::time_point deadline)
+			{
+				uint8 metadata[40];
+				RequestControl (endpoint, Inspect, identifier, BufferPtr (metadata, sizeof (metadata)), deadline);
+				const uint64 size = LoadLittleEndian (metadata + 8, 8);
+				if (size == 0 || size > MaximumTransfer)
+					throw ParameterIncorrect (SRC_POS);
+				std::copy (metadata + 16, metadata + 32, identifier.begin());
+				if (std::all_of (identifier.begin(), identifier.end(), [] (uint8 byte) { return byte == 0; }))
+					throw ParameterIncorrect (SRC_POS);
+				Buffer reply (static_cast <size_t> (size));
+				RequestControl (endpoint, ReadControl, identifier, reply, deadline);
+				shared_ptr <Stream> stream (new MemoryStream (reply));
+				return Serializable::DeserializeNew <VolumeInfo> (stream);
+			}
+		}
+
+		shared_ptr <VolumeInfo> ReadVolumeControl (const string &endpoint)
+		{
+			// Use one deadline for both requests so discovery can retain an older
+			// snapshot when a worker cannot confirm the current counters.
+			const auto deadline = SocketClock::now() + std::chrono::seconds (1);
+			std::array <uint8, 16> identifier = {};
+			return ReadWorkerControl (endpoint, identifier, deadline);
+		}
+
+		void FlushVolumeControl (const string &endpoint, const VolumeInfo &volume)
+		{
+			// Keep the original generation bound through the flush even if the
+			// socket is replaced after reading its control record.
+			const auto deadline = SocketClock::now() + WorkerSocketTimeout;
+			std::array <uint8, 16> identifier = {};
+			const auto current = ReadWorkerControl (endpoint, identifier, deadline);
+			if (current->SerialInstanceNumber != volume.SerialInstanceNumber || current->SlotNumber != volume.SlotNumber
+				|| current->Path != volume.Path)
+				throw ParameterIncorrect (SRC_POS);
+			RequestControl (endpoint, FlushImage, identifier, BufferPtr (), deadline);
 		}
 
 		VolumeIdentity NewVolumeIdentity ()
@@ -90,15 +226,22 @@ namespace VeraCrypt
 			if (getpeereid (connection, &peer, &group) != 0 || peer != owner)
 				return;
 
-			const timeval timeout = { 10, 0 };
 			const int noSignal = 1;
-			if (setsockopt (connection, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof (timeout)) != 0
-				|| setsockopt (connection, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof (timeout)) != 0
+			// Darwin can block in a stream send even with MSG_DONTWAIT.
+			if (fcntl (connection, F_SETFL, O_NONBLOCK) != 0
 				|| setsockopt (connection, SOL_SOCKET, SO_NOSIGPIPE, &noSignal, sizeof (noSignal)) != 0)
 				return;
 
+			// An incomplete write must not reset the header's deadline or
+			// keep this worker from accepting the volume's next request.
+			const auto deadline = SocketClock::now() + WorkerSocketTimeout;
+			auto receiveRequest = [connection, deadline] (uint8 *bytes, size_t size) {
+				try { Receive (connection, bytes, size, deadline); }
+				catch (const Exception &) { return false; }
+				return true;
+			};
 			uint8 request[40];
-			if (!Receive (connection, request, sizeof (request)))
+			if (!receiveRequest (request, sizeof (request)))
 				return;
 
 			const uint64 operation = LoadLittleEndian (request + 4, 4);
@@ -116,7 +259,8 @@ namespace VeraCrypt
 			const uint8 *expected = request + 24;
 			const bool initialInspect = operation == Inspect
 				&& std::all_of (expected, expected + identifier.size(), [] (uint8 byte) { return byte == 0; });
-			if (!initialInspect && !std::equal (identifier.begin(), identifier.end(), expected))
+			const bool stale = !initialInspect && !std::equal (identifier.begin(), identifier.end(), expected);
+			if (stale && operation != WriteImage)
 			{
 				Reply (connection, ESTALE);
 				return;
@@ -142,10 +286,14 @@ namespace VeraCrypt
 					if (length != 0)
 					{
 						data.Allocate (length);
-						if (!Receive (connection, data.Ptr(), length))
+						if (!receiveRequest (data.Ptr(), length))
 							return;
 					}
-					if (volume.GetProtectionType() == VolumeProtection::ReadOnly)
+					// The client sends the entire body before reading the reply.
+					// Closing early can hide ESTALE behind a socket send error.
+					if (stale)
+						Reply (connection, ESTALE);
+					else if (volume.GetProtectionType() == VolumeProtection::ReadOnly)
 						Reply (connection, EROFS);
 					else if (offset > volume.GetSize() || length > volume.GetSize() - offset)
 						Reply (connection, ENOSPC);

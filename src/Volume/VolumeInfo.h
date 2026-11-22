@@ -43,6 +43,11 @@ namespace VeraCrypt
 		static bool FirstVolumeMountedAfterSecond (shared_ptr <VolumeInfo> first, shared_ptr <VolumeInfo> second);
 		void Set (const Volume &volume);
 		shared_ptr <VolumeInfo> Clone () const { return shared_ptr <VolumeInfo> (new VolumeInfo (*this)); }
+		bool IsSameMountInstance (const VolumeInfo &other) const
+		{
+			return SerialInstanceNumber == other.SerialInstanceNumber && SlotNumber == other.SlotNumber
+				&& Path == other.Path && AuxMountPoint == other.AuxMountPoint;
+		}
 
 		// Local discovery hints only. Never serialized into the legacy control
 		// file or used as authority for a destructive operation. A GUI-retained

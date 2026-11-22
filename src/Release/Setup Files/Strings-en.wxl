@@ -2,7 +2,7 @@
 <WixLocalization Culture="en-us" Codepage="1252" xmlns="http://schemas.microsoft.com/wix/2006/localization">
 	<String Id="Lang" Overridable="yes">1033</String>
 	<String Id="NoDowngrade" Overridable="yes">A newer version is already installed</String>
-	<String Id="MinOs" Overridable="yes">This 32-bit installer can only run on at least Windows Vista</String>
+	<String Id="MinOs" Overridable="yes">This package requires Windows 10 version 1809 or later, or Windows Server 2019 or later.</String>
 	<String Id="OSBitness" Overridable="yes">This is a 32-bit installer that cannot be run under 64-bit Windows</String>
 	<String Id="OS64Bitness" Overridable="yes">This is a 64-bit installer that cannot be run under 32-bit Windows</String>
 	

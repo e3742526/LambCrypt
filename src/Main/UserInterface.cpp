@@ -220,8 +220,8 @@ namespace VeraCrypt
 		bool twoPassMode = volumes.size() > 1;
 		bool volumesInUse = false;
 		bool firstPass = true;
-		// Such volumes have already left discovery. Report every one of them, even
-		// when another volume fails or a forced-unmount prompt is declined.
+		// A volume with unconfirmed cleanup may already have left discovery.
+		// Report each failure even when another volume fails or a forced unmount is declined.
 		list <DismountServiceCleanupFailed> unconfirmedCleanups;
 
 #ifdef TC_WINDOWS
@@ -306,7 +306,7 @@ namespace VeraCrypt
 #endif
 					catch (DismountServiceCleanupFailed &e)
 					{
-						// The auxiliary mount is gone, so another attempt cannot reach the service.
+						// macOS may still be tearing down this volume. Proceed with the others.
 						unconfirmedCleanups.push_back (e);
 						continue;
 					}
@@ -322,7 +322,7 @@ namespace VeraCrypt
 					}
 
 					if (volume->HiddenVolumeProtectionTriggered)
-						ShowWarning (StringFormatter (LangString["DAMAGE_TO_HIDDEN_VOLUME_PREVENTED"], wstring (volume->Path)));
+						ShowWarning (StringFormatter (LangString["DAMAGE_TO_HIDDEN_VOLUME_PREVENTED_PATH"], wstring (volume->Path)));
 
 					if (Preferences.Verbose)
 					{
@@ -1232,6 +1232,14 @@ const FileManager fileManagers[] = {
 	bool UserInterface::ProcessCommandLine ()
 	{
 		CommandLineInterface &cmdLine = *CmdLine;
+		// The parsed command outlives execution in a background GUI session.
+		// Keep its credential references scoped to the command itself.
+		finally_do_arg (CommandLineInterface *, &cmdLine, {
+			finally_arg->ArgPassword.reset();
+			finally_arg->ArgNewPassword.reset();
+			finally_arg->ArgMountOptions.Password.reset();
+			finally_arg->ArgMountOptions.ProtectionPassword.reset();
+		});
 
 		if (cmdLine.ArgCommand == CommandId::None)
 			return false;

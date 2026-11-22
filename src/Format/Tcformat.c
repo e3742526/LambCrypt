@@ -849,26 +849,6 @@ static void LoadSettingsAndCheckModified (HWND hwndDlg, BOOL bOnlyCheckModified,
 			InitSecurityTokenLibrary(hwndDlg);
 	}
 
-	if (bOnlyCheckModified)
-	{
-		char langid[6] = {0};
-		if (!IsNonInstallMode ())
-		{
-			ConfigReadString ("Language", "", langid, sizeof (langid));
-			// when installed, if no preferred language set by user, English is selected default
-			if (langid [0] == 0)
-				StringCbCopyA (langid, sizeof(langid), "en");
-
-			if (pbSettingsModified && strcmp (langid, GetPreferredLangId ()))
-				*pbSettingsModified = TRUE;
-		}
-		else
-		{
-			StringCbCopyA (langid, sizeof(langid), GetPreferredLangId ());
-			ConfigReadCompareString ("Language", "", langid, sizeof (langid), TRUE, pbSettingsModified);
-		}
-	}
-
 	if (hwndDlg != NULL)
 	{
 		LoadCombo (GetDlgItem (hwndDlg, IDC_COMBO_BOX), bHistory, bOnlyCheckModified, pbHistoryModified);
@@ -906,8 +886,6 @@ void SaveSettings (HWND hwndDlg)
 		ConfigWriteInt ("HiddenSectorDetectionStatus", HiddenSectorDetectionStatus);
 		ConfigWriteInt ("SaveVolumeHistory", bHistory);
 		ConfigWriteStringW ("SecurityTokenLibrary", SecurityTokenLibraryPath[0] ? SecurityTokenLibraryPath : L"");
-
-		ConfigWriteString ("Language", GetPreferredLangId ());
 
 		ConfigWriteEnd (hwndDlg);
 	}
@@ -6240,11 +6218,6 @@ BOOL CALLBACK MainDialogProc (HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPa
 				iMaxPasswordLength = MAX_LEGACY_PASSWORD;
 			else
 				iMaxPasswordLength = MAX_PASSWORD;
-
-			// Save language to XML configuration file if it has been selected in the setup
-			// so that other VeraCrypt programs will pick it up
-			if (bLanguageSetInSetup)
-				SaveSettings (hwndDlg);
 
 			LoadDefaultKeyFilesParam ();
 			RestoreDefaultKeyFilesParam ();

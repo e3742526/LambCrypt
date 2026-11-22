@@ -1428,7 +1428,6 @@ static wstring ResolveAmbiguousSelection (HWND hwndDlg, int *driveNoPtr)
 
 void LoadSettingsAndCheckModified (HWND hwndDlg, BOOL bOnlyCheckModified, BOOL* pbSettingsModified, BOOL* pbHistoryModified)
 {
-	char langid[6] = {0};
 	if (!bOnlyCheckModified)
 	{
 	   EnableHwEncryption ((ReadDriverConfigurationFlags() & TC_DRIVER_CONFIG_DISABLE_HARDWARE_ENCRYPTION) ? FALSE : TRUE);
@@ -1586,26 +1585,6 @@ void LoadSettingsAndCheckModified (HWND hwndDlg, BOOL bOnlyCheckModified, BOOL* 
 	// Mount Options
 	ConfigReadCompareInt ("DefaultPRF", 0, &DefaultVolumePkcs5, bOnlyCheckModified, pbSettingsModified);
 
-	if (bOnlyCheckModified)
-	{
-		if (!IsNonInstallMode ())
-		{
-			ConfigReadString ("Language", "", langid, sizeof (langid));
-			// when installed, if no preferred language set by user, English is set default
-			//
-			if (langid [0] == 0)
-				StringCbCopyA (langid, sizeof(langid), "en");
-
-			if (pbSettingsModified && strcmp (langid, GetPreferredLangId ()))
-				*pbSettingsModified = TRUE;
-		}
-		else
-		{
-			StringCbCopyA (langid, sizeof(langid), GetPreferredLangId ());
-			ConfigReadCompareString ("Language", "", langid, sizeof (langid), TRUE, pbSettingsModified);
-		}
-	}
-
 	if (DefaultVolumePkcs5 < 0 || DefaultVolumePkcs5 > LAST_PRF_ID)
 		DefaultVolumePkcs5 = 0;
 
@@ -1712,9 +1691,6 @@ void SaveSettings (HWND hwndDlg)
 		ConfigWriteInt ("HotkeyCodeCloseSecurityTokenSessions",		Hotkeys[HK_CLOSE_SECURITY_TOKEN_SESSIONS].vKeyCode);
 		ConfigWriteInt ("PlaySoundOnHotkeyMountDismount",			bPlaySoundOnSuccessfulHkDismount);
 		ConfigWriteInt ("DisplayMsgBoxOnHotkeyDismount",			bDisplayBalloonOnSuccessfulHkDismount);
-
-		// Language
-		ConfigWriteString ("Language", GetPreferredLangId ());
 
 		// PKCS#11 Library Path
 		ConfigWriteStringW ("SecurityTokenLibrary", SecurityTokenLibraryPath[0] ? SecurityTokenLibraryPath : L"");
@@ -8227,12 +8203,6 @@ BOOL CALLBACK MainDialogProc (HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPa
 			{
 				// General preferences
 				LoadSettings (hwndDlg);
-
-				// Save language to XML configuration file if it has been selected in the setup
-				// so that other VeraCrypt programs will pick it up
-				if (bLanguageSetInSetup)
-					SaveSettings (hwndDlg);
-
 
 				// Keyfiles
 				LoadDefaultKeyFilesParam ();

@@ -40,6 +40,28 @@ namespace VeraCrypt
 		return wstring (LangString[key]);
 	}
 
+	static wstring DecodeCatalogueEscapes (const wstring &text)
+	{
+		wstring result;
+		result.reserve (text.size());
+		for (size_t i = 0; i < text.size(); ++i)
+		{
+			wchar_t character = text[i];
+			if (character == L'\\' && i + 1 < text.size())
+			{
+				// Consume escapes once. A literal backslash before 'n' stays literal.
+				switch (text[i + 1])
+				{
+				case L'\\': ++i; break;
+				case L'n': character = L'\n'; ++i; break;
+				case L't': character = L'\t'; ++i; break;
+				}
+			}
+			result += character;
+		}
+		return result;
+	}
+
 	void LanguageStrings::Init ()
 	{
 		static const uint8 LanguageXml[] =
@@ -53,9 +75,7 @@ namespace VeraCrypt
 			if (node.Attributes[L"lang"] != L"en")
 				continue;
 
-			wxString text = node.InnerText;
-			text.Replace (L"\\n", L"\n");
-			Map[StringConverter::ToSingle (wstring (node.Attributes[L"key"]))] = text;
+			Map[StringConverter::ToSingle (wstring (node.Attributes[L"key"]))] = DecodeCatalogueEscapes (wstring (node.InnerText));
 		}
 	}
 

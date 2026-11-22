@@ -30,45 +30,102 @@ def main():
         unknown_alias = dict(exact, **{"image-path": str(work / "missing" / image.parent.name / image.name)})
         cases = {
             "exact": {"images": [exact]},
+            "reattached": {"images": [dict(exact, **{"system-entities": [
+                {"dev-entry": "/dev/disk43"}]})]},
             "alias": {"images": [alias_image]},
             "absent": {"images": []},
-            "unrelated": {"images": [{"image-path": "/offline/unrelated.dmg"}]},
+            "unrelated": {"images": [dict(exact, **{"image-path": "/offline/unrelated.dmg"})]},
             "exact_after_unknown": {"images": [unknown_alias, {}, exact]},
             "unknown_alias": {"images": [unknown_alias]},
             "unknown_record": {"images": [{}]},
             "bad_entities": {"images": [{"image-path": str(image.resolve())}]},
+            "non_disk_entity": {"images": [dict(exact, **{"system-entities": [
+                {"dev-entry": "/dev/unavailable", "mount-point": "/Volumes/unit"}]})]},
         }
         for name, contents in cases.items():
             (work / name).write_bytes(plistlib.dumps(contents))
         (work / "attach").write_bytes(plistlib.dumps({"system-entities": exact["system-entities"]}))
         (work / "broken").write_text("invalid plist")
+        (work / "linked-container").hardlink_to(image)
 
         source = (ROOT / "src/Core/Unix/MacOSX/CoreMacOSX.cpp").read_text()
         helpers = source[source.index("\tclass CFHolder"):source.index("\tCoreMacOSX::CoreMacOSX ()")]
+        attached_device_start = source.index("\tDevicePath FSKit::GetAttachedDiskImageDevice")
+        attached_device = source[attached_device_start:source.index("\n#endif", attached_device_start)]
         dismount = source[source.index("\tshared_ptr <VolumeInfo> CoreMacOSX::DismountVolume"):
                           source.index("\tstatic void ClearDiskImageInfo")]
         refresh = source[source.index("\tstatic void ClearDiskImageInfo"):source.index("\t// Strict /dev/diskN")]
         attach = source[source.index("\tDevicePath CoreMacOSX::MountAuxVolumeImage"):
                         source.index("\tunique_ptr <CoreBase> Core (")]
         unix_source = (ROOT / "src/Core/Unix/CoreUnix.cpp").read_text()
+        observation_start = unix_source.index("\t\t\t// The attach result and the fresh inventory")
+        observation = unix_source[observation_start:unix_source.index("\n#endif", observation_start)]
         mount_end = unix_source.index("\n\t}\n\n\tDevicePath CoreUnix::MountAuxVolumeImage")
         rollback_start = unix_source.rindex("\n\t\t\treturn mountedVolume;\n\t\t}", 0, mount_end)
         rollback = unix_source[rollback_start:mount_end].split("\n\t\t}", 1)[1]
+        slot_start = unix_source.index("\tint CoreUnix::ReserveMountSlot")
+        slot_selection = unix_source[slot_start:unix_source.index("\n\tint CoreUnix::ReserveMountVolume", slot_start)]
+        slot_selection = slot_selection.rsplit("\n#endif", 1)[0]
         fskit_source = (ROOT / "src/Driver/FSKit/FSKitService.mm").read_text()
-        auxiliary_start = fskit_source.index("\n\t\t\t\ttry", fskit_source.index("workerStarted = true;"))
-        auxiliary_end = fskit_source.index("\n\t\t\t\tconst char ready", auxiliary_start)
+        media_handoff = fskit_source[fskit_source.index("\t\tvoid ObserveAttachedMedia"):
+                                    fskit_source.index("\t\tint AcquireUnmountLock")]
+        auxiliary_start = fskit_source.index("\n", fskit_source.index("workerStarted = true;"))
+        auxiliary_end = fskit_source.index("\n\t\t\t\treturn identity.SerialInstanceNumber", auxiliary_start)
         auxiliary_mount = fskit_source[auxiliary_start:auxiliary_end]
+        resource_path = fskit_source[fskit_source.index("\t\t\tstring ResourcePath"):
+                                    fskit_source.index("\t\t\tstring ApplicationGroupDirectory")]
+        mount_lifetime = fskit_source[fskit_source.index("\t\t\tbool TryLockFile"):
+                                     fskit_source.index("\t\t\tuint64 FindLateMedia")]
+        worker_start = fskit_source.index("\t\t\t\tstruct pollfd descriptors[]")
+        worker_end = fskit_source.index("\n\t\t\t\ttry { volume.Close", worker_start)
+        worker_loop = fskit_source[worker_start:worker_end].replace("std::chrono::steady_clock", "PublicationClock")
+        slot_lock = fskit_source[fskit_source.index("\t\tint TryReserveSlot"):
+                                 fskit_source.index("\t\tuint64 Mount")]
+        unmount_lock = fskit_source[fskit_source.index("\t\tint AcquireUnmountLock"):
+                                    fskit_source.index("\t\tvoid WaitForServiceExit")]
+        main_frame = (ROOT / "src/Main/Forms/MainFrame.cpp").read_text()
+        slot_view_start = main_frame.index("\tstatic map <VolumeSlotNumber, shared_ptr <VolumeInfo>> GetMountedVolumesBySlot")
+        slot_view = main_frame[slot_view_start:main_frame.index("\tshared_ptr <VolumeInfo> MainFrame::GetSelectedVolume", slot_view_start)]
+        open_start = main_frame.index("\tvoid MainFrame::OpenSelectedVolume")
+        open_volume = main_frame[open_start:main_frame.index("\tvoid MainFrame::OrganizeFavorites", open_start)]
+        event_start = main_frame.index("\tvoid MainFrame::OnUpdateVolumeList")
+        volume_event = main_frame[event_start:main_frame.index("\tvoid MainFrame::OnVolumeDiscoveryCompleted", event_start)]
+        retention_start = main_frame.index("\t\t\t\t\t// Retain the identity")
+        snapshot_retention = main_frame[retention_start:main_frame.index("\t\t\t\t\tMountedVolumes.swap", retention_start)]
+        idle_start = main_frame.index("\t\t\t\t// Inactivity auto-dismount")
+        idle_timer = main_frame[idle_start:main_frame.index("\t\t\t\t// Screen saver auto-dismount", idle_start)]
+        idle_timer = idle_timer.replace("VolumeSnapshot.IsFresh()", "VolumeSnapshot.IsFresh(TestNow)")
+        idle_timer = idle_timer.replace("chrono::steady_clock::now()", "TestNow")
+        frame_header = (ROOT / "src/Main/Forms/MainFrame.h").read_text()
+        activity_start = frame_header.index("\t\tstruct VolumeActivityMapEntry")
+        activity_types = frame_header[activity_start:frame_header.index("\t\tmap <int, FavoriteVolume>", activity_start)]
+        activity_member = next(line for line in frame_header.splitlines() if line.endswith(" VolumeActivityMap;"))
+        graphic_ui = (ROOT / "src/Main/GraphicUserInterface.cpp").read_text()
+        auto_dismount_start = graphic_ui.index("\tVolumeInfoList GraphicUserInterface::GetVolumesForAutoDismount")
+        auto_dismount = graphic_ui[auto_dismount_start:graphic_ui.index("\tvoid GraphicUserInterface::ReportUnconfirmedCleanup", auto_dismount_start)]
+        volume_info = (ROOT / "src/Volume/VolumeInfo.h").read_text()
+        identity_start = volume_info.index("\t\tbool IsSameMountInstance")
+        mount_identity = volume_info[identity_start:volume_info.index("\n\t\t}", identity_start) + len("\n\t\t}")]
         prelude = r'''
 #include "Platform/Finally.h"
+#include "Main/VolumeSnapshot.h"
 #include <CoreFoundation/CoreFoundation.h>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <algorithm>
+#include <array>
 #include <cerrno>
+#include <chrono>
+#include <tuple>
 #include <cstdlib>
+#include <fcntl.h>
+#include <map>
+#include <poll.h>
+#include <sys/file.h>
 #include <sys/mount.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <vector>
 #define throw_sys_sub_if(condition, subject) do { if (condition) throw std::runtime_error(subject); } while(false)
@@ -76,18 +133,24 @@ using namespace std;
 #undef SRC_POS
 #define SRC_POS "test source"
 #define VERSION_NUM 1
+using uint8 = uint8_t;
 using uint64 = uint64_t;
+using VolumeSlotNumber = unsigned int;
 using DevicePath = std::string;
+static string UnavailableBlockDevice;
 struct DirectoryPath : std::string {
     using std::string::string;
     DirectoryPath() {}
     DirectoryPath(const std::string &s) : std::string(s) {}
     bool IsEmpty() const { return empty(); }
-    bool IsBlockDevice() const { return find("/dev/disk") == 0; }
-    explicit operator wstring() const { return wstring(begin(), end()); }
+    bool IsBlockDevice() const { return find("/dev/disk") == 0 && *this != UnavailableBlockDevice; }
+    operator wstring() const { return wstring(begin(), end()); }
 };
 struct ParameterIncorrect : std::runtime_error { ParameterIncorrect(const std::string &s) : std::runtime_error(s) {} };
-struct VolumeDiscoveryFailed : std::runtime_error { VolumeDiscoveryFailed(const std::string &s, const std::wstring &) : std::runtime_error(s) {} };
+struct VolumeDiscoveryFailed : std::runtime_error {
+    VolumeDiscoveryFailed(const std::string &, const std::wstring &reason)
+        : std::runtime_error(std::string(reason.begin(), reason.end())) {}
+};
 struct DismountServiceCleanupFailed {
     DismountServiceCleanupFailed(const string &, const wstring &reason) : Reason(reason) {}
     wstring Reason;
@@ -97,8 +160,13 @@ struct MountServiceCleanupFailed {
     wstring Reason;
 };
 struct MountedVolumeInUse { explicit MountedVolumeInUse(const string &) {} };
+struct VolumeAlreadyMounted { explicit VolumeAlreadyMounted(const string &) {} };
+struct VolumeSlotUnavailable { explicit VolumeSlotUnavailable(const string &) {} };
 struct TimeOut {};
-struct SystemException {};
+struct SystemException {
+    SystemException() = default;
+    SystemException(const string &, const string &) {}
+};
 struct ExecutedProcessFailed {
     explicit ExecutedProcessFailed(string error) : Error(error) {}
     ExecutedProcessFailed(const char *, const string &, int, const string &error) : Error(error) {}
@@ -111,28 +179,60 @@ struct ExecutedProcessFailed {
 struct StringConverter {
     static std::string Trim(std::string s) { size_t b=s.find_first_not_of(" \t\r\n"); if(b==std::string::npos)return ""; return s.substr(b,s.find_last_not_of(" \t\r\n")-b+1); }
     static std::wstring ToWide(const std::string &s) { return wstring(s.begin(), s.end()); }
-    static std::wstring ToExceptionString(const std::exception &) { return L"failure"; }
+    static std::wstring ToExceptionString(const std::exception &error) { return ToWide(error.what()); }
 };
 static std::string Inventory;
+static std::string InventoryAfterDetach;
+static bool ReadPostDetachInventory;
 static int Queries;
 static vector<pair<string, int>> Commands;
+static vector<list<string>> DismountArguments;
 static string TimeoutCommand;
 static bool BusyImage;
+static int MountValidations, RefuseValidation;
+static string DismountMountPoint;
+static bool FlushFailure;
+static int GlobalSyncCalls;
 static string AuxiliaryFailure;
 static vector<list<string>> AttachCommands;
 static string AttachReply;
 static int AttachOptionFailures;
+
+static int OpenMountParent(const string &mountPoint) {
+    const auto parent = mountPoint.substr(0, mountPoint.rfind('/'));
+    int fd = open(parent.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (fd < 0) throw runtime_error("fixture mount parent unavailable");
+    return fd;
+}
+
+static void RequireUnmountLock(const string &mountPoint) {
+    const int observer = OpenMountParent(mountPoint);
+    finally_do_arg(int, observer, { close(finally_arg); });
+    if (flock(observer, LOCK_SH | LOCK_NB) == 0 || errno != EWOULDBLOCK)
+        throw runtime_error("FSKit teardown step ran without the exclusive lock");
+}
+
 struct Process {
     static string ExecuteBounded(const string &path, const list<string> &arguments, int deadline) {
         if (arguments.front() == "info") {
             if (deadline != 2000) throw runtime_error("discovery deadline");
+            if (!DismountMountPoint.empty()) RequireUnmountLock(DismountMountPoint);
             ++Queries;
+            if (ReadPostDetachInventory) {
+                ReadPostDetachInventory = false;
+                return InventoryAfterDetach;
+            }
             return Inventory;
         }
         Commands.emplace_back(path, deadline);
+        if (path == "/sbin/umount" && deadline != 0) RequireUnmountLock(arguments.back());
+        if (arguments.front() == "detach" && deadline != 0) RequireUnmountLock(DismountMountPoint);
+        if (arguments.front() == "detach" || path == "/sbin/umount")
+            DismountArguments.push_back(arguments);
         if (path == TimeoutCommand) throw TimeOut{};
         if (path == "/sbin/mount" && !AuxiliaryFailure.empty()) throw ExecutedProcessFailed(AuxiliaryFailure);
         if (BusyImage && arguments.front() == "detach") throw ExecutedProcessFailed("Resource busy");
+        if (arguments.front() == "detach" && deadline != 0) ReadPostDetachInventory = true;
         if (arguments.front() == "attach") {
             AttachCommands.push_back(arguments);
             if (AttachOptionFailures > 0) {
@@ -152,7 +252,19 @@ struct Process {
 };
 struct FuseService { static std::string GetVolumeImagePath() { return "/volume.dmg"; } };
 namespace FSKit {
-    static void WaitForServiceExit(const DirectoryPath &) { Commands.emplace_back("wait", 0); }
+    static bool IsAuxiliaryMountPoint(const DirectoryPath &path) {
+        return string(path).find("/private/tmp/lambcrypt-fskit.") == 0;
+    }
+    int AcquireUnmountLock(const DirectoryPath &);
+    void UnmountAuxiliary(const DirectoryPath &, bool);
+    DevicePath GetAttachedDiskImageDevice(const DirectoryPath &);
+    static void WaitForServiceExit(const DirectoryPath &mountPoint) {
+        const int observer = OpenMountParent(mountPoint);
+        finally_do_arg(int, observer, { close(finally_arg); });
+        if (flock(observer, LOCK_SH | LOCK_NB) != 0)
+            throw runtime_error("cleanup waited for the worker while retaining the unmount lock");
+        Commands.emplace_back("wait", 0);
+    }
 }
 namespace Thread { static void Sleep(int) {} }
 namespace VolumeProtection { enum { None, HiddenVolumeReadOnly, ReadOnly }; }
@@ -174,18 +286,32 @@ struct VolumeInfo {
     DirectoryPath AuxMountPoint, MountPoint;
     DevicePath VirtualDevice;
     int Protection = VolumeProtection::None;
-    string Path;
+    DirectoryPath Path;
     unsigned int ProgramVersion = 0, SlotNumber = 0;
     uint64 SerialInstanceNumber = 0;
+    uint64 TotalDataRead = 0, TotalDataWritten = 0;
     void Set(const Volume &volume) { Path = volume.Path; }
+    shared_ptr<VolumeInfo> Clone() const { return make_shared<VolumeInfo>(*this); }
+''' + mount_identity + r'''
 };
+namespace FSKit {
+    static void FlushVolume(const VolumeInfo &volume) {
+        RequireUnmountLock(volume.AuxMountPoint);
+        Commands.emplace_back("flush", 0);
+        if (FlushFailure) throw runtime_error("worker flush failed");
+    }
+}
+static void CountGlobalSync() { ++GlobalSyncCalls; }
 using VolumeInfoList = std::list<std::shared_ptr<VolumeInfo>>;
 struct MountedFilesystem { DirectoryPath MountPoint; };
 using MountedFilesystemList = std::list<std::shared_ptr<MountedFilesystem>>;
 class CoreMacOSX {
 public:
     shared_ptr<VolumeInfo> DismountVolume(shared_ptr<VolumeInfo>, bool, bool);
-    shared_ptr<VolumeInfo> ValidateMountedVolume(shared_ptr<VolumeInfo> volume) const { return volume; }
+    shared_ptr<VolumeInfo> ValidateMountedVolume(shared_ptr<VolumeInfo> volume) const {
+        if (++MountValidations == RefuseValidation) throw ParameterIncorrect(SRC_POS);
+        return volume;
+    }
     void UpdateMountedVolumesInfo(VolumeInfoList &) const;
     void UpdateMountedVolumeInfo(std::shared_ptr<VolumeInfo>) const;
     void UpdateMountedVolumeInfo(std::shared_ptr<VolumeInfo>, const std::string &) const;
@@ -203,6 +329,11 @@ static const string StartupContainer = "/disposable.hc";
 static const uint64 StartupSerial = 42;
 static bool RefuseRollback;
 static shared_ptr<VolumeInfo> RollbackTarget;
+static int LateAttachmentChannel = -1;
+
+namespace FSKit {
+static void ObserveLateAttachedMedia(int channel) { LateAttachmentChannel = channel; }
+}
 
 static shared_ptr<VolumeInfo> GetMountedVolume(const DirectoryPath &) {
     auto replacement = make_shared<VolumeInfo>();
@@ -220,6 +351,7 @@ static void DismountVolume(shared_ptr<VolumeInfo> volume) {
 static void SimulateStartupFailure(bool unconfirmedAttach) {
     const string fuseMountPoint = StartupAuxiliary;
     const uint64 mountServiceSerialInstanceNumber = StartupSerial;
+    const int activationChannel = 15;
     auto volume = make_shared<Volume>();
     volume->Path = StartupContainer;
     MountOptions options;
@@ -230,41 +362,307 @@ static void SimulateStartupFailure(bool unconfirmedAttach) {
         throw runtime_error("startup failed");
     }
 ''' + rollback + "\n}\n"
+        observation_fixture = r'''
+namespace MediaObservationTest {
+static vector<pair<int, uint64>> Reports;
+static vector<DevicePath> Lookups;
+static uint64 IdentifiedMedia;
+namespace FSKit {
+static uint64 GetMediaIdentity(const DevicePath &device) {
+    Lookups.push_back(device);
+    return IdentifiedMedia;
+}
+static void SendMediaIdentity(int channel, uint64 identity) { Reports.emplace_back(channel, identity); }
+''' + media_handoff + r'''
+}
+static void Observe(VolumeInfo::DiscoveryState discovery, const DevicePath &discovered, uint64 identity) {
+    const int activationChannel = 15;
+    const DevicePath mountedVirtualDevice = "/dev/disk42";
+    auto mountedVolume = make_shared<VolumeInfo>();
+    mountedVolume->Discovery = discovery;
+    mountedVolume->VirtualDevice = discovered;
+    IdentifiedMedia = identity;
+''' + observation + r'''
+}
+}
+'''
         auxiliary_fixture = r'''
-static bool AuxiliaryMounted, AuxiliaryInventoryError;
+static bool AuxiliaryMounted, AuxiliaryInventoryError, AuxiliaryAbsentOnce;
+static fsid_t AuxiliaryIdentity;
 static ssize_t AuxiliaryWorkerReply;
 static unsigned int AuxiliaryDirectoriesRemoved;
+static unsigned int AuxiliaryWorkerCommits;
+static unsigned int AuxiliaryWorkerAborts;
 static int AuxiliaryUnlinkError = ENOENT;
 
-static bool MountTableEntry(const string &, fsid_t &) {
+static bool MountTableEntry(const string &, fsid_t &identity) {
     if (AuxiliaryInventoryError) throw SystemException{};
+    if (AuxiliaryAbsentOnce) {
+        AuxiliaryAbsentOnce = false;
+        return false;
+    }
+    identity = AuxiliaryIdentity;
     return AuxiliaryMounted;
 }
 static void RemoveEmptyMountDirectory(const string &) { ++AuxiliaryDirectoriesRemoved; }
-static int FakeShutdown(int, int) { return 0; }
+static int FakeShutdown(int, int) { ++AuxiliaryWorkerAborts; return 0; }
 static ssize_t FakeReceive(int, void *, size_t, int) {
     if (AuxiliaryWorkerReply < 0) errno = EAGAIN;
     return AuxiliaryWorkerReply;
 }
 static int FakeUnlink(const char *) { errno = AuxiliaryUnlinkError; return -1; }
+static ssize_t FakeWrite(int, const void *data, size_t size) {
+    if (size == 1 && *static_cast<const char *>(data) == 1)
+        ++AuxiliaryWorkerCommits;
+    return size;
+}
 
 #define shutdown FakeShutdown
 #define recv FakeReceive
 #define unlink FakeUnlink
+#define write FakeWrite
+#define throw_sys_if(condition) do { if (condition) throw SystemException{}; } while(false)
 static void SimulateAuxiliaryMount() {
     const auto volume = make_shared<Volume>();
-    const int activation[] = {-1, -1};
+    int activation[] = {-1, -1};
+    int activationChannel = -1;
     const string mountPoint = StartupAuxiliary;
     const string resource = "/unused-resource";
     const string endpoint = resource + "/io";
 ''' + auxiliary_mount + "\n}\n" + r'''
+#undef throw_sys_if
+#undef write
 #undef unlink
 #undef recv
 #undef shutdown
 '''
+        mount_guard_fixture = r'''
+#define throw_sys_if(condition) do { if (condition) throw SystemException{}; } while(false)
+namespace FSKit {
+static string ReservationDirectory;
+static string ApplicationGroupDirectory() { return ReservationDirectory; }
+''' + resource_path + mount_lifetime + slot_lock + unmount_lock + r'''
+}
+#undef throw_sys_if
+class CoreUnix {
+public:
+    VolumeSlotNumber OccupiedSlot = 0;
+    VolumeSlotNumber GetFirstSlotNumber() const { return 1; }
+    VolumeSlotNumber GetFirstFreeSlotNumber() const { return 1; } // Inventory from before contention.
+    VolumeSlotNumber GetDefaultMountPointSlot(const DirectoryPath &) const { return 1; }
+    bool IsSlotNumberValid(VolumeSlotNumber slot) const { return slot >= 1 && slot <= 3; }
+    bool IsSlotNumberAvailable(VolumeSlotNumber slot) const { return slot != OccupiedSlot; }
+    DirectoryPath SlotNumberToMountPoint(VolumeSlotNumber slot) const { return "/Volumes/Unit" + std::to_string(slot); }
+    int ReserveMountSlot(MountOptions &) const;
+};
+''' + slot_selection
+        publication_fixture = r'''
+namespace WorkerPublicationTest {
+static chrono::milliseconds Elapsed;
+static int PublishAfter, Probes, Requests, MountedChecks;
+static bool SentActivation, Cancel, InitiallyUnavailable;
+struct PublicationClock {
+    using time_point = chrono::steady_clock::time_point;
+    static time_point now() { return time_point(Elapsed); }
+};
+static bool PublicationTableEntry(const string &, fsid_t &identity) {
+    ++Probes;
+    if (InitiallyUnavailable && Probes == 1) throw SystemException{};
+    if (PublishAfter != 0 && Probes == 2) throw SystemException{};
+    identity = {{42, 7}};
+    return PublishAfter != 0 && Probes >= PublishAfter;
+}
+static bool IsServiceMountPresent(int, const string &, const fsid_t &identity) {
+    if (identity.val[0] != 42 || identity.val[1] != 7) throw runtime_error("worker used the wrong filesystem identity");
+    ++MountedChecks;
+    return false;
+}
+static int Poll(pollfd *descriptors, unsigned int, int timeout) {
+    descriptors[0].revents = descriptors[1].revents = 0;
+    if (!SentActivation) {
+        SentActivation = true;
+        descriptors[1].revents = POLLIN;
+        return 1;
+    }
+    if (timeout != 200) throw runtime_error("worker stopped checking for late publication");
+    if (Cancel && descriptors[1].fd != -1) throw runtime_error("worker kept polling the cancellation EOF");
+    Elapsed += chrono::milliseconds(timeout);
+    if (Requests == 0) {
+        descriptors[0].revents = POLLIN;
+        return 1;
+    }
+    return 0;
+}
+static ssize_t Read(int, void *byte, size_t) { *static_cast<char *>(byte) = 1; return Cancel ? 0 : 1; }
+static int Accept(int, void *, void *) { return 15; }
+static int Close(int) { return 0; }
+static void ServeRequest(int, uid_t, Volume &, VolumeInfo &, const array<uint8_t, 16> &) { ++Requests; }
+static uint64 IORegistryEntryIDMatching(uint64 media) { return media; }
+static bool LookupMedia(uint64, uint64 &) { throw runtime_error("worker watched unconfirmed media"); }
+static void CleanupEjectedMount(const string &, const fsid_t &) { throw runtime_error("unexpected eject helper"); }
+static uint64 FindLateMedia(const string &, const fsid_t &) { throw runtime_error("unexpected late attach helper"); }
+static void SendMediaIdentity(int, uint64) { throw runtime_error("unexpected media report"); }
+
+#define poll Poll
+#define read Read
+#define accept Accept
+#define close Close
+#define MountTableEntry PublicationTableEntry
+static void Simulate(int publishAfter, bool cancel = false, bool initiallyUnavailable = false) {
+    Elapsed = chrono::milliseconds(0);
+    Probes = Requests = MountedChecks = 0;
+    SentActivation = false;
+    PublishAfter = publishAfter;
+    Cancel = cancel;
+    InitiallyUnavailable = initiallyUnavailable;
+    const int listener = 12, commit = 13, directory = 14;
+    const int volumeReservation = -1, slotReservation = -1, volumeFd = -1;
+    const string mountPoint = "/fixture";
+    Volume volume;
+    VolumeInfo info;
+    const array<uint8_t, 16> identifier = {};
+''' + worker_loop + r'''
+}
+#undef MountTableEntry
+#undef close
+#undef accept
+#undef read
+#undef poll
+}
+'''
         tests = r'''
 static void Require(bool condition, const char *message) { if(!condition)throw std::runtime_error(message); }
 static std::string Read(const std::string &path) { std::ifstream f(path); return std::string(std::istreambuf_iterator<char>(f), {}); }
+static void CheckMediaObservation() {
+    using namespace MediaObservationTest;
+    Observe(VolumeInfo::ImageAttached, "/dev/disk42", 123);
+    Observe(VolumeInfo::ImageAttached, "/dev/disk42", 0);
+    Observe(VolumeInfo::ImageAttached, "/dev/disk73", 123);
+    Observe(VolumeInfo::DiscoveryUnknown, {}, 123);
+    Require(Lookups == vector<DevicePath>{"/dev/disk42", "/dev/disk42"},
+            "media observation trusted an uncorroborated BSD device");
+    Require(Reports == vector<pair<int, uint64>>{{15, 123}, {15, 0}, {15, 0}, {15, 0}},
+            "an unconfirmed media identity or inventory skipped the bounded observation request");
+}
+static void CheckLateWorkerPublication() {
+    using namespace WorkerPublicationTest;
+    Simulate(3);
+    Require(Probes == 3 && Requests == 1 && MountedChecks == 1,
+            "worker exited before a late mount appeared or stopped responding during publication");
+    Simulate(0);
+    Require(MountedChecks == 0 && Elapsed == chrono::seconds(10), "a mount that never published did not expire");
+    Simulate(1, true);
+    Require(Probes == 1 && MountedChecks == 1 && Elapsed == chrono::milliseconds(0),
+            "worker stopped despite auxiliary publication racing cancellation");
+    Simulate(0, true);
+    Require(Probes == 1 && Elapsed == chrono::milliseconds(0), "confirmed cancellation entered the publication wait");
+    Simulate(0, true, true);
+    Require(MountedChecks == 0 && Requests == 1 && Elapsed == chrono::seconds(10),
+            "unconfirmed cancellation did not bound its publication wait while serving requests");
+    Simulate(3, true, true);
+    Require(Probes == 3 && Requests == 1 && MountedChecks == 1,
+            "worker failed to retain a mount published after an inconclusive cancellation");
+}
+static void CheckBackingReservation(const string &root, const string &image) {
+    const int original = open(image.c_str(), O_RDONLY | O_CLOEXEC);
+    const int alias = open((root + "/linked-container").c_str(), O_RDONLY | O_CLOEXEC);
+    const int distinct = open((root + "/exact").c_str(), O_RDONLY | O_CLOEXEC);
+    finally_do_arg(int, original, { close(finally_arg); });
+    finally_do_arg(int, alias, { close(finally_arg); });
+    finally_do_arg(int, distinct, { close(finally_arg); });
+    Require(original >= 0 && alias >= 0 && distinct >= 0, "could not open reservation fixtures");
+    {
+        const int reservation = FSKit::ReserveVolume(root, original);
+        finally_do_arg(int, reservation, { close(finally_arg); });
+        const int otherReservation = FSKit::ReserveVolume(root, distinct);
+        finally_do_arg(int, otherReservation, { close(finally_arg); });
+        bool busy = false;
+        try { close(FSKit::ReserveVolume(root, alias)); }
+        catch (const VolumeAlreadyMounted &) { busy = true; }
+        Require(busy, "hard link acquired a second reservation for the same backing file");
+    }
+    const int reopened = FSKit::ReserveVolume(root, alias);
+    close(reopened);
+}
+static void CheckSlotReservation(const string &root) {
+    FSKit::ReservationDirectory = root;
+    CoreUnix core;
+    MountOptions explicitSlot;
+    explicitSlot.SlotNumber = 1;
+    explicitSlot.NoFilesystem = true;
+    {
+        const int held = core.ReserveMountSlot(explicitSlot);
+        finally_do_arg(int, held, { close(finally_arg); });
+        bool busy = false;
+        try { close(core.ReserveMountSlot(explicitSlot)); }
+        catch (const VolumeSlotUnavailable &) { busy = true; }
+        Require(busy, "two callers reserved the same explicit slot");
+        core.OccupiedSlot = 2;
+        MountOptions automatic;
+        automatic.SlotNumber = 0;
+        const int next = core.ReserveMountSlot(automatic);
+        finally_do_arg(int, next, { close(finally_arg); });
+        Require(automatic.SlotNumber == 3 && *automatic.MountPoint == "/Volumes/Unit3",
+                "automatic assignment did not skip locked and discovered slots");
+    }
+    close(core.ReserveMountSlot(explicitSlot));
+}
+static void CheckWorkerTeardown(const string &mountPoint) {
+    const fsid_t original = {{42, 7}};
+    const int worker = OpenMountParent(mountPoint);
+    finally_do_arg(int, worker, { close(finally_arg); });
+    {
+        const int unmount = FSKit::AcquireUnmountLock(DirectoryPath(mountPoint));
+        finally_do_arg(int, unmount, { close(finally_arg); });
+        Require(!AuxiliaryMounted && FSKit::IsServiceMountPresent(worker, mountPoint, original),
+                "worker exited while an unmount decision was pending");
+        bool busy = false;
+        try { close(FSKit::AcquireUnmountLock(DirectoryPath(mountPoint))); }
+        catch (const MountedVolumeInUse &) { busy = true; }
+        Require(busy, "two callers acquired the same unmount lock");
+    }
+    Require(!FSKit::IsServiceMountPresent(worker, mountPoint, original), "confirmed absence retained the worker");
+    AuxiliaryMounted = AuxiliaryAbsentOnce = true;
+    AuxiliaryIdentity = original;
+    Require(FSKit::IsServiceMountPresent(worker, mountPoint, original), "worker failed to recheck transient absence");
+    AuxiliaryIdentity.val[0]++;
+    Require(!FSKit::IsServiceMountPresent(worker, mountPoint, original), "worker adopted a replacement mount");
+    AuxiliaryMounted = false;
+}
+static void CheckExternalEjectCleanup(const string &root, const string &image) {
+    const string mountPoint = image.substr(0, image.rfind('/'));
+    DismountMountPoint = mountPoint;
+    const fsid_t original = {{42, 7}};
+    AuxiliaryMounted = true;
+    AuxiliaryIdentity = original;
+    Commands.clear();
+    Inventory = Read(root + "/exact");
+    FSKit::CleanupEjectedMount(mountPoint, original);
+    Require(Commands.empty(), "eject cleanup attempted to unmount an attached disk image");
+    Inventory = Read(root + "/unknown_record");
+    bool unknown = false;
+    try { FSKit::CleanupEjectedMount(mountPoint, original); }
+    catch (const ParameterIncorrect &) { unknown = true; }
+    Require(unknown && Commands.empty(), "incomplete inventory triggered automatic cleanup");
+    Inventory = Read(root + "/absent");
+    ++AuxiliaryIdentity.val[0];
+    FSKit::CleanupEjectedMount(mountPoint, original);
+    Require(Commands.empty(), "eject cleanup unmounted a replacement filesystem");
+    AuxiliaryIdentity = original;
+    {
+        const int lock = FSKit::AcquireUnmountLock(mountPoint);
+        finally_do_arg(int, lock, { close(finally_arg); });
+        bool busy = false;
+        try { FSKit::CleanupEjectedMount(mountPoint, original); }
+        catch (const MountedVolumeInUse &) { busy = true; }
+        Require(busy && Commands.empty(), "eject cleanup raced an explicit dismount");
+    }
+    FSKit::CleanupEjectedMount(mountPoint, original);
+    Require(Commands == vector<pair<string, int>>{{"/sbin/umount", 10000}},
+            "confirmed external eject did not use bounded auxiliary unmount");
+    Require(DismountArguments.back() == list<string>{"--", mountPoint}, "automatic cleanup forced an unmount");
+    AuxiliaryMounted = false;
+}
 static void CheckAttach(CoreMacOSX &core, const DirectoryPath &auxiliary) {
     MountOptions options;
     options.NoFilesystem = true;
@@ -314,30 +712,46 @@ static void CheckStartupRollback() {
     bool warnedOfFailure = false;
     try { SimulateStartupFailure(false); }
     catch (const MountServiceCleanupFailed &e) {
-        warnedOfFailure = e.Reason == StringConverter::ToWide(StartupAuxiliary) + L"\nfailure";
+        warnedOfFailure = e.Reason == StringConverter::ToWide(StartupAuxiliary) + L"\nworker identity unavailable";
     }
     Require(warnedOfFailure, "startup rollback failure was hidden");
+    Require(LateAttachmentChannel == -1, "confirmed startup failures requested a late attach probe");
 
     RollbackTarget.reset();
     bool keptAttachWarning = false;
     try { SimulateStartupFailure(true); }
     catch (const MountServiceCleanupFailed &e) { keptAttachWarning = e.Reason == L"attach remains unconfirmed"; }
-    Require(keptAttachWarning && !RollbackTarget, "startup rollback attempted cleanup after an unconfirmed attach");
+    Require(keptAttachWarning && !RollbackTarget && LateAttachmentChannel == 15,
+            "unconfirmed attach did not preserve its worker for late observation");
 }
 static void CheckAuxiliaryMountStartup() {
     Commands.clear();
     SimulateAuxiliaryMount();
     Require(Commands == vector<pair<string, int>>{{"/sbin/mount", 30000}},
             "FSKit auxiliary mount child was not bounded");
+    Require(AuxiliaryWorkerCommits == 1, "successful auxiliary mount did not commit its worker");
+    AuxiliaryWorkerCommits = 0;
 
+    auto requireTimeout = []() {
+        bool reported = false;
+        try { SimulateAuxiliaryMount(); }
+        catch (const MountServiceCleanupFailed &e) {
+            reported = e.Reason.find(L"did not confirm auxiliary mount") != wstring::npos
+                && e.Reason.find(L"Recheck the mounted volume list after 10 seconds") != wstring::npos;
+        }
+        Require(reported && AuxiliaryDirectoriesRemoved == 0, "unconfirmed mount triggered local cleanup");
+    };
     TimeoutCommand = "/sbin/mount";
-    bool timeoutReported = false;
-    try { SimulateAuxiliaryMount(); }
-    catch (const MountServiceCleanupFailed &e) {
-        timeoutReported = e.Reason.find(L"did not confirm auxiliary mount") != wstring::npos;
-    }
+    requireTimeout();
+    Require(AuxiliaryWorkerCommits == 1, "mount timeout canceled its worker before a late mount could appear");
+    AuxiliaryMounted = true;
+    requireTimeout();
+    Require(AuxiliaryWorkerCommits == 2, "timeout abandoned a mounted FSKit worker");
+    AuxiliaryInventoryError = true;
+    requireTimeout();
+    Require(AuxiliaryWorkerCommits == 3, "unavailable mount table canceled its worker after a timeout");
+    AuxiliaryMounted = AuxiliaryInventoryError = false;
     TimeoutCommand.clear();
-    Require(timeoutReported && AuxiliaryDirectoriesRemoved == 0, "unconfirmed mount triggered local cleanup");
 
     AuxiliaryFailure = "LambCrypt is disabled!";
     bool explainedDisabled = false;
@@ -358,20 +772,67 @@ static void CheckAuxiliaryMountStartup() {
     AuxiliaryWorkerReply = -1;
     requireUnconfirmed();
     AuxiliaryWorkerReply = 0;
+    const auto commits = AuxiliaryWorkerCommits;
+    const auto aborts = AuxiliaryWorkerAborts;
     AuxiliaryMounted = true;
     requireUnconfirmed();
+    Require(AuxiliaryWorkerCommits == commits + 1 && AuxiliaryWorkerAborts == aborts,
+            "a failed helper canceled the worker for an already-published auxiliary mount");
     AuxiliaryMounted = false;
     AuxiliaryInventoryError = true;
     requireUnconfirmed();
+    Require(AuxiliaryWorkerCommits == commits + 2 && AuxiliaryWorkerAborts == aborts,
+            "a failed helper canceled the worker while the mount table was unavailable");
     AuxiliaryInventoryError = false;
     AuxiliaryUnlinkError = EACCES;
     requireUnconfirmed();
     AuxiliaryUnlinkError = ENOENT;
     AuxiliaryFailure.clear();
 }
-static void CheckDismount(CoreMacOSX &core, const string &image) {
+static void CheckDismount(CoreMacOSX &core, const string &image, const string &root) {
     auto mounted = make_shared<VolumeInfo>();
     mounted->AuxMountPoint = image.substr(0, image.rfind('/'));
+    DismountMountPoint = mounted->AuxMountPoint;
+    const string exactInventory = Inventory;
+    for (const auto *record : {"exact", "reattached", "unknown_record"}) {
+        InventoryAfterDetach = Read(root + "/" + record);
+        for (bool force : {false, true}) {
+            Commands.clear();
+            const int queries = Queries;
+            bool unconfirmed = false;
+            try { core.DismountVolume(mounted, force, false); }
+            catch (const DismountServiceCleanupFailed &error) {
+                unconfirmed = error.Reason.find(L"disk image detach") != wstring::npos;
+            }
+            Require(unconfirmed && Queries == queries + 2
+                    && Commands == vector<pair<string, int>>{{"/usr/bin/hdiutil", 30000}},
+                    "successful detach with an attached or unknown image reached backing cleanup");
+        }
+    }
+    InventoryAfterDetach = Read(root + "/absent");
+    auto requireUnconfirmedDevice = [&](bool force) {
+        Commands.clear();
+        bool reported = false;
+        try { core.DismountVolume(mounted, force, false); }
+        catch (const DismountServiceCleanupFailed &error) {
+            reported = error.Reason.find(L"block device") != wstring::npos;
+        }
+        Require(reported && Commands.empty(), "unresolved attached device reached FSKit unmount");
+    };
+    Inventory = Read(root + "/non_disk_entity");
+    requireUnconfirmedDevice(false);
+    requireUnconfirmedDevice(true);
+    Inventory = exactInventory;
+    UnavailableBlockDevice = "/dev/disk42";
+    requireUnconfirmedDevice(false);
+    requireUnconfirmedDevice(true);
+    UnavailableBlockDevice.clear();
+    Inventory = Read(root + "/absent");
+    Commands.clear();
+    core.DismountVolume(mounted, false, false);
+    Require(Commands == vector<pair<string, int>>{{"/sbin/umount", 10000}, {"wait", 0}},
+            "confirmed image absence did not permit auxiliary cleanup");
+    Inventory = exactInventory;
     auto attempt = [&](const char *blocked, const wchar_t *detail, size_t expectedCommands) {
         TimeoutCommand = blocked;
         Commands.clear();
@@ -387,6 +848,16 @@ static void CheckDismount(CoreMacOSX &core, const string &image) {
     attempt("/sbin/umount", L"auxiliary unmount", 2);
     Commands.clear();
     TimeoutCommand.clear();
+    const int queriesBeforeContention = Queries;
+    {
+        const int otherDismount = FSKit::AcquireUnmountLock(mounted->AuxMountPoint);
+        finally_do_arg(int, otherDismount, { close(finally_arg); });
+        bool busy = false;
+        try { core.DismountVolume(mounted, false, false); }
+        catch (const MountedVolumeInUse &) { busy = true; }
+        Require(busy && Queries == queriesBeforeContention && Commands.empty(),
+                "competing dismount reached disk image discovery or detach");
+    }
     BusyImage = true;
     bool busy = false;
     try { core.DismountVolume(mounted, false, false); }
@@ -394,14 +865,58 @@ static void CheckDismount(CoreMacOSX &core, const string &image) {
     Require(busy && Commands.size() == 1, "busy disk was not preserved");
     BusyImage = false;
     Commands.clear();
+    DismountArguments.clear();
+    InventoryAfterDetach = Read(root + "/unrelated");
+    const int queriesBeforeSuccess = Queries;
     core.DismountVolume(mounted, false, false);
-    Require(Commands.size() == 3 && Commands.back().first == "wait", "successful detach skipped worker wait");
+    Require(Queries == queriesBeforeSuccess + 2 && Commands.size() == 3 && Commands.back().first == "wait",
+            "confirmed exact-image absence did not permit worker cleanup after disk-number reuse");
+    Require(DismountArguments == vector<list<string>>{{"detach", "/dev/disk42"}, {"--", mounted->AuxMountPoint}},
+            "ordinary FSKit teardown forced an unmount");
+    InventoryAfterDetach = Read(root + "/absent");
 
+    DismountArguments.clear();
+    core.DismountVolume(mounted, true, false);
+    Require(DismountArguments == vector<list<string>>{{"detach", "/dev/disk42", "-force"}, {"-f", "--", mounted->AuxMountPoint}},
+            "explicit force did not reach both FSKit teardown steps");
+
+    MountValidations = 0;
+    RefuseValidation = 3;
+    DismountArguments.clear();
+    bool changed = false;
+    try { core.DismountVolume(mounted, true, false); }
+    catch (const ParameterIncorrect &) { changed = true; }
+    Require(changed && DismountArguments == vector<list<string>>{{"detach", "/dev/disk42", "-force"}},
+            "explicit force tried the auxiliary unmount after identity validation failed");
+    RefuseValidation = 0;
+
+    Commands.clear();
+    core.DismountVolume(mounted, false, true);
+    Require(Commands == vector<pair<string, int>>{{"/usr/bin/hdiutil", 30000}, {"flush", 0},
+                {"/sbin/umount", 10000}, {"wait", 0}} && GlobalSyncCalls == 0,
+            "FSKit refresh did not flush only the captured image after detach");
+    mounted->Protection = VolumeProtection::HiddenVolumeReadOnly;
+    FlushFailure = true;
+    Commands.clear();
+    bool flushUnconfirmed = false;
+    try { core.DismountVolume(mounted, false, false); }
+    catch (const DismountServiceCleanupFailed &e) { flushUnconfirmed = e.Reason.find(L"flush") != wstring::npos; }
+    Require(flushUnconfirmed && Commands == vector<pair<string, int>>{{"/usr/bin/hdiutil", 30000}, {"flush", 0}},
+            "failed flush for a protected volume did not preserve the backing worker");
+    FlushFailure = false;
+    core.DismountVolume(mounted, false, false);
+    mounted->Protection = VolumeProtection::None;
+
+    DismountMountPoint.clear();
     mounted->AuxMountPoint = string(mounted->AuxMountPoint).substr(string("/private").size());
     Commands.clear();
-    core.DismountVolume(mounted, false, false);
+    DismountArguments.clear();
+    core.DismountVolume(mounted, true, true);
     Require(Commands == vector<pair<string, int>>{{"/usr/bin/hdiutil", 0}, {"/sbin/umount", 0}},
             "legacy auxiliary path inherited the FSKit deadlines");
+    Require(DismountArguments == vector<list<string>>{{"detach", "/dev/disk42", "-force"}, {"--", mounted->AuxMountPoint}},
+            "legacy auxiliary unmount inherited the FSKit force argument");
+    Require(GlobalSyncCalls == 1, "legacy teardown skipped system sync");
 }
 int main(int argc, char **argv) {
     try {
@@ -435,20 +950,283 @@ int main(int argc, char **argv) {
         Require(Queries==4 && volumes.front()->VirtualDevice=="/dev/disk42", "destructive lookup reused display snapshot");
         std::cout << "PASS: exact/alias matches, unrelated and incomplete inventories, batch query count, unknown/absent states, fresh lookup\n";
         Inventory = Read(root + "/exact");
-        CheckDismount(core, image);
-        std::cout << "PASS: FSKit detach and unmount deadlines, busy preservation, successful cleanup ordering\n";
+        CheckDismount(core, image, root);
+        std::cout << "PASS: FSKit deadlines, busy preservation, cleanup ordering, identity and explicit force\n";
         AttachReply = Read(root + "/attach");
         CheckAttach(core, image.substr(0, image.rfind('/')));
         std::cout << "PASS: FSKit attach deadline, read-only and attach-only flags, and one compatibility retry\n";
         CheckStartupRollback();
         std::cout << "PASS: startup rollback preserves identity and reports unconfirmed cleanup\n";
+        CheckMediaObservation();
+        std::cout << "PASS: verified media is observed directly and incomplete attachment evidence requests a bounded lookup\n";
+        SlotViewTest::CheckVisibleSlots();
+        std::cout << "PASS: volume views select the first entry for each valid slot\n";
+        SlotViewTest::CheckCollidingMountSerials();
+        std::cout << "PASS: macOS volume events and logout retain distinct mounts with the same serial\n";
+        SlotViewTest::CheckInactivitySampling();
+        std::cout << "PASS: per-mount inactivity uses fresh observations and resets for replacements\n";
+        SlotViewTest::CheckOpenSelectedVolume();
+        std::cout << "PASS: Finder opens require a fresh visible volume identity\n";
+        CheckLateWorkerPublication();
+        std::cout << "PASS: late publication, requests while pending, expiration, and immediate cancellation\n";
         CheckAuxiliaryMountStartup();
         std::cout << "PASS: auxiliary mount deadline and confirmed and unconfirmed worker cleanup\n";
+        CheckWorkerTeardown(root + "/unused-mount");
+        std::cout << "PASS: unmount lock, transient mount absence, and worker exit\n";
+        CheckExternalEjectCleanup(root, image);
+        std::cout << "PASS: external eject cleanup requires known disk absence and the original filesystem under the teardown lock\n";
+        CheckBackingReservation(root, image);
+        std::cout << "PASS: backing-file reservation, hard-link rejection, independent files, and reuse after release\n";
+        CheckSlotReservation(root);
+        std::cout << "PASS: explicit slot contention, automatic fallback, and slot reuse after release\n";
     } catch(std::exception &e) { std::cerr << e.what() << '\n'; return 1; }
 }
 '''
+        slot_view_fixture = r'''
+namespace SlotViewTest {
+struct VolumeDiscoveryResult {
+    VolumeInfoList Volumes;
+    list<DirectoryPath> UnresolvedMounts;
+    bool IsComplete() const { return UnresolvedMounts.empty(); }
+};
+struct CoreFixture {
+    VolumeDiscoveryResult Discovery;
+    bool IsSlotNumberValid(VolumeSlotNumber slot) const { return slot >= 1 && slot <= 64; }
+    VolumeDiscoveryResult GetMountedVolumesWithStatus() const { return Discovery; }
+};
+static CoreFixture core;
+static const auto *Core = &core;
+''' + slot_view + r'''
+static void CheckVisibleSlots() {
+    auto make = [](VolumeSlotNumber slot, VolumeInfo::DiscoveryState discovery) {
+        auto volume = make_shared<VolumeInfo>();
+        volume->SlotNumber = slot;
+        volume->Discovery = discovery;
+        return volume;
+    };
+    const auto live = make(4, VolumeInfo::ImageAttached);
+    const auto unreadable = make(4, VolumeInfo::ControlUnavailable);
+    const auto other = make(2, VolumeInfo::ControlUnavailable);
+    const auto invalid = make(0, VolumeInfo::ImageAttached);
+    const auto slots = GetMountedVolumesBySlot({live, unreadable, other, invalid});
+    if (slots.size() != 2 || slots.begin()->second != other || slots.at(4) != live)
+        throw runtime_error("the volume views did not retain the first valid entry per slot");
+}
+
+using VeraCrypt::VolumeSnapshotState;
+struct wxBusyCursor {};
+struct MenuGui {
+    DirectoryPath Opened;
+    VolumeInfoList InactiveVolumes;
+    unsigned Warnings = 0;
+    bool Waiting = false;
+    bool GetWaitDialog() const { return Waiting; }
+    void OpenExplorerWindow(const DirectoryPath &path) { Opened = path; }
+    void ShowWarning(const char *) { ++Warnings; }
+    void ShowError(const exception &) { throw; }
+    void AutoDismountVolumes(const VolumeInfoList &volumes, bool force) {
+        if (force) throw runtime_error("idle timer forced dismount");
+        InactiveVolumes = volumes;
+    }
+};
+static MenuGui gui;
+static auto *Gui = &gui;
+struct LanguageStrings {
+    const char *operator[](const char *key) const { return key; }
+};
+static const LanguageStrings LangString;
+struct VolumeListChange { bool Mounted; shared_ptr<VolumeInfo> Volume; };
+struct wxThreadEvent {
+    VolumeListChange Change;
+    template <typename T> T GetPayload() const { return Change; }
+};
+struct VolumeDiscoveryState { int AccessMutex = 0; uint64 Generation = 0; };
+struct ScopeLock { explicit ScopeLock(int &) {} };
+using wxLongLong = long long;
+static VolumeSnapshotState::Clock::time_point TestNow;
+class MainFrame {
+public:
+    VolumeInfoList MountedVolumes;
+    VolumeSnapshotState VolumeSnapshot;
+    shared_ptr<VolumeDiscoveryState> VolumeDiscovery = make_shared<VolumeDiscoveryState>();
+    unsigned Refreshes = 0;
+    shared_ptr<VolumeInfo> GetSelectedVolume() const { return MountedVolumes.front(); }
+    void OpenSelectedVolume() const;
+    void OpenMountedVolume(const shared_ptr<VolumeInfo> &selected) const;
+    void OnUpdateVolumeList(wxThreadEvent &event);
+    void UpdateVolumeList() { ++Refreshes; }
+    struct Preferences { bool DismountOnInactivity = true; int MaxVolumeIdleTime = 1; } Prefs;
+    const Preferences &GetPreferences() const { return Prefs; }
+    void CheckInactivity();
+#define TC_MACOSX
+''' + activity_types + activity_member + r'''
+#undef TC_MACOSX
+};
+class GraphicUserInterface {
+public:
+    VolumeInfoList Captured;
+    VolumeInfoList GetMountedVolumesForUI() const { return Captured; }
+    VolumeInfoList GetVolumesForAutoDismount() const;
+};
+#define TC_MACOSX
+''' + open_volume + volume_event + auto_dismount + r'''
+void MainFrame::CheckInactivity() {
+''' + idle_timer + r'''
+}
+#undef TC_MACOSX
+static void RetainSnapshotRows(VolumeDiscoveryResult &result, const VolumeInfoList &MountedVolumes) {
+''' + snapshot_retention + r'''
+}
+
+static void CheckCollidingMountSerials() {
+    auto a = make_shared<VolumeInfo>();
+    a->SerialInstanceNumber = 42;
+    a->SlotNumber = 1;
+    a->Path = "/disposable-a.hc";
+    a->AuxMountPoint = "/disposable-aux-a";
+    a->Discovery = VolumeInfo::ImageAttached;
+    a->MountPoint = "/disposable-a-mount";
+    a->VirtualDevice = "/dev/disk42";
+    auto b = make_shared<VolumeInfo>(*a);
+    b->SlotNumber = 2;
+    b->Path = "/disposable-b.hc";
+    b->AuxMountPoint = "/disposable-aux-b";
+
+    MainFrame frame;
+    frame.MountedVolumes = {a, b};
+    frame.VolumeSnapshot.RecordSample(VolumeSnapshotState::Clock::now(), true);
+    wxThreadEvent dismounted{{false, make_shared<VolumeInfo>(*a)}};
+    frame.OnUpdateVolumeList(dismounted);
+    if (frame.MountedVolumes != VolumeInfoList{b} || frame.VolumeSnapshot.IsFresh() || frame.Refreshes != 1)
+        throw runtime_error("dismount event removed a different mount with the same serial");
+
+    auto replacement = make_shared<VolumeInfo>(*a);
+    replacement->AuxMountPoint = "/disposable-aux-replacement";
+    frame.MountedVolumes = {replacement};
+    frame.OnUpdateVolumeList(dismounted);
+    if (frame.MountedVolumes != VolumeInfoList{replacement})
+        throw runtime_error("old dismount event removed the replacement auxiliary mount");
+
+    GraphicUserInterface ui;
+    core.Discovery.Volumes = {b};
+    core.Discovery.UnresolvedMounts = {a->AuxMountPoint};
+    ui.Captured = {a, b};
+    if (ui.GetVolumesForAutoDismount() != VolumeInfoList{b, a})
+        throw runtime_error("logout lost an unreadable mount which shared a live mount's serial");
+
+    VolumeDiscoveryResult snapshot = core.Discovery;
+    RetainSnapshotRows(snapshot, ui.Captured);
+    auto retained = snapshot.Volumes.back();
+    if (snapshot.Volumes.size() != 2 || retained == a || !retained->IsSameMountInstance(*a)
+            || retained->Discovery != VolumeInfo::ControlUnavailable
+            || !retained->MountPoint.IsEmpty() || !retained->VirtualDevice.IsEmpty())
+        throw runtime_error("partial discovery lost a distinct unreadable mount or retained stale device details");
+
+    core.Discovery.Volumes = {make_shared<VolumeInfo>(*a), b};
+    if (ui.GetVolumesForAutoDismount() != core.Discovery.Volumes)
+        throw runtime_error("logout tried the same mount instance more than once");
+
+    snapshot = core.Discovery;
+    RetainSnapshotRows(snapshot, ui.Captured);
+    if (snapshot.Volumes != core.Discovery.Volumes)
+        throw runtime_error("partial discovery duplicated the same mount instance");
+}
+
+static void CheckInactivitySampling() {
+    auto first = make_shared<VolumeInfo>();
+    first->Path = "/disposable-idle.hc";
+    first->AuxMountPoint = "/disposable-idle-first";
+    first->SlotNumber = 1;
+    first->SerialInstanceNumber = 42;
+    auto second = make_shared<VolumeInfo>(*first);
+    second->Path = "/disposable-active.hc";
+    second->AuxMountPoint = "/disposable-idle-second";
+    second->SlotNumber = 2;
+    MainFrame frame;
+    const auto start = VolumeSnapshotState::Clock::now();
+    auto observe = [&](int sampledAt, int receivedAt, const VolumeInfoList &volumes) {
+        TestNow = start + chrono::seconds(receivedAt);
+        frame.VolumeSnapshot.RecordSample(start + chrono::seconds(sampledAt), true);
+        frame.MountedVolumes = volumes;
+        gui.InactiveVolumes.clear();
+        frame.CheckInactivity();
+        return gui.InactiveVolumes;
+    };
+    observe(0, 0, {first, second});
+    ++second->TotalDataRead;
+    observe(59, 59, {first, second});
+    if (!observe(59, 62, {first, second}).empty())
+        throw runtime_error("an earlier discovery sample triggered idle dismount using the later GUI clock");
+
+    auto unreadable = make_shared<VolumeInfo>(*first);
+    unreadable->Discovery = VolumeInfo::ControlUnavailable;
+    if (!observe(61, 62, {unreadable, second}).empty())
+        throw runtime_error("stale counters from an unreadable worker triggered idle dismount");
+    if (observe(62, 63, {first, second}) != VolumeInfoList{first})
+        throw runtime_error("a new sample did not expire just the independently idle volume");
+
+    auto replacement = make_shared<VolumeInfo>(*first);
+    replacement->AuxMountPoint = "/disposable-idle-replacement";
+    if (!observe(65, 65, {replacement, second}).empty())
+        throw runtime_error("a replacement mount inherited the earlier mount's idle timer");
+
+    ++second->TotalDataRead;
+    observe(110, 114, {replacement, second});
+    if (observe(171, 171, {replacement, second}) != VolumeInfoList{replacement})
+        throw runtime_error("activity from a delayed observation expired too early");
+    if (observe(175, 175, {replacement, second}) != VolumeInfoList{replacement, second})
+        throw runtime_error("a replaced or active volume did not earn an independent idle deadline");
+}
+
+static void CheckOpenSelectedVolume() {
+    MainFrame frame;
+    auto volume = make_shared<VolumeInfo>();
+    volume->SlotNumber = 4;
+    volume->SerialInstanceNumber = 42;
+    volume->Path = "/test.hc";
+    volume->MountPoint = "/test-mount";
+    volume->Discovery = VolumeInfo::ImageAttached;
+    frame.MountedVolumes = {volume};
+    frame.VolumeSnapshot.RecordSample(VolumeSnapshotState::Clock::now() - chrono::seconds(8), true);
+    frame.OpenSelectedVolume();
+    if (!gui.Opened.IsEmpty() || gui.Warnings != 1)
+        throw runtime_error("main window opened a stale mount path");
+
+    frame.VolumeSnapshot.RecordSample(VolumeSnapshotState::Clock::now(), false);
+    frame.OpenSelectedVolume();
+    if (gui.Opened != volume->MountPoint || gui.Warnings != 1)
+        throw runtime_error("main window refused a fresh mounted volume during partial discovery");
+
+    auto current = make_shared<VolumeInfo>(*volume);
+    current->MountPoint = "/updated-mount";
+    frame.MountedVolumes = {current};
+    frame.OpenMountedVolume(volume);
+    if (gui.Opened != current->MountPoint || gui.Warnings != 1)
+        throw runtime_error("menu opened the captured path instead of the current mount point");
+
+    gui.Opened.clear();
+    ++current->SerialInstanceNumber;
+    frame.OpenMountedVolume(volume);
+    if (!gui.Opened.IsEmpty() || gui.Warnings != 2)
+        throw runtime_error("menu opened a replacement volume in the same slot");
+
+    --current->SerialInstanceNumber;
+    current->AuxMountPoint = "/replacement-auxiliary";
+    frame.OpenMountedVolume(volume);
+    if (!gui.Opened.IsEmpty() || gui.Warnings != 3)
+        throw runtime_error("menu opened a different auxiliary mount with the same serial, path, and slot");
+
+    gui.Waiting = true;
+    frame.OpenSelectedVolume();
+    if (!gui.Opened.IsEmpty() || gui.Warnings != 3)
+        throw runtime_error("main window tried to open a volume while an operation was pending");
+}
+}
+'''
         unit = work / "discovery.cpp"
-        unit.write_text(prelude + helpers + dismount + refresh + attach + rollback_fixture + auxiliary_fixture + tests)
+        unit.write_text(prelude + slot_view_fixture + helpers + attached_device + "\n#define sync CountGlobalSync\n" + dismount + "\n#undef sync\n"
+                        + refresh + attach + rollback_fixture + observation_fixture + auxiliary_fixture
+                        + mount_guard_fixture + publication_fixture + tests)
         command = ["clang++", "-std=c++11", "-DVC_MACOSX_FSKIT", "-I" + str(ROOT / "src"), str(unit), "-framework", "CoreFoundation", "-o", str(work / "discovery")]
         subprocess.run(command, check=True)
         subprocess.run([str(work / "discovery"), str(work), str(image)], check=True, timeout=20)

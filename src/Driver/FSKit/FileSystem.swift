@@ -27,12 +27,13 @@ final class LambCryptFileSystem: FSUnaryFileSystem, FSUnaryFileSystemOperations 
         do {
             let volume = try resourceLock.withLock {
                 guard loadedURL == nil else { throw POSIXError(.EBUSY) }
-                guard !options.taskOptions.contains("-f") else { throw POSIXError(.ENOTSUP) }
+                let taskOptions = options.taskOptions
+                guard !taskOptions.contains("-f") else { throw POSIXError(.ENOTSUP) }
                 let url = try access(resource)
                 do {
                     let connection = try VolumeConnection(resource: url)
                     let metadata = try connection.inspect()
-                    let volume = VolumeImage(connection: connection, metadata: metadata)
+                    let volume = VolumeImage(connection: connection, metadata: metadata, taskOptions: taskOptions)
                     loadedURL = url
                     containerStatus = .ready
                     return volume
@@ -90,7 +91,9 @@ final class VolumeImage: FSVolume, FSVolume.Operations, FSVolume.OpenCloseOperat
     private let imageSize: UInt64
     private let identifier: UUID
     private let readOnly: Bool
+    private static let directoryVerifier = FSDirectoryVerifier(1)
     private let root = Item(".", id: .rootDirectory)
+    private let dotNames = [FSFileName(string: "."), FSFileName(string: "..")]
     private let files = [
         Item("volume.dmg", id: FSItem.Identifier(rawValue: 3)!, operation: .readImage),
         Item("control", id: FSItem.Identifier(rawValue: 4)!, operation: .readControl),
@@ -101,11 +104,11 @@ final class VolumeImage: FSVolume, FSVolume.Operations, FSVolume.OpenCloseOperat
     let restrictsOwnershipChanges = true
     let truncatesLongNames = false
 
-    init(connection: VolumeConnection, metadata: VolumeConnection.Metadata) {
+    init(connection: VolumeConnection, metadata: VolumeConnection.Metadata, taskOptions: [String]) {
         self.connection = connection
         imageSize = metadata.imageSize
         identifier = metadata.identifier
-        readOnly = metadata.readOnly
+        readOnly = metadata.readOnly || taskOptions.contains("--rdonly")
         super.init(volumeID: FSVolume.Identifier(uuid: metadata.identifier),
                    volumeName: FSFileName(string: "LambCrypt volume image"))
     }
@@ -186,19 +189,27 @@ final class VolumeImage: FSVolume, FSVolume.Operations, FSVolume.OpenCloseOperat
                             packer: FSDirectoryEntryPacker,
                             replyHandler: @escaping (FSDirectoryVerifier, Error?) -> Void) {
         guard directory === root else { return replyHandler(verifier, POSIXError(.ENOTDIR)) }
-        guard let start = Int(exactly: cookie.rawValue), start <= files.count else {
-            return replyHandler(verifier, POSIXError(.EINVAL))
+        let firstFile = dotNames.count
+        let end = firstFile + files.count
+        guard let start = Int(exactly: cookie.rawValue), start <= end,
+              cookie == .initial || verifier == Self.directoryVerifier else {
+            return replyHandler(verifier, fs_errorForPOSIXError(Int32(FSError.Code.invalidDirectoryCookie.rawValue)))
         }
         do {
-            for index in start..<files.count {
-                let item = files[index]
+            // Use the same positions even when FSKit requests attributes and
+            // skips the two directory entries.
+            let first = requested == nil ? start : max(start, firstFile)
+            for index in first..<end {
+                let isDot = index < firstFile
+                let item = isDot ? root : files[index - firstFile]
+                let name = isDot ? dotNames[index] : item.name
                 let attributes = try requested == nil ? nil : attributes(of: item)
-                if !packer.packEntry(name: item.name, itemType: .file, itemID: item.id,
+                if !packer.packEntry(name: name, itemType: isDot ? .directory : .file, itemID: item.id,
                                      nextCookie: FSDirectoryCookie(UInt64(index + 1)), attributes: attributes) {
                     break
                 }
             }
-            replyHandler(verifier, nil)
+            replyHandler(Self.directoryVerifier, nil)
         } catch {
             replyHandler(verifier, error)
         }

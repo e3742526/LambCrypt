@@ -83,7 +83,7 @@
 	<string>LambCrypt _VERSION_</string>
 
 	<key>LSMinimumSystemVersion</key>
-	<string>12.0.0</string>
+	<string>26.0</string>
 
 	<key>LSRequiresCarbon</key>
 	<false/>

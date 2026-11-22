@@ -263,6 +263,17 @@ namespace VeraCrypt
 	{
 	}
 
+#ifdef VC_MACOSX_FSKIT
+	DevicePath FSKit::GetAttachedDiskImageDevice (const DirectoryPath &mountPoint)
+	{
+		DevicePath device;
+		DirectoryPath innerMount;
+		FindDiskImageInfoByImagePath (GetDiskImageInventory(),
+			string (mountPoint) + FuseService::GetVolumeImagePath(), device, innerMount);
+		return device;
+	}
+#endif
+
 	shared_ptr <VolumeInfo> CoreMacOSX::ValidateMountedVolume (shared_ptr <VolumeInfo> volume) const
 	{
 		if (!volume || volume->AuxMountPoint.IsEmpty()) throw ParameterIncorrect (SRC_POS);
@@ -283,8 +294,7 @@ namespace VeraCrypt
 		if (!mountedVolume || mountedVolume->AuxMountPoint.IsEmpty())
 			throw ParameterIncorrect (SRC_POS);
 #ifdef VC_MACOSX_FSKIT
-		const bool fskitMount = string (mountedVolume->AuxMountPoint).compare (0,
-			sizeof ("/private/tmp/lambcrypt-fskit.") - 1, "/private/tmp/lambcrypt-fskit.") == 0;
+		const bool fskitMount = FSKit::IsAuxiliaryMountPoint (mountedVolume->AuxMountPoint);
 #endif
 #ifdef VC_MACOSX_FUSET
 		// Validate the mount and check the service protocol before detaching
@@ -295,6 +305,12 @@ namespace VeraCrypt
 		mountedVolume = ValidateMountedVolume (mountedVolume);
 #endif
 
+#ifdef VC_MACOSX_FSKIT
+		// Hold the same lock from disk-image discovery through auxiliary
+		// unmount so a competing LambCrypt request cannot reuse the BSD disk.
+		int unmountLock = fskitMount ? FSKit::AcquireUnmountLock (mountedVolume->AuxMountPoint) : -1;
+		finally_do_arg (int &, unmountLock, { if (finally_arg >= 0) close (finally_arg); });
+#endif
 		// Resolve ownership immediately before detach, including retries after a
 		// busy auxiliary unmount or an external eject. BSD disk numbers are reused.
 #ifdef VC_MACOSX_FUSET
@@ -306,7 +322,16 @@ namespace VeraCrypt
 		ValidateMountedVolume (mountedVolume);
 #endif
 
-		if (!mountedVolume->VirtualDevice.IsEmpty() && mountedVolume->VirtualDevice.IsBlockDevice()
+		const bool hasDevice = !mountedVolume->VirtualDevice.IsEmpty();
+		const bool hasBlockDevice = hasDevice && mountedVolume->VirtualDevice.IsBlockDevice();
+#ifdef VC_MACOSX_FSKIT
+		// An attached image with an unusable device still owns its backing mount.
+		// Only confirmed absence permits skipping detach for an FSKit volume.
+		if (fskitMount && hasDevice && !hasBlockDevice)
+			throw DismountServiceCleanupFailed (SRC_POS,
+				L"macOS did not confirm a block device for the attached disk image: " + wstring (mountedVolume->VirtualDevice));
+#endif
+		if (hasBlockDevice
 #ifdef VC_MACOSX_FUSET
 			&& FuseService::IsDismountMountPresent (dismountRequest)
 #endif
@@ -353,11 +378,40 @@ namespace VeraCrypt
 
 				throw;
 			}
+#ifdef VC_MACOSX_FSKIT
+			if (fskitMount)
+			{
+				// A successful detach only covers the selected device. Confirm
+				// the backing image is no longer attached before unmounting it.
+				DevicePath remainingDevice;
+				try { remainingDevice = FSKit::GetAttachedDiskImageDevice (mountedVolume->AuxMountPoint); }
+				catch (const exception &error)
+				{
+					throw DismountServiceCleanupFailed (SRC_POS, L"macOS did not confirm disk image detach: "
+						+ StringConverter::ToExceptionString (error));
+				}
+				if (!remainingDevice.IsEmpty())
+					throw DismountServiceCleanupFailed (SRC_POS, L"macOS did not confirm disk image detach: still attached at "
+						+ wstring (remainingDevice));
+			}
+#endif
 		}
 
 		if (syncVolumeInfo || mountedVolume->Protection == VolumeProtection::HiddenVolumeReadOnly)
 		{
-			sync();
+#ifdef VC_MACOSX_FSKIT
+			if (fskitMount)
+			{
+				try { FSKit::FlushVolume (*mountedVolume); }
+				catch (const exception &error)
+				{
+					throw DismountServiceCleanupFailed (SRC_POS, L"Could not flush the FSKit volume: "
+						+ StringConverter::ToExceptionString (error));
+				}
+			}
+			else
+#endif
+				sync();
 			// Refresh only the captured service. Other users' auxiliary mounts
 			// must not interrupt teardown after the disk image has been detached.
 			mountedVolume = ValidateMountedVolume (mountedVolume);
@@ -388,16 +442,25 @@ namespace VeraCrypt
 			FuseService::DismountLegacy (dismountRequest);
 #else
 		list <string> args;
+#ifdef VC_MACOSX_FSKIT
+		const bool forceAuxiliaryUnmount = fskitMount && ignoreOpenFiles;
+#endif
 		args.push_back ("--");
 		args.push_back (mountedVolume->AuxMountPoint);
 
 		for (int t = 0; true; t++)
 		{
+#ifdef VC_MACOSX_FSKIT
+			// Recheck ownership after detaching the disk image and between
+			// forced attempts.
+			if (forceAuxiliaryUnmount)
+				ValidateMountedVolume (mountedVolume);
+#endif
 			try
 			{
 #ifdef VC_MACOSX_FSKIT
 				if (fskitMount)
-					Process::ExecuteBounded ("/sbin/umount", args, 10000);
+					FSKit::UnmountAuxiliary (mountedVolume->AuxMountPoint, forceAuxiliaryUnmount);
 				else
 #endif
 				Process::Execute ("/sbin/umount", args);
@@ -431,7 +494,12 @@ namespace VeraCrypt
 
 #ifdef VC_MACOSX_FSKIT
 		if (fskitMount)
+		{
+			// The worker needs the lock to verify its mount is gone and exit.
+			close (unmountLock);
+			unmountLock = -1;
 			FSKit::WaitForServiceExit (mountedVolume->AuxMountPoint);
+		}
 #endif
 		return mountedVolume;
 	}
@@ -568,7 +636,7 @@ namespace VeraCrypt
 						tempDir += '/';
 
 					const char suffix[] = ".command";
-					string templ = tempDir + "VeraCrypt-fsck-XXXXXXXX" + suffix;
+					string templ = tempDir + "LambCrypt-fsck-XXXXXXXX" + suffix;
 					vector <char> templBuf (templ.begin(), templ.end());
 					templBuf.push_back ('\0');
 

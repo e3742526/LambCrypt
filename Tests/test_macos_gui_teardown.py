@@ -117,7 +117,7 @@ def main():
     if ".veracrypt_aux_mnt" in subprocess.check_output(["/sbin/mount"], text=True):
         raise RuntimeError("Dismount existing LambCrypt or VeraCrypt volumes before this isolated GUI test")
     processes = subprocess.check_output(["/bin/ps", "-axo", "comm="], text=True)
-    if any(Path(line.strip()).name.lower() in {"lambcrypt", "veracrypt"}
+    if any(Path(line.strip()).name.lower() in {"lambcrypt", "lambcrypt-fskit", "veracrypt"}
            for line in processes.splitlines()):
         raise RuntimeError("Close other LambCrypt or VeraCrypt processes before this isolated GUI test")
 

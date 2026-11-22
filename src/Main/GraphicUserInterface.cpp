@@ -240,7 +240,7 @@ namespace VeraCrypt
 		try
 		{
 			wxBusyCursor busy;
-			DismountVolumes (mountedVolumes, alwaysForce ? true : GetPreferences().ForceAutoDismount, false);
+			DismountVolumes (mountedVolumes, alwaysForce || GetPreferences().ForceAutoDismount, false);
 		}
 		catch (exception &e) { SystemLog::WriteException (e); }
 		catch (...) { SystemLog::WriteException (UnknownException (SRC_POS)); }
@@ -1166,7 +1166,7 @@ namespace VeraCrypt
 		if (!mountedVolumes.empty())
 		{
 			wxBusyCursor busy;
-			AutoDismountVolumes (mountedVolumes);
+			AutoDismountVolumes (mountedVolumes, false);
 		}
 	}
 
@@ -1368,7 +1368,7 @@ namespace VeraCrypt
 			volumes = result.Volumes;
 			foreach (shared_ptr <VolumeInfo> volume, captured)
 				if (find (result.UnresolvedMounts.begin(), result.UnresolvedMounts.end(), volume->AuxMountPoint) != result.UnresolvedMounts.end()
-					&& none_of (volumes.begin(), volumes.end(), [&volume] (shared_ptr <VolumeInfo> current) { return current->SerialInstanceNumber == volume->SerialInstanceNumber; }))
+					&& none_of (volumes.begin(), volumes.end(), [&volume] (const shared_ptr <VolumeInfo> &current) { return current->IsSameMountInstance (*volume); }))
 					volumes.push_back (volume);
 			if (!result.IsComplete()) SystemLog::WriteException (VolumeDiscoveryFailed (SRC_POS, wstring (result.UnresolvedMounts.front())));
 		}
@@ -1422,7 +1422,7 @@ namespace VeraCrypt
 				foreach (shared_ptr <VolumeInfo> volume, remaining)
 				{
 					try { DismountVolume (volume, finalAttempt && GetPreferences().ForceAutoDismount, false); }
-					// Without its auxiliary mount, another attempt cannot reach the service.
+					// An unconfirmed teardown may still be in flight or may have removed the auxiliary mount.
 					catch (DismountServiceCleanupFailed &e) { SystemLog::WriteException (e); }
 					catch (exception &e) { SystemLog::WriteException (e); retry.push_back (volume); }
 				}
@@ -1545,7 +1545,7 @@ namespace VeraCrypt
 		}
 		else if (linkId == L"onlinehelp")
 		{
-			url = L"https://github.com/e3742526/LambCrypt/blob/main/doc/html/en/Documentation.html";
+			url = TC_UPSTREAM_DOCS L"Documentation.html";
 			buildUrl = false;
 		}
 		else if (linkId == L"beginnerstutorial" || linkId == L"tutorial")
@@ -1692,24 +1692,13 @@ namespace VeraCrypt
 #else
 			localFile = false;
 #endif
-			if (localFile)
-			{
-				htmlPath += L"en/";
-				localFile = wxFileName::FileExists (htmlPath + url);
-			}
+			const wxFileName localTopic (htmlPath + L"en/" + url);
+			if (localFile && localTopic.FileExists())
+				return wxFileName::FileNameToURL (localTopic);
 
-			if (!localFile)
-			{
-				htmlPath = L"https://github.com/e3742526/LambCrypt/blob/main/doc/html/en/";
-			}
-			else
-			{
-				htmlPath = L"file://" + htmlPath;
-			}
 			url.Replace (L" ", L"%20");
 			url.Replace (L"'", L"%27");
-
-			url = htmlPath + url;
+			url = wxString (TC_UPSTREAM_DOCS) + url;
 		}
 
 		return url;
