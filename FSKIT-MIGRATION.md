@@ -53,7 +53,44 @@ installed apps alone and collect evidence before advancing each gate.
 | 0. Baseline | Default MacFUSE build, discovery tests, and applicable FUSE-T checks pass. | Passed |
 | 1. Build variant | MacFUSE remains default. The opt-in FSKit bundle builds separately. | Passed |
 | 2. Read-only | Read a VeraCrypt payload and a fresh compatible container, then verify external dismount, background exit, and worker cleanup. | Passed on disposable containers |
-| 3. Read-write | Verify write and sync, file operations, xattrs, advisory locks, busy dismount, dismount after release, read-only remount, and Finder eject. | Blocked on live dismount after release |
+| 3. Read-write | Verify write and sync, file operations, xattrs, advisory locks, busy dismount, dismount after release, read-only remount, and Finder eject. | HFS+ passed clean and busy-release dismount, read-only remount, and external Disk Arbitration eject with auxiliary cleanup. Plain FAT on APFS passed. Writable FAT on LambCrypt FSKit stalled during unmount with both Disk Images services. Finder eject and writable FAT parity remain open. |
 | 4. Lifecycle | Verify discovery, preferences, menu-bar state, and background exit from the signed bundle. | Pending |
 | 5. Bugs and performance | Record regressions in [BUGLOG.md](BUGLOG.md) and profile FSKit, MacFUSE, and FUSE-T before claiming gains. | Pending |
 | 6. Packaging | Verify FSKit package signing, notarization dry run, Finder smoke test, and rollback to MacFUSE. | Pending |
+
+## Work while writable FAT is blocked
+
+The writable FAT stall reproduces during the first clean dismount, as well as
+after a busy-volume retry. The last recorded FAT unmount step was a metadata
+write. The older Disk Images helper was waiting in a backing-file `pwrite`,
+and the LambCrypt volume worker was idle. The newer Disk Images service
+reproduced the stall. These results narrow the failure to the layered
+FAT and FSKit configuration. The exact kernel dependency remains unknown.
+
+1. **Continue offline failure testing.** Run
+   `python3 -B Tests/test_macos_discovery.py --platform-archive /path/to/Platform.a`
+   and `python3 -B Tests/test_fskit_volume_protocol.py --build-dir /path/to/built/src`.
+   These cover discovery, attach and detach deadlines, and the volume worker
+   protocol without starting Disk Arbitration. Prioritize incomplete
+   inventory, stale worker identity, startup rollback, and credential
+   lifetime when reviewing adjacent failure paths. The attach deadline,
+   one-time compatibility retry, and native protocol fixture passed these
+   checks. Live attach-timeout recovery remains pending.
+2. **Move the FAT investigation to an isolated Tahoe host.** Use a spare Mac
+   or an existing Apple Silicon guest that can load the signed FSKit module.
+   The isolated environment and extension support are unverified. Prepare a
+   disposable raw FAT image, expose it through a minimal test FSKit filesystem,
+   and attach it using the same Disk Images settings as LambCrypt. Run the same
+   single write, file sync, and detach against the image directly on APFS and
+   through the test filesystem. Add the encrypted LambCrypt worker as the next
+   comparison only after the minimal run. Capture mount state, the command’s
+   deadline result, and the available user-space stacks. Stop the live run
+   on the first kernel stall.
+3. **Choose the next change from the result.** A stall with the minimal FSKit
+   backing file supports a platform-level report using the synthetic fixture.
+   If that control passes and LambCrypt still stalls, compare the filesystem
+   callbacks, backing-file open flags, and worker traffic across the two runs.
+   The prepared Apple kernel FAT pilot is a diagnostic. Writable FAT parity
+   still needs clean and busy-release dismount, read-only remount with a
+   matching checksum, Finder eject, and confirmed worker exit. MacFUSE stays
+   the default while this gate is open.

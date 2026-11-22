@@ -1692,6 +1692,14 @@ namespace VeraCrypt
 
 			return mountedVolume;
 		}
+#ifdef VC_MACOSX_FSKIT
+		catch (const MountServiceCleanupFailed &)
+		{
+			// The disk may still be attaching. Preserve its backing service for
+			// a later dismount once Disk Images can confirm the mount state.
+			throw;
+		}
+#endif
 		catch (...)
 		{
 #ifdef VC_MACOSX_FUSET

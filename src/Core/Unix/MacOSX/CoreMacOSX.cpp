@@ -10,6 +10,7 @@
  code distribution packages.
 */
 
+#include <algorithm>
 #include <fstream>
 #include <errno.h>
 #include <stdio.h>
@@ -757,19 +758,32 @@ namespace VeraCrypt
 		{
 			try
 			{
+#ifdef VC_MACOSX_FSKIT
+				xml = Process::ExecuteBounded ("/usr/bin/hdiutil", args, 30000);
+#else
 				xml = Process::Execute ("/usr/bin/hdiutil", args);
+#endif
 				break;
 			}
 			catch (ExecutedProcessFailed &e)
 			{
-				if (e.GetErrorOutput().find ("noautofsck") != string::npos)
+				auto option = std::find (args.begin(), args.end(), "-noautofsck");
+				if (option != args.end() && e.GetErrorOutput().find ("noautofsck") != string::npos)
 				{
-					args.remove ("-noautofsck");
+					args.erase (option);
 					continue;
 				}
 
 				throw;
 			}
+#ifdef VC_MACOSX_FSKIT
+			catch (const TimeOut &)
+			{
+				// Disk Images may still be attaching the disk after we time out.
+				throw MountServiceCleanupFailed (SRC_POS,
+					L"macOS did not confirm disk image attach: " + wstring (auxMountPoint));
+			}
+#endif
 		}
 
 		DevicePath virtualDev;

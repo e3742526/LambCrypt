@@ -1,4 +1,5 @@
 #include "Driver/FSKit/VolumeProtocol.h"
+#include "Crypto/cpu.h"
 #include "Volume/Pkcs5Kdf.h"
 #include <iostream>
 #include <sys/socket.h>
@@ -12,6 +13,12 @@ int main (int argc, char **argv)
 {
 	if (argc != 4 && (argc != 5 || strcmp (argv[4], "write") != 0))
 		return 2;
+
+#if defined(CRYPTOPP_CPUID_AVAILABLE)
+	DetectX86Features();
+#elif CRYPTOPP_BOOL_ARMV8
+	DetectArmFeatures();
+#endif
 
 	Volume volume;
 	shared_ptr <VolumePassword> password (new VolumePassword (reinterpret_cast <const uint8 *> ("test"), 4));

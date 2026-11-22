@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unit checks for macOS discovery and FSKit teardown; no mounts or sudo needed.
+"""Unit checks for macOS discovery and FSKit attach and teardown without mounts.
 
 Compiles the production plist helpers and batch-refresh methods with a fake
 inventory provider, so tests can supply incomplete inventories safely. Optional
@@ -40,6 +40,7 @@ def main():
         }
         for name, contents in cases.items():
             (work / name).write_bytes(plistlib.dumps(contents))
+        (work / "attach").write_bytes(plistlib.dumps({"system-entities": exact["system-entities"]}))
         (work / "broken").write_text("invalid plist")
 
         source = (ROOT / "src/Core/Unix/MacOSX/CoreMacOSX.cpp").read_text()
@@ -47,6 +48,8 @@ def main():
         dismount = source[source.index("\tshared_ptr <VolumeInfo> CoreMacOSX::DismountVolume"):
                           source.index("\tstatic void ClearDiskImageInfo")]
         refresh = source[source.index("\tstatic void ClearDiskImageInfo"):source.index("\t// Strict /dev/diskN")]
+        attach = source[source.index("\tDevicePath CoreMacOSX::MountAuxVolumeImage"):
+                        source.index("\tunique_ptr <CoreBase> Core (")]
         prelude = r'''
 #include "Platform/Finally.h"
 #include <CoreFoundation/CoreFoundation.h>
@@ -76,9 +79,17 @@ struct DismountServiceCleanupFailed {
     DismountServiceCleanupFailed(const string &, const wstring &reason) : Reason(reason) {}
     wstring Reason;
 };
+struct MountServiceCleanupFailed {
+    MountServiceCleanupFailed(const string &, const wstring &reason) : Reason(reason) {}
+    wstring Reason;
+};
 struct MountedVolumeInUse { explicit MountedVolumeInUse(const string &) {} };
 struct TimeOut {};
-struct ExecutedProcessFailed { string GetErrorOutput() const { return "Resource busy"; } };
+struct ExecutedProcessFailed {
+    explicit ExecutedProcessFailed(string error) : Error(error) {}
+    string GetErrorOutput() const { return Error; }
+    string Error;
+};
 struct StringConverter {
     static std::string Trim(std::string s) { size_t b=s.find_first_not_of(" \t\r\n"); if(b==std::string::npos)return ""; return s.substr(b,s.find_last_not_of(" \t\r\n")-b+1); }
     static std::wstring ToExceptionString(const std::exception &) { return L"failure"; }
@@ -88,6 +99,9 @@ static int Queries;
 static vector<pair<string, int>> Commands;
 static string TimeoutCommand;
 static bool BusyImage;
+static vector<list<string>> AttachCommands;
+static string AttachReply;
+static int AttachOptionFailures;
 struct Process {
     static string ExecuteBounded(const string &path, const list<string> &arguments, int deadline) {
         if (arguments.front() == "info") {
@@ -97,17 +111,32 @@ struct Process {
         }
         Commands.emplace_back(path, deadline);
         if (path == TimeoutCommand) throw TimeOut{};
-        if (BusyImage && arguments.front() == "detach") throw ExecutedProcessFailed{};
+        if (BusyImage && arguments.front() == "detach") throw ExecutedProcessFailed("Resource busy");
+        if (arguments.front() == "attach") {
+            AttachCommands.push_back(arguments);
+            if (AttachOptionFailures > 0) {
+                --AttachOptionFailures;
+                throw ExecutedProcessFailed("unrecognized option: -noautofsck");
+            }
+            return AttachReply;
+        }
         return {};
     }
-    static void Execute(const string &path, const list<string> &) { Commands.emplace_back(path, 0); }
+    static string Execute(const string &path, const list<string> &arguments) {
+        return ExecuteBounded(path, arguments, 0);
+    }
 };
 struct FuseService { static std::string GetVolumeImagePath() { return "/volume.dmg"; } };
 namespace FSKit {
     static void WaitForServiceExit(const DirectoryPath &) { Commands.emplace_back("wait", 0); }
 }
 namespace Thread { static void Sleep(int) {} }
-namespace VolumeProtection { enum { None, HiddenVolumeReadOnly }; }
+namespace VolumeProtection { enum { None, HiddenVolumeReadOnly, ReadOnly }; }
+struct MountOptions {
+    bool NoFilesystem = false;
+    shared_ptr<DirectoryPath> MountPoint;
+    int Protection = VolumeProtection::None;
+};
 struct SystemLog { static void WriteException(const std::exception &) {} };
 #define foreach(declaration, collection) for (declaration : collection)
 struct VolumeInfo {
@@ -128,6 +157,8 @@ public:
     void UpdateMountedVolumeInfo(std::shared_ptr<VolumeInfo>) const;
     void UpdateMountedVolumeInfo(std::shared_ptr<VolumeInfo>, const std::string &) const;
     MountedFilesystemList GetMountedFilesystems(const DevicePath &) const { return {}; }
+    string GetDefaultMountPointPrefix() const { return "/Volumes/Untitled"; }
+    DevicePath MountAuxVolumeImage(const DirectoryPath &, const MountOptions &) const;
 };
 '''
         # Production path types expose IsEmpty(); keep that interface in the mock.
@@ -136,6 +167,43 @@ public:
         tests = r'''
 static void Require(bool condition, const char *message) { if(!condition)throw std::runtime_error(message); }
 static std::string Read(const std::string &path) { std::ifstream f(path); return std::string(std::istreambuf_iterator<char>(f), {}); }
+static void CheckAttach(CoreMacOSX &core, const DirectoryPath &auxiliary) {
+    MountOptions options;
+    options.NoFilesystem = true;
+    options.Protection = VolumeProtection::ReadOnly;
+    auto hasOption = [](const list<string> &arguments, const string &option) {
+        return find(arguments.begin(), arguments.end(), option) != arguments.end();
+    };
+    auto reset = []() { Commands.clear(); AttachCommands.clear(); };
+    reset();
+    Require(core.MountAuxVolumeImage(auxiliary, options) == "/dev/disk42", "attach did not return its device");
+    Require(Commands == vector<pair<string, int>>{{"/usr/bin/hdiutil", 30000}}, "FSKit attach has no deadline");
+    Require(hasOption(AttachCommands.front(), "-nomount") && hasOption(AttachCommands.front(), "-readonly"),
+            "attach lost read-only or attach-only flags");
+
+    reset();
+    TimeoutCommand = "/usr/bin/hdiutil";
+    bool unconfirmed = false;
+    try { core.MountAuxVolumeImage(auxiliary, options); }
+    catch (const MountServiceCleanupFailed &e) {
+        unconfirmed = e.Reason == L"macOS did not confirm disk image attach: " + wstring(auxiliary);
+    }
+    TimeoutCommand.clear();
+    Require(unconfirmed && Commands.size() == 1, "attach timeout lost its cleanup state or attempted another command");
+
+    reset();
+    AttachOptionFailures = 1;
+    Require(core.MountAuxVolumeImage(auxiliary, options) == "/dev/disk42", "compatibility retry lost a successful attach");
+    Require(AttachCommands.size() == 2 && hasOption(AttachCommands.front(), "-noautofsck")
+            && !hasOption(AttachCommands.back(), "-noautofsck"), "compatibility retry did not drop its unsupported option");
+
+    reset();
+    AttachOptionFailures = 2;
+    bool failed = false;
+    try { core.MountAuxVolumeImage(auxiliary, options); }
+    catch (const ExecutedProcessFailed &) { failed = true; }
+    Require(failed && AttachCommands.size() == 2, "repeated option error retried an attach again");
+}
 static void CheckDismount(CoreMacOSX &core, const string &image) {
     auto mounted = make_shared<VolumeInfo>();
     mounted->AuxMountPoint = image.substr(0, image.rfind('/'));
@@ -204,11 +272,14 @@ int main(int argc, char **argv) {
         Inventory = Read(root + "/exact");
         CheckDismount(core, image);
         std::cout << "PASS: FSKit detach and unmount deadlines, busy preservation, successful cleanup ordering\n";
+        AttachReply = Read(root + "/attach");
+        CheckAttach(core, image.substr(0, image.rfind('/')));
+        std::cout << "PASS: FSKit attach deadline, read-only and attach-only flags, and one compatibility retry\n";
     } catch(std::exception &e) { std::cerr << e.what() << '\n'; return 1; }
 }
 '''
         unit = work / "discovery.cpp"
-        unit.write_text(prelude + helpers + dismount + refresh + tests)
+        unit.write_text(prelude + helpers + dismount + refresh + attach + tests)
         command = ["clang++", "-std=c++11", "-DVC_MACOSX_FSKIT", "-I" + str(ROOT / "src"), str(unit), "-framework", "CoreFoundation", "-o", str(work / "discovery")]
         subprocess.run(command, check=True)
         subprocess.run([str(work / "discovery"), str(work), str(image)], check=True, timeout=20)
