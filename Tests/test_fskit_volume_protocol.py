@@ -33,8 +33,42 @@ import Foundation
 
 @main
 struct Client {
+    static func expect(_ code: POSIXError.Code, _ operation: () throws -> Void) throws {
+        do {
+            try operation()
+            fatalError("expected \(code)")
+        } catch let error as POSIXError {
+            precondition(error.code == code, "expected \(code), got \(error.code)")
+        }
+    }
+
     static func main() throws {
-        let connection = try VolumeConnection(resource: URL(fileURLWithPath: CommandLine.arguments[1]))
+        let resource = URL(fileURLWithPath: CommandLine.arguments[1])
+        if CommandLine.arguments.last == "--path-errors" {
+            try expect(.ENOENT) {
+                _ = try VolumeConnection(resource: resource.appendingPathComponent("missing"))
+            }
+            try expect(.EACCES) {
+                _ = try VolumeConnection(resource: resource.appendingPathComponent("not-private"))
+            }
+            let connection = try VolumeConnection(resource: resource)
+            try expect(.ENOENT) { _ = try connection.inspect() }
+            var data = Data(repeating: 0xa5, count: 8)
+            var completed = 0
+            try expect(.ENOENT) {
+                try data.withUnsafeMutableBytes {
+                    try connection.read(.readImage, expecting: UUID(), at: 0, into: $0, completed: &completed)
+                }
+            }
+            precondition(completed == 0 && data.allSatisfy { $0 == 0 })
+            let endpoint = resource.appendingPathComponent("io")
+            try Data().write(to: endpoint)
+            defer { try? FileManager.default.removeItem(at: endpoint) }
+            try expect(.EACCES) { _ = try connection.inspect() }
+            print("PASS: missing resources and workers report ENOENT, rejected paths report EACCES")
+            return
+        }
+        let connection = try VolumeConnection(resource: resource)
         let metadata = try connection.inspect()
         let identifier = metadata.identifier
         precondition(metadata.imageSize == 262144 && metadata.controlSize > 0)
@@ -167,7 +201,7 @@ def main():
         shutil.copyfile(FIXTURE, work / FIXTURE.name)
         build(args.build_dir.resolve(), work)
         command = [work / "client", work, DIGESTS[FIXTURE.name]]
-        with serve(work, 11) as first_serial:
+        with serve(work, 12) as first_serial:
             generation = uuid.UUID(subprocess.check_output(command, text=True, timeout=20).strip())
             for fields in (
                 (0x3246434C, 2, 0, 32, 0),
@@ -180,12 +214,28 @@ def main():
             assert exchange(work, b"short request") == b""
             read_only_write = struct.pack("<IIQII16s", SIGNATURE, 4, 0, 1, 0, generation.bytes) + b"x"
             assert exchange(work, read_only_write) == struct.pack("<II", errno.EROFS, 0)
+            empty_read_only_write = struct.pack("<IIQII16s", SIGNATURE, 4, 0, 0, 0, generation.bytes)
+            assert exchange(work, empty_read_only_write) == struct.pack("<II", errno.EROFS, 0)
         with serve(work, 7) as later_serial:
             assert later_serial > first_serial
             subprocess.run([*command, str(generation)], check=True, timeout=20)
-        with serve(work, 9, writable=True):
+        with serve(work, 14, writable=True):
+            # Inspect the writable worker independently before the Swift client runs.
+            inspection = struct.pack("<IIQII16s", SIGNATURE, 1, 0, 40, 0, bytes(16))
+            reply = exchange(work, inspection)
+            assert struct.unpack_from("<II", reply) == (0, 40)
+            image_size, _, writable_id, _ = struct.unpack_from("<QQ16sQ", reply, 8)
+            for offset, expected_error in ((0, 0), (image_size, 0), (image_size + 1, errno.ENOSPC)):
+                empty_write = struct.pack("<IIQII16s", SIGNATURE, 4, offset, 0, 0, writable_id)
+                assert exchange(work, empty_write) == struct.pack("<II", expected_error, 0), offset
+            partial_write = struct.pack("<IIQII16s", SIGNATURE, 4, 0, 4, 0, writable_id) + b"x"
+            assert exchange(work, partial_write) == b""
             subprocess.run([*command, "--write"], check=True, timeout=20)
-    print("PASS: VeraCrypt payload, control metadata, EOF, malformed input, worker identity, writes and sync")
+        not_private = work / "not-private"
+        not_private.mkdir()
+        not_private.chmod(0o755)
+        subprocess.run([work / "client", work, "--path-errors"], check=True, timeout=10)
+    print("PASS: VeraCrypt payload, control metadata, EOF, malformed input, worker identity, empty and partial writes, sync")
 
 
 if __name__ == "__main__":

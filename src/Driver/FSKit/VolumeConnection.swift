@@ -25,9 +25,10 @@ struct VolumeConnection {
     private let owner: uid_t
 
     init(resource: URL) throws {
+        guard resource.isFileURL else { throw POSIXError(.EACCES) }
         var info = stat()
-        guard resource.isFileURL, lstat(resource.path, &info) == 0,
-              info.st_mode & S_IFMT == S_IFDIR, info.st_uid == getuid(),
+        guard lstat(resource.path, &info) == 0 else { throw Self.currentError() }
+        guard info.st_mode & S_IFMT == S_IFDIR, info.st_uid == getuid(),
               info.st_mode & 0o077 == 0 else {
             throw POSIXError(.EACCES)
         }
@@ -131,7 +132,8 @@ struct VolumeConnection {
 
     private func connectToService() throws -> Int32 {
         var info = stat()
-        guard lstat(endpoint.path, &info) == 0, info.st_mode & S_IFMT == S_IFSOCK,
+        guard lstat(endpoint.path, &info) == 0 else { throw Self.currentError() }
+        guard info.st_mode & S_IFMT == S_IFSOCK,
               info.st_uid == owner, info.st_mode & 0o077 == 0 else {
             throw POSIXError(.EACCES)
         }
@@ -147,19 +149,19 @@ struct VolumeConnection {
             path.withUnsafeBytes { destination.copyBytes(from: $0) }
         }
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard fd >= 0 else { throw currentError() }
+        guard fd >= 0 else { throw Self.currentError() }
         do {
             var timeout = timeval(tv_sec: 10, tv_usec: 0)
             var noSignal: Int32 = 1
             guard setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size)) == 0,
                   setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size)) == 0,
                   setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &noSignal, socklen_t(MemoryLayout<Int32>.size)) == 0 else {
-                throw currentError()
+                throw Self.currentError()
             }
             let result = withUnsafePointer(to: &address) {
                 $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.connect(fd, $0, addressLength) }
             }
-            guard result == 0 else { throw currentError() }
+            guard result == 0 else { throw Self.currentError() }
             var peer: uid_t = 0
             var group: gid_t = 0
             guard getpeereid(fd, &peer, &group) == 0, peer == owner else {
@@ -177,7 +179,7 @@ struct VolumeConnection {
         while completed < count {
             let result = operation(completed, count - completed)
             if result < 0 && errno == EINTR { continue }
-            guard result >= 0 else { throw currentError() }
+            guard result >= 0 else { throw Self.currentError() }
             guard result > 0 else { throw POSIXError(.EIO) }
             completed += result
         }
@@ -188,7 +190,7 @@ struct VolumeConnection {
         withUnsafeBytes(of: &bytes) { data.append(contentsOf: $0) }
     }
 
-    private func currentError() -> POSIXError {
+    private static func currentError() -> POSIXError {
         POSIXError(POSIXError.Code(rawValue: errno) ?? .EIO)
     }
 }

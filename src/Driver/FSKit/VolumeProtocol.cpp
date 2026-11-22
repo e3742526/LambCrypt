@@ -138,9 +138,13 @@ namespace VeraCrypt
 				}
 				if (operation == WriteImage)
 				{
-					SecureBuffer data (length);
-					if (!Receive (connection, data.Ptr(), length))
-						return;
+					SecureBuffer data;
+					if (length != 0)
+					{
+						data.Allocate (length);
+						if (!Receive (connection, data.Ptr(), length))
+							return;
+					}
 					if (volume.GetProtectionType() == VolumeProtection::ReadOnly)
 						Reply (connection, EROFS);
 					else if (offset > volume.GetSize() || length > volume.GetSize() - offset)

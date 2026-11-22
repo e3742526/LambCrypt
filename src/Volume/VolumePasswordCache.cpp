@@ -14,8 +14,15 @@
 
 namespace VeraCrypt
 {
+	void VolumePasswordCache::Clear ()
+	{
+		ScopeLock lock (CacheMutex);
+		CachedPasswords.clear();
+	}
+
 	CachedPasswordList VolumePasswordCache::GetPasswords ()
 	{
+		ScopeLock lock (CacheMutex);
 		CachedPasswordList passwords;
 
 		foreach_ref (const VolumePassword &password, CachedPasswords)
@@ -24,8 +31,15 @@ namespace VeraCrypt
 		return passwords;
 	}
 
+	bool VolumePasswordCache::IsEmpty ()
+	{
+		ScopeLock lock (CacheMutex);
+		return CachedPasswords.empty();
+	}
+
 	void VolumePasswordCache::Store (const VolumePassword &newPassword)
 	{
+		ScopeLock lock (CacheMutex);
 		CachedPasswordList::iterator iter = CachedPasswords.begin();
 		foreach_ref (const VolumePassword &password, CachedPasswords)
 		{
@@ -44,4 +58,5 @@ namespace VeraCrypt
 	}
 
 	CachedPasswordList VolumePasswordCache::CachedPasswords;
+	Mutex VolumePasswordCache::CacheMutex;
 }

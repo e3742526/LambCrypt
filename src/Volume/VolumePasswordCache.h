@@ -24,16 +24,15 @@ namespace VeraCrypt
 	{
 	public:
 		static CachedPasswordList GetPasswords ();
-		static bool IsEmpty () { return CachedPasswords.empty(); }
+		static bool IsEmpty ();
 		static void Store (const VolumePassword &newPassword);
-		static void Clear () { CachedPasswords.clear(); }
+		static void Clear ();
 		static const size_t Capacity = 4;
-
-	protected:
-		static CachedPasswordList CachedPasswords;
 
 	private:
 		VolumePasswordCache ();
+		static CachedPasswordList CachedPasswords;
+		static Mutex CacheMutex;
 	};
 }
 

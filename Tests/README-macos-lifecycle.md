@@ -17,6 +17,23 @@ python3 Tests/test_fuset_cleanup.py --build-dir "$VC_TEST_BUILD_SRC"
 python3 Tests/test_fuset_aux_directory.py --build-dir "$VC_TEST_BUILD_SRC"
 ```
 
+The password-cache check exercises concurrent reads, stores, and wipes under
+ThreadSanitizer. It then opens a disposable VeraCrypt fixture using a password
+snapshot retrieved before the wipe. Compile the cache implementation into the
+test so its accesses are instrumented.
+
+```sh
+VC_CACHE_TEST_DIR=$(mktemp -d)
+xcrun clang++ -std=c++11 -O1 -g -fsanitize=thread \
+  -DTC_UNIX -DTC_BSD -DTC_MACOSX -DARGON2_NO_THREADS -D_FILE_OFFSET_BITS=64 \
+  -I src -I src/Crypto -I src/Crypto/Argon2/include -I src/PKCS11 \
+  Tests/volume_password_cache_test.cpp src/Volume/VolumePasswordCache.cpp \
+  "$VC_TEST_BUILD_SRC/Volume/Volume.a" "$VC_TEST_BUILD_SRC/Platform/Platform.a" \
+  -framework CoreFoundation -framework IOKit -o "$VC_CACHE_TEST_DIR/cache-test"
+cp Tests/test.sha512.hc "$VC_CACHE_TEST_DIR/test.sha512.hc"
+TSAN_OPTIONS=halt_on_error=1 "$VC_CACHE_TEST_DIR/cache-test" "$VC_CACHE_TEST_DIR/test.sha512.hc"
+```
+
 The auxiliary-directory check exercises the production FUSE-T private-parent
 helpers against disposable local directories, including concurrent creation,
 inherited ACL removal, setup failure cleanup, per-mount parent removal, and

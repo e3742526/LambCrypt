@@ -31,3 +31,9 @@ OBJS += Unix/FreeBSD/CoreFreeBSD.o
 endif
 
 include $(BUILD_INC)/Makefile.inc
+
+ifeq "$(PLATFORM)" "MacOSX"
+# macOS Release builds omit compiler-generated header dependencies. Rebuild
+# the proxy when cache changes replace formerly inline reads or wipes.
+Unix/MacOSX/CoreMacOSX.o: ../Volume/VolumePasswordCache.h
+endif

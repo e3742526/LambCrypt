@@ -220,7 +220,14 @@ namespace VeraCrypt
 				try
 				{
 					const char *mountOptions = volume->GetProtectionType() == VolumeProtection::ReadOnly ? "ro,nobrowse" : "nobrowse";
-					Process::Execute ("/sbin/mount", {"-F", "-t", "lambcryptfs", "-o", mountOptions, resource, mountPoint}, 30000);
+					Process::ExecuteBounded ("/sbin/mount", {"-F", "-t", "lambcryptfs", "-o", mountOptions, resource, mountPoint}, 30000);
+				}
+				catch (const TimeOut &)
+				{
+					// Closing the startup socket cancels the worker, but FSKit
+					// may still complete the request in the system service.
+					throw MountServiceCleanupFailed (SRC_POS,
+						L"macOS did not confirm auxiliary mount: " + StringConverter::ToWide (mountPoint));
 				}
 				catch (const ExecutedProcessFailed &error)
 				{
@@ -231,15 +238,18 @@ namespace VeraCrypt
 					ssize_t received;
 					do { received = recv (activation[1], &unexpectedReply, 1, 0); }
 					while (received < 0 && errno == EINTR);
+					bool cleanupConfirmed = false;
 					if (received == 0)
 					{
 						fsid_t identity;
-						if (!MountTableEntry (mountPoint, identity))
-						{
-							unlink (endpoint.c_str());
-							RemoveEmptyMountDirectory (mountPoint);
-						}
+						try { cleanupConfirmed = !MountTableEntry (mountPoint, identity); }
+						catch (const SystemException &) { }
 					}
+					if (!cleanupConfirmed || (unlink (endpoint.c_str()) != 0 && errno != ENOENT))
+						throw MountServiceCleanupFailed (SRC_POS,
+							L"FSKit startup cleanup could not be confirmed: " + StringConverter::ToWide (mountPoint)
+							+ L"\n" + StringConverter::ToWide (error.GetErrorOutput()));
+					RemoveEmptyMountDirectory (mountPoint);
 					if (error.GetErrorOutput().find (" is disabled!") == string::npos)
 						throw;
 					throw ExecutedProcessFailed (error.what(), error.GetCommand(), error.GetExitCode(),

@@ -54,6 +54,10 @@ def main():
         mount_end = unix_source.index("\n\t}\n\n\tDevicePath CoreUnix::MountAuxVolumeImage")
         rollback_start = unix_source.rindex("\n\t\t\treturn mountedVolume;\n\t\t}", 0, mount_end)
         rollback = unix_source[rollback_start:mount_end].split("\n\t\t}", 1)[1]
+        fskit_source = (ROOT / "src/Driver/FSKit/FSKitService.mm").read_text()
+        auxiliary_start = fskit_source.index("\n\t\t\t\ttry", fskit_source.index("workerStarted = true;"))
+        auxiliary_end = fskit_source.index("\n\t\t\t\tconst char ready", auxiliary_start)
+        auxiliary_mount = fskit_source[auxiliary_start:auxiliary_end]
         prelude = r'''
 #include "Platform/Finally.h"
 #include <CoreFoundation/CoreFoundation.h>
@@ -61,7 +65,10 @@ def main():
 #include <iostream>
 #include <stdexcept>
 #include <algorithm>
+#include <cerrno>
 #include <cstdlib>
+#include <sys/mount.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #include <vector>
 #define throw_sys_sub_if(condition, subject) do { if (condition) throw std::runtime_error(subject); } while(false)
@@ -91,8 +98,13 @@ struct MountServiceCleanupFailed {
 };
 struct MountedVolumeInUse { explicit MountedVolumeInUse(const string &) {} };
 struct TimeOut {};
+struct SystemException {};
 struct ExecutedProcessFailed {
     explicit ExecutedProcessFailed(string error) : Error(error) {}
+    ExecutedProcessFailed(const char *, const string &, int, const string &error) : Error(error) {}
+    const char *what() const { return "mount failed"; }
+    string GetCommand() const { return "/sbin/mount"; }
+    int GetExitCode() const { return 1; }
     string GetErrorOutput() const { return Error; }
     string Error;
 };
@@ -106,6 +118,7 @@ static int Queries;
 static vector<pair<string, int>> Commands;
 static string TimeoutCommand;
 static bool BusyImage;
+static string AuxiliaryFailure;
 static vector<list<string>> AttachCommands;
 static string AttachReply;
 static int AttachOptionFailures;
@@ -118,6 +131,7 @@ struct Process {
         }
         Commands.emplace_back(path, deadline);
         if (path == TimeoutCommand) throw TimeOut{};
+        if (path == "/sbin/mount" && !AuxiliaryFailure.empty()) throw ExecutedProcessFailed(AuxiliaryFailure);
         if (BusyImage && arguments.front() == "detach") throw ExecutedProcessFailed("Resource busy");
         if (arguments.front() == "attach") {
             AttachCommands.push_back(arguments);
@@ -130,6 +144,9 @@ struct Process {
         return {};
     }
     static string Execute(const string &path, const list<string> &arguments) {
+        return ExecuteBounded(path, arguments, 0);
+    }
+    static string Execute(const string &path, const list<string> &arguments, int) {
         return ExecuteBounded(path, arguments, 0);
     }
 };
@@ -149,6 +166,7 @@ struct SystemLog { static void WriteException(const std::exception &) {} };
 #define foreach(declaration, collection) for (declaration : collection)
 struct Volume {
     string Path;
+    int GetProtectionType() const { return VolumeProtection::ReadOnly; }
 };
 struct VolumeInfo {
     enum DiscoveryState { DiscoveryUnknown, ImageAttached, ImageAbsent, ControlUnavailable };
@@ -212,6 +230,38 @@ static void SimulateStartupFailure(bool unconfirmedAttach) {
         throw runtime_error("startup failed");
     }
 ''' + rollback + "\n}\n"
+        auxiliary_fixture = r'''
+static bool AuxiliaryMounted, AuxiliaryInventoryError;
+static ssize_t AuxiliaryWorkerReply;
+static unsigned int AuxiliaryDirectoriesRemoved;
+static int AuxiliaryUnlinkError = ENOENT;
+
+static bool MountTableEntry(const string &, fsid_t &) {
+    if (AuxiliaryInventoryError) throw SystemException{};
+    return AuxiliaryMounted;
+}
+static void RemoveEmptyMountDirectory(const string &) { ++AuxiliaryDirectoriesRemoved; }
+static int FakeShutdown(int, int) { return 0; }
+static ssize_t FakeReceive(int, void *, size_t, int) {
+    if (AuxiliaryWorkerReply < 0) errno = EAGAIN;
+    return AuxiliaryWorkerReply;
+}
+static int FakeUnlink(const char *) { errno = AuxiliaryUnlinkError; return -1; }
+
+#define shutdown FakeShutdown
+#define recv FakeReceive
+#define unlink FakeUnlink
+static void SimulateAuxiliaryMount() {
+    const auto volume = make_shared<Volume>();
+    const int activation[] = {-1, -1};
+    const string mountPoint = StartupAuxiliary;
+    const string resource = "/unused-resource";
+    const string endpoint = resource + "/io";
+''' + auxiliary_mount + "\n}\n" + r'''
+#undef unlink
+#undef recv
+#undef shutdown
+'''
         tests = r'''
 static void Require(bool condition, const char *message) { if(!condition)throw std::runtime_error(message); }
 static std::string Read(const std::string &path) { std::ifstream f(path); return std::string(std::istreambuf_iterator<char>(f), {}); }
@@ -273,6 +323,51 @@ static void CheckStartupRollback() {
     try { SimulateStartupFailure(true); }
     catch (const MountServiceCleanupFailed &e) { keptAttachWarning = e.Reason == L"attach remains unconfirmed"; }
     Require(keptAttachWarning && !RollbackTarget, "startup rollback attempted cleanup after an unconfirmed attach");
+}
+static void CheckAuxiliaryMountStartup() {
+    Commands.clear();
+    SimulateAuxiliaryMount();
+    Require(Commands == vector<pair<string, int>>{{"/sbin/mount", 30000}},
+            "FSKit auxiliary mount child was not bounded");
+
+    TimeoutCommand = "/sbin/mount";
+    bool timeoutReported = false;
+    try { SimulateAuxiliaryMount(); }
+    catch (const MountServiceCleanupFailed &e) {
+        timeoutReported = e.Reason.find(L"did not confirm auxiliary mount") != wstring::npos;
+    }
+    TimeoutCommand.clear();
+    Require(timeoutReported && AuxiliaryDirectoriesRemoved == 0, "unconfirmed mount triggered local cleanup");
+
+    AuxiliaryFailure = "LambCrypt is disabled!";
+    bool explainedDisabled = false;
+    try { SimulateAuxiliaryMount(); }
+    catch (const ExecutedProcessFailed &e) {
+        explainedDisabled = e.GetErrorOutput().find("enable LambCrypt FSKit") != string::npos;
+    }
+    Require(explainedDisabled && AuxiliaryDirectoriesRemoved == 1, "confirmed cleanup lost its activation help");
+
+    auto requireUnconfirmed = []() {
+        bool reported = false;
+        try { SimulateAuxiliaryMount(); }
+        catch (const MountServiceCleanupFailed &e) {
+            reported = e.Reason.find(L"LambCrypt is disabled!") != wstring::npos;
+        }
+        Require(reported && AuxiliaryDirectoriesRemoved == 1, "unconfirmed startup cleanup lost its warning");
+    };
+    AuxiliaryWorkerReply = -1;
+    requireUnconfirmed();
+    AuxiliaryWorkerReply = 0;
+    AuxiliaryMounted = true;
+    requireUnconfirmed();
+    AuxiliaryMounted = false;
+    AuxiliaryInventoryError = true;
+    requireUnconfirmed();
+    AuxiliaryInventoryError = false;
+    AuxiliaryUnlinkError = EACCES;
+    requireUnconfirmed();
+    AuxiliaryUnlinkError = ENOENT;
+    AuxiliaryFailure.clear();
 }
 static void CheckDismount(CoreMacOSX &core, const string &image) {
     auto mounted = make_shared<VolumeInfo>();
@@ -347,11 +442,13 @@ int main(int argc, char **argv) {
         std::cout << "PASS: FSKit attach deadline, read-only and attach-only flags, and one compatibility retry\n";
         CheckStartupRollback();
         std::cout << "PASS: startup rollback preserves identity and reports unconfirmed cleanup\n";
+        CheckAuxiliaryMountStartup();
+        std::cout << "PASS: auxiliary mount deadline and confirmed and unconfirmed worker cleanup\n";
     } catch(std::exception &e) { std::cerr << e.what() << '\n'; return 1; }
 }
 '''
         unit = work / "discovery.cpp"
-        unit.write_text(prelude + helpers + dismount + refresh + attach + rollback_fixture + tests)
+        unit.write_text(prelude + helpers + dismount + refresh + attach + rollback_fixture + auxiliary_fixture + tests)
         command = ["clang++", "-std=c++11", "-DVC_MACOSX_FSKIT", "-I" + str(ROOT / "src"), str(unit), "-framework", "CoreFoundation", "-o", str(work / "discovery")]
         subprocess.run(command, check=True)
         subprocess.run([str(work / "discovery"), str(work), str(image)], check=True, timeout=20)

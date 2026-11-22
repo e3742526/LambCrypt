@@ -1547,6 +1547,13 @@ namespace VeraCrypt
 			FuseService::Mount (volume, options.SlotNumber, fuseMountPoint);
 #endif
 		}
+#ifdef VC_MACOSX_FSKIT
+		catch (const MountServiceCleanupFailed &)
+		{
+			// The system may still own a partially established mount point.
+			throw;
+		}
+#endif
 		catch (...)
 		{
 #ifdef VC_MACOSX_FSKIT

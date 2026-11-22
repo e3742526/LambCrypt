@@ -53,7 +53,7 @@ installed apps alone and collect evidence before advancing each gate.
 | 0. Baseline | Default MacFUSE build, discovery tests, and applicable FUSE-T checks pass. | Passed |
 | 1. Build variant | MacFUSE remains default. The opt-in FSKit bundle builds separately. | Passed |
 | 2. Read-only | Read a VeraCrypt payload and a fresh compatible container, then verify external dismount, background exit, and worker cleanup. | Passed on disposable containers |
-| 3. Read-write | Verify write and sync, file operations, xattrs, advisory locks, busy dismount, dismount after release, read-only remount, and Finder eject. | HFS+ passed clean and busy-release dismount, read-only remount, and external Disk Arbitration eject with auxiliary cleanup. Plain FAT on APFS passed. Writable FAT on LambCrypt FSKit stalled during unmount with both Disk Images services. Finder eject and writable FAT parity remain open. |
+| 3. Read-write | Verify write and sync, file operations, xattrs, advisory locks, busy dismount, dismount after release, read-only remount, and Finder eject. | HFS+ passed clean and busy-release dismount, read-only remount, and Finder eject with auxiliary cleanup. Plain FAT on APFS passed. Writable FAT on LambCrypt FSKit stalled during unmount with both Disk Images services. |
 | 4. Lifecycle | Verify discovery, preferences, menu-bar state, and background exit from the signed bundle. | Pending |
 | 5. Bugs and performance | Record regressions in [BUGLOG.md](BUGLOG.md) and profile FSKit, MacFUSE, and FUSE-T before claiming gains. | Pending |
 | 6. Packaging | Verify FSKit package signing, notarization dry run, Finder smoke test, and rollback to MacFUSE. | Pending |
@@ -74,24 +74,40 @@ FAT and FSKit configuration. The exact kernel dependency remains unknown.
    protocol without starting Disk Arbitration. Prioritize incomplete
    inventory, stale worker identity, startup rollback, and credential
    lifetime when reviewing adjacent failure paths. These checks passed for the
-   attach deadline, one-time compatibility retry, native protocol fixture, and
-   rollback by captured worker identity. Live startup rollback and
-   attach-timeout recovery remain pending.
+   attach and auxiliary mount deadlines, one-time compatibility retry, native
+   protocol fixture, and rollback by captured worker identity. Live read-only
+   tests exercised rollback on an unformatted container and verified normal
+   startup through the bounded helper on HFS+. The [password-cache regression](Tests/README-macos-lifecycle.md)
+   verifies that concurrent cache access is synchronized and a wipe clears the
+   cache. The protocol suite also verifies missing and disallowed socket paths,
+   empty writes, and rejection of truncated writes before changing the fixture.
+   Live GUI automatic dismount with cached credentials and live recovery after
+   a command timeout remain pending.
 2. **Move the FAT investigation to an isolated Tahoe host.** Use a spare Mac
    or an existing Apple Silicon guest that can load the signed FSKit module.
    The isolated environment and extension support are unverified. Prepare a
    disposable raw FAT image, expose it through a minimal test FSKit filesystem,
-   and attach it using the same Disk Images settings as LambCrypt. Run the same
-   single write, file sync, and detach against the image directly on APFS and
-   through the test filesystem. Add the encrypted LambCrypt worker as the next
-   comparison only after the minimal run. Capture mount state, the command’s
-   deadline result, and the available user-space stacks. Stop the live run
-   on the first kernel stall.
+   and attach it using the same raw Disk Images settings as LambCrypt. The
+   diagnostic compares two backing paths (APFS and the test FSKit filesystem)
+   and two FAT drivers (the automatic macOS path and Apple's kernel `msdos`
+   driver). Start with the two APFS controls, then run the kernel-driver
+   FSKit case and the automatic FSKit case. Use a fresh fixture for each case.
+   On the kernel path, attach with `hdiutil -nomount`, then run
+   `/sbin/mount_msdos` and confirm the mount table reports `msdos`. Capture
+   the FAT driver, the command’s deadline result, and any available stacks.
+   Each successful trial verifies payload persistence after a read-only
+   remount and confirms both detaches. Stop on the first stall and preserve
+   the lab state. [Apple's FAT mount utility](https://github.com/apple-oss-distributions/msdosfs/blob/main/mount_msdos.tproj/mount_msdos.c#L298-L306)
 3. **Choose the next change from the result.** A stall with the minimal FSKit
    backing file supports a platform-level report using the synthetic fixture.
-   If that control passes and LambCrypt still stalls, compare the filesystem
-   callbacks, backing-file open flags, and worker traffic across the two runs.
-   The prepared Apple kernel FAT pilot is a diagnostic. Writable FAT parity
-   still needs clean and busy-release dismount, read-only remount with a
-   matching checksum, Finder eject, and confirmed worker exit. MacFUSE stays
-   the default while this gate is open.
+   If only the automatic driver stalls with the same backing file, repeat the
+   kernel-driver trial with the production encrypted worker before considering
+   a FAT-specific mount route. If both diagnostic cases pass and the production
+   worker still stalls, compare the callbacks, backing-file open flags, and
+   worker traffic. Apple's kernel FAT driver passed unprivileged read-only
+   mounting on a plain image and an FSKit-backed VeraCrypt fixture. The new
+   diagnostic runner passed offline checks. The live writable kernel-driver
+   trials remain pending. Writable FAT parity requires clean and
+   busy-release dismount, read-only remount with a matching checksum, Finder
+   eject, and confirmed worker exit. MacFUSE stays the default while this
+   gate is open.
