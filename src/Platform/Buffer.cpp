@@ -10,6 +10,11 @@
  code distribution packages.
 */
 
+#ifdef TC_MACOSX
+#define __STDC_WANT_LIB_EXT1__ 1
+#include <string.h>
+#endif
+
 #include "Buffer.h"
 #include "Exception.h"
 
@@ -76,8 +81,14 @@ namespace VeraCrypt
 
 	void Buffer::Erase ()
 	{
-		if (DataSize > 0)
-			burn (DataPtr, DataSize);
+		if (DataSize == 0)
+			return;
+#ifdef TC_MACOSX
+		// Use the platform's secure erase for the full buffer before freeing it.
+		if (memset_s (DataPtr, DataSize, 0, DataSize) == 0)
+			return;
+#endif
+		burn (DataPtr, DataSize);
 	}
 
 	void Buffer::Free ()

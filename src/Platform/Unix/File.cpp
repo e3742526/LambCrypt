@@ -12,6 +12,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits>
 #include <unistd.h>
 #include <utime.h>
 
@@ -458,10 +459,17 @@ namespace VeraCrypt
 #ifdef TC_TRACE_FILE_OPERATIONS
 		TraceFileOperation (FileHandle, Path, false, buffer.Size(), position);
 #endif
-		ssize_t bytesRead = pread (FileHandle, buffer, buffer.Size(), position);
-		throw_sys_sub_if (bytesRead == -1, wstring (Path));
-
-		return bytesRead;
+		// An interrupted pread transferred no bytes. Retry at the same offset
+		// while preserving a successful short read or EOF for the caller.
+		while (true)
+		{
+			const ssize_t bytesRead = pread (FileHandle, buffer, buffer.Size(), position);
+			if (bytesRead >= 0)
+				return bytesRead;
+			const int error = errno;
+			if (error != EINTR)
+				throw SystemException (SRC_POS, wstring (Path), error);
+		}
 	}
 
 	void File::SeekAt (uint64 position) const
@@ -517,6 +525,33 @@ namespace VeraCrypt
 #ifdef TC_TRACE_FILE_OPERATIONS
 		TraceFileOperation (FileHandle, Path, true, buffer.Size(), position);
 #endif
-		throw_sys_sub_if (pwrite (FileHandle, buffer, buffer.Size(), position) != (ssize_t) buffer.Size(), wstring (Path));
+		const uint64 maximumOffset = static_cast <uint64> (std::numeric_limits <off_t>::max());
+		size_t remaining = buffer.Size();
+		if (position > maximumOffset || remaining > maximumOffset - position)
+			throw SystemException (SRC_POS, wstring (Path), EOVERFLOW);
+
+		const uint8 *data = buffer.Get();
+		do
+		{
+			const ssize_t count = pwrite (FileHandle, data, remaining, static_cast <off_t> (position));
+			if (count < 0)
+			{
+				const int error = errno;
+				if (error == EINTR)
+					continue;
+				throw SystemException (SRC_POS, wstring (Path), error);
+			}
+			if (count == 0)
+			{
+				if (remaining != 0)
+					throw SystemException (SRC_POS, wstring (Path), EIO);
+				return;
+			}
+
+			// A short write has already written this prefix.
+			data += count;
+			remaining -= static_cast <size_t> (count);
+			position += static_cast <uint64> (count);
+		} while (remaining != 0);
 	}
 }

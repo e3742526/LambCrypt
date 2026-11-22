@@ -119,18 +119,13 @@ struct VolumeConnection {
         }
 
         // The fixed-width fields are little-endian, followed by the generation UUID.
-        var request = Data(capacity: 40)
-        append(Self.signature, to: &request)
-        append(operation.rawValue, to: &request)
-        append(offset, to: &request)
-        append(UInt32(length), to: &request)
-        append(UInt32(0), to: &request)
-        if var bytes = identifier?.uuid {
-            withUnsafeBytes(of: &bytes) { request.append(contentsOf: $0) }
-        } else {
-            request.append(Data(count: 16))
-        }
-        try request.withUnsafeBytes { bytes in
+        try withUnsafeTemporaryAllocation(byteCount: 40, alignment: MemoryLayout<UInt64>.alignment) { bytes in
+            bytes.storeBytes(of: Self.signature.littleEndian, toByteOffset: 0, as: UInt32.self)
+            bytes.storeBytes(of: operation.rawValue.littleEndian, toByteOffset: 4, as: UInt32.self)
+            bytes.storeBytes(of: offset.littleEndian, toByteOffset: 8, as: UInt64.self)
+            bytes.storeBytes(of: UInt32(length).littleEndian, toByteOffset: 16, as: UInt32.self)
+            bytes.storeBytes(of: UInt32(0), toByteOffset: 20, as: UInt32.self) // Reserved.
+            bytes.storeBytes(of: (identifier ?? Self.unboundIdentifier).uuid, toByteOffset: 24, as: uuid_t.self)
             try transfer(bytes.count, on: fd, events: Int16(POLLOUT), deadline: sendDeadline) { start, remaining in
                 Darwin.send(fd, bytes.baseAddress?.advanced(by: start), remaining, 0)
             }
@@ -235,11 +230,6 @@ struct VolumeConnection {
             guard result > 0 else { throw POSIXError(.EIO) }
             completed += result
         }
-    }
-
-    private func append<T: FixedWidthInteger>(_ value: T, to data: inout Data) {
-        var bytes = value.littleEndian
-        withUnsafeBytes(of: &bytes) { data.append(contentsOf: $0) }
     }
 
     private static func currentError() -> POSIXError {

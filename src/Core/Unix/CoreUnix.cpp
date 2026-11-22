@@ -1593,6 +1593,13 @@ namespace VeraCrypt
 		}
 
 		DevicePath mountedVirtualDevice;
+#ifdef VC_MACOSX_FSKIT
+		bool needsMediaObservation = false;
+		// Preserve the handoff if startup leaves an attachment behind.
+		finally_do_arg2 (bool &, needsMediaObservation, int, activationChannel, {
+			if (finally_arg) FSKit::ObserveLateAttachedMedia (finally_arg2);
+		});
+#endif
 
 		try
 		{
@@ -1626,6 +1633,9 @@ namespace VeraCrypt
 				}
 				catch (NotApplicable&)
 				{
+#ifdef VC_MACOSX_FSKIT
+					needsMediaObservation = true;
+#endif
 					mountedVirtualDevice = MountAuxVolumeImage (fuseMountPoint, options);
 				}
 			}
@@ -1727,6 +1737,7 @@ namespace VeraCrypt
 				FSKit::ObserveAttachedMedia (activationChannel, mountedVirtualDevice);
 			else
 				FSKit::ObserveLateAttachedMedia (activationChannel);
+			needsMediaObservation = false;
 #endif
 
 #ifdef TC_LINUX
@@ -1741,9 +1752,7 @@ namespace VeraCrypt
 #ifdef VC_MACOSX_FSKIT
 		catch (const MountServiceCleanupFailed &)
 		{
-			// Keep serving I/O and watch for the disk image that Disk Images
-			// may publish after this caller reports the timeout.
-			FSKit::ObserveLateAttachedMedia (activationChannel);
+			// Disk Images may still publish the attachment after this timeout.
 			throw;
 		}
 #endif
@@ -1764,6 +1773,9 @@ namespace VeraCrypt
 				cleanupVolume->SerialInstanceNumber = mountServiceSerialInstanceNumber;
 				cleanupVolume->AuxMountPoint = fuseMountPoint;
 				DismountVolume (cleanupVolume);
+#ifdef VC_MACOSX_FSKIT
+				needsMediaObservation = false;
+#endif
 			}
 			catch (DismountServiceCleanupFailed &) { throw; }
 			catch (exception &e)

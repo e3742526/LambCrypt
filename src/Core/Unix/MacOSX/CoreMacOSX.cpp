@@ -25,6 +25,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <uuid/uuid.h>
 #include "CoreMacOSX.h"
 #include "Driver/Fuse/FuseService.h"
 #ifdef VC_MACOSX_FSKIT
@@ -202,52 +203,58 @@ namespace VeraCrypt
 
 		CFArrayRef imageArray = (CFArrayRef) images;
 		bool uncertain = false;
-		// Positive exact matches take precedence over unreadable unrelated images.
-		// Only the second pass touches paths used by older TMPDIR aliases.
-		for (int pass = 0; pass < 2; ++pass)
+		DevicePath matchedDevice;
+		DirectoryPath matchedMount;
+		for (CFIndex i = 0; i < CFArrayGetCount (imageArray); ++i)
 		{
-			for (CFIndex i = 0; i < CFArrayGetCount (imageArray); ++i)
+			CFTypeRef image = CFArrayGetValueAtIndex (imageArray, i);
+			if (!image || CFGetTypeID (image) != CFDictionaryGetTypeID())
 			{
-				CFTypeRef image = CFArrayGetValueAtIndex (imageArray, i);
-				if (!image || CFGetTypeID (image) != CFDictionaryGetTypeID())
-				{
-					uncertain = true;
-					continue;
-				}
-				CFDictionaryRef imageDict = (CFDictionaryRef) image;
-				string currentImagePath = CFDictionaryGetStdString (imageDict, "image-path");
-				if (currentImagePath.empty())
-				{
-					uncertain = true;
-					continue;
-				}
-				if (pass == 0)
-				{
-					if (currentImagePath != canonicalImagePath) continue;
-				}
-				else
-				{
-					if (currentImagePath == canonicalImagePath || currentImagePath[0] != '/'
-						|| currentImagePath.size() < imageSuffix.size()
-						|| currentImagePath.compare (currentImagePath.size() - imageSuffix.size(), imageSuffix.size(), imageSuffix) != 0)
-						continue;
-					try
-					{
-						if (CanonicalizeDiskImagePath (currentImagePath) != canonicalImagePath) continue;
-					}
-					catch (exception &)
-					{
-						uncertain = true;
-						continue;
-					}
-				}
-
-				CFTypeRef entities = CFDictionaryGetValue (imageDict, CFSTR ("system-entities"));
-				if (!entities || CFGetTypeID (entities) != CFArrayGetTypeID()
-					|| !ExtractDeviceAndMountPointFromEntities ((CFArrayRef) entities, device, mountPoint))
-					throw ParameterIncorrect (SRC_POS);
-				return true;
+				uncertain = true;
+				continue;
 			}
+			CFDictionaryRef imageDict = (CFDictionaryRef) image;
+			string currentImagePath = CFDictionaryGetStdString (imageDict, "image-path");
+			if (currentImagePath.empty())
+			{
+				uncertain = true;
+				continue;
+			}
+			if (currentImagePath != canonicalImagePath)
+			{
+				// Resolve only plausible aliases, such as an older TMPDIR spelling.
+				if (currentImagePath[0] != '/' || currentImagePath.size() < imageSuffix.size()
+					|| currentImagePath.compare (currentImagePath.size() - imageSuffix.size(), imageSuffix.size(), imageSuffix) != 0)
+					continue;
+				try
+				{
+					if (CanonicalizeDiskImagePath (currentImagePath) != canonicalImagePath) continue;
+				}
+				catch (const exception &)
+				{
+					uncertain = true;
+					continue;
+				}
+			}
+
+			CFTypeRef entities = CFDictionaryGetValue (imageDict, CFSTR ("system-entities"));
+			DevicePath currentDevice;
+			DirectoryPath currentMount;
+			if (!entities || CFGetTypeID (entities) != CFArrayGetTypeID()
+				|| !ExtractDeviceAndMountPointFromEntities ((CFArrayRef) entities, currentDevice, currentMount))
+				throw ParameterIncorrect (SRC_POS);
+			// Detach acts on the selected device. Conflicting records cannot
+			// establish which attachment is safe to use.
+			if (!matchedDevice.IsEmpty() && (currentDevice != matchedDevice || currentMount != matchedMount))
+				throw ExternalException (SRC_POS, L"macOS reported conflicting attachments for the LambCrypt disk image.");
+			matchedDevice = currentDevice;
+			matchedMount = currentMount;
+		}
+		if (!matchedDevice.IsEmpty())
+		{
+			device = matchedDevice;
+			mountPoint = matchedMount;
+			return true;
 		}
 		// A partial inventory cannot establish absence. In particular, never
 		// substitute a cached BSD disk number when ownership is unknown.
@@ -596,6 +603,74 @@ namespace VeraCrypt
 		return index > sliceStart && index == path.size();
 	}
 
+	static int64_t GetDiskMediaRegistryId (const string &bsdName)
+	{
+		const string inventory = Process::ExecuteBounded ("/usr/sbin/ioreg", {"-a", "-r", "-c", "IOMedia", "-d", "1"}, 2000);
+		CFHolder plist (ParsePropertyList (inventory));
+		if (!plist.Get() || CFGetTypeID (plist.Get()) != CFArrayGetTypeID())
+			throw ParameterIncorrect (SRC_POS);
+
+		CFArrayRef entries = (CFArrayRef) plist.Get();
+		int64_t identity = 0;
+		for (CFIndex index = 0; index < CFArrayGetCount (entries); ++index)
+		{
+			CFTypeRef entry = CFArrayGetValueAtIndex (entries, index);
+			if (!entry || CFGetTypeID (entry) != CFDictionaryGetTypeID()
+				|| CFDictionaryGetStdString ((CFDictionaryRef) entry, "BSD Name") != bsdName)
+				continue;
+			CFTypeRef value = CFDictionaryGetValue ((CFDictionaryRef) entry, CFSTR ("IORegistryEntryID"));
+			if (identity != 0 || !value || CFGetTypeID (value) != CFNumberGetTypeID()
+				|| !CFNumberGetValue ((CFNumberRef) value, kCFNumberSInt64Type, &identity) || identity <= 0)
+				throw ParameterIncorrect (SRC_POS);
+		}
+		if (identity == 0)
+			throw MountServiceUnavailable (SRC_POS, StringConverter::ToWide (bsdName));
+		return identity;
+	}
+
+	static string BuildFilesystemCheckScript (bool repair, const string &device, const string &bsdName,
+		int64_t mediaId, const string &bootSession)
+	{
+		const string verb = repair ? "repairVolume" : "verifyVolume";
+		// The device and boot session were validated by the caller. The ID
+		// distinguishes attachments that macOS gives the same disk number.
+		return string ("#!/bin/sh\n")
+			+ "trap 'rm -f \"$0\"' EXIT\n"
+			+ "expected_boot='" + bootSession + "'\n"
+			+ "expected_media='" + std::to_string (mediaId) + "'\n"
+			+ "expected_device='" + bsdName + "'\n"
+			+ R"SH(
+same_media() {
+    boot=$(/usr/sbin/sysctl -n kern.bootsessionuuid) || return 1
+    [ "$boot" = "$expected_boot" ] || return 1
+    inventory=$(/usr/sbin/ioreg -a -r -c IOMedia -d 1) || return 1
+    index=0
+    while identity=$(printf '%s' "$inventory" | /usr/bin/plutil -extract "$index.IORegistryEntryID" raw -expect integer -o - - 2>/dev/null); do
+        if [ "$identity" = "$expected_media" ]; then
+            name=$(printf '%s' "$inventory" | /usr/bin/plutil -extract "$index.BSD Name" raw -expect string -o - -) || return 1
+            [ "$name" = "$expected_device" ]
+            return $?
+        fi
+        index=$((index + 1))
+    done
+    return 1
+}
+
+if same_media; then
+)SH"
+			+ "    /usr/sbin/diskutil " + verb + " '" + device + "'\n"
+			+ R"SH(    status=$?
+else
+    echo 'The selected volume is no longer confirmed. Select it again in LambCrypt.'
+    status=1
+fi
+echo
+echo 'Press Enter to close this window.'
+read dummy
+exit "$status"
+)SH";
+	}
+
 	void CoreMacOSX::CheckFilesystem (shared_ptr <VolumeInfo> mountedVolume, bool repair) const
 	{
 		mountedVolume = ValidateMountedVolume (mountedVolume);
@@ -611,10 +686,22 @@ namespace VeraCrypt
 
 			if (IsPlainDiskDevicePath (device))
 			{
+				const string bsdName = device.substr (device.find ("disk"));
+				const int64_t mediaId = GetDiskMediaRegistryId (bsdName);
+				// Confirm the media still belongs to the selected backing image
+				// after obtaining its registry identity.
+				UpdateMountedVolumeInfo (mountedVolume);
+				ValidateMountedVolume (mountedVolume);
+				if (string (mountedVolume->VirtualDevice) != device)
+					throw MountServiceUnavailable (SRC_POS, wstring (mountedVolume->AuxMountPoint));
+				const string bootSession = StringConverter::Trim (Process::ExecuteBounded ("/usr/sbin/sysctl",
+					{"-n", "kern.bootsessionuuid"}, 2000));
+				uuid_t parsedSession;
+				if (bootSession.size() != 36 || uuid_parse (bootSession.c_str(), parsedSession) != 0)
+					throw ParameterIncorrect (SRC_POS);
+
 				try
 				{
-					const string verb = repair ? "repairVolume" : "verifyVolume";
-
 					// Create the script securely: a predictable name in the
 					// world-writable /tmp invites a symlink/race attack (the file is
 					// later executed, and this path can run elevated). Use the
@@ -648,18 +735,7 @@ namespace VeraCrypt
 
 					try
 					{
-						// Always show diskutil's result (including failures) and
-						// pause; this is why the script captures $? rather than
-						// using "set -e", which would abort before the prompt.
-						const string contents =
-							string ("#!/bin/sh\n")
-							+ "trap 'rm -f \"$0\"' EXIT\n"	// remove the script even if the window is closed early
-							+ "/usr/sbin/diskutil " + verb + " '" + device + "'\n"
-							+ "status=$?\n"
-							+ "echo\n"
-							+ "echo 'Press Enter to close this window.'\n"
-							+ "read dummy\n"
-							+ "exit $status\n";
+						const string contents = BuildFilesystemCheckScript (repair, device, bsdName, mediaId, bootSession);
 
 						size_t off = 0;
 						while (off < contents.size())

@@ -27,6 +27,8 @@ namespace VeraCrypt
 		SystemException (const string &message, const wstring &subject);
 		SystemException (const string &message, int64 errorCode)
 			: Exception (message), ErrorCode (errorCode) { }
+		SystemException (const string &message, const wstring &subject, int64 errorCode)
+			: Exception (message, subject), ErrorCode (errorCode) { }
 		virtual ~SystemException () throw () { }
 
 		TC_SERIALIZABLE_EXCEPTION (SystemException);

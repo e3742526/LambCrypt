@@ -28,10 +28,19 @@ def main():
         exact = dict(**{"image-path": str(image.resolve()), "system-entities": [{"dev-entry": "/dev/disk42", "mount-point": "/Volumes/unit"}]})
         alias_image = dict(exact, **{"image-path": str(alias / image.relative_to(work))})
         unknown_alias = dict(exact, **{"image-path": str(work / "missing" / image.parent.name / image.name)})
+        second_device = {"system-entities": [{"dev-entry": "/dev/disk43"}]}
+        exact_conflict = dict(exact, **second_device)
+        alias_conflict = dict(alias_image, **second_device)
         cases = {
             "exact": {"images": [exact]},
-            "reattached": {"images": [dict(exact, **{"system-entities": [
-                {"dev-entry": "/dev/disk43"}]})]},
+            "reattached": {"images": [exact_conflict]},
+            "same_attachment": {"images": [exact, alias_image]},
+            "conflicting_exact": {"images": [exact, exact_conflict]},
+            "conflicting_alias": {"images": [exact, alias_conflict]},
+            "conflicting_alias_first": {"images": [alias_conflict, exact]},
+            "conflicting_aliases": {"images": [alias_image, alias_conflict]},
+            "conflicting_mount_points": {"images": [exact, dict(exact, **{"system-entities": [
+                {"dev-entry": "/dev/disk42", "mount-point": "/Volumes/another"}]})]},
             "alias": {"images": [alias_image]},
             "absent": {"images": []},
             "unrelated": {"images": [dict(exact, **{"image-path": "/offline/unrelated.dmg"})]},
@@ -58,6 +67,11 @@ def main():
         attach = source[source.index("\tDevicePath CoreMacOSX::MountAuxVolumeImage"):
                         source.index("\tunique_ptr <CoreBase> Core (")]
         unix_source = (ROOT / "src/Core/Unix/CoreUnix.cpp").read_text()
+        attachment_start = unix_source.index("\t\tDevicePath mountedVirtualDevice;")
+        attachment_setup = unix_source[attachment_start:unix_source.index("\n\t\ttry", attachment_start)]
+        attachment_attempt_start = unix_source.index("\t\t\t\tcatch (NotApplicable&)", attachment_start)
+        attachment_attempt = unix_source[attachment_attempt_start:
+                                         unix_source.index("\n\t\t\t}", attachment_attempt_start)]
         observation_start = unix_source.index("\t\t\t// The attach result and the fresh inventory")
         observation = unix_source[observation_start:unix_source.index("\n#endif", observation_start)]
         mount_end = unix_source.index("\n\t}\n\n\tDevicePath CoreUnix::MountAuxVolumeImage")
@@ -150,6 +164,9 @@ struct ParameterIncorrect : std::runtime_error { ParameterIncorrect(const std::s
 struct VolumeDiscoveryFailed : std::runtime_error {
     VolumeDiscoveryFailed(const std::string &, const std::wstring &reason)
         : std::runtime_error(std::string(reason.begin(), reason.end())) {}
+};
+struct ExternalException : std::runtime_error {
+    ExternalException(const string &, const wstring &reason) : std::runtime_error(string(reason.begin(), reason.end())) {}
 };
 struct DismountServiceCleanupFailed {
     DismountServiceCleanupFailed(const string &, const wstring &reason) : Reason(reason) {}
@@ -328,11 +345,14 @@ static const string StartupAuxiliary = "/private/tmp/lambcrypt-fskit.unit/.verac
 static const string StartupContainer = "/disposable.hc";
 static const uint64 StartupSerial = 42;
 static bool RefuseRollback;
+static bool UnconfirmedRollback;
 static shared_ptr<VolumeInfo> RollbackTarget;
-static int LateAttachmentChannel = -1;
+static vector<int> LateAttachmentChannels;
+static vector<int> AttachedMediaChannels;
 
 namespace FSKit {
-static void ObserveLateAttachedMedia(int channel) { LateAttachmentChannel = channel; }
+static void ObserveLateAttachedMedia(int channel) { LateAttachmentChannels.push_back(channel); }
+static void ObserveAttachedMedia(int channel, const DevicePath &) { AttachedMediaChannels.push_back(channel); }
 }
 
 static shared_ptr<VolumeInfo> GetMountedVolume(const DirectoryPath &) {
@@ -345,10 +365,14 @@ static shared_ptr<VolumeInfo> GetMountedVolume(const DirectoryPath &) {
 
 static void DismountVolume(shared_ptr<VolumeInfo> volume) {
     RollbackTarget = volume;
+    if (UnconfirmedRollback) throw DismountServiceCleanupFailed(SRC_POS, L"detach remains unconfirmed");
     if (RefuseRollback) throw runtime_error("worker identity unavailable");
 }
 
-static void SimulateStartupFailure(bool unconfirmedAttach) {
+enum class StartupFailure { BeforeAttach, AttachTimeout, AfterAttach, AfterHandoff };
+struct NotApplicable {};
+
+static void SimulateStartupFailure(StartupFailure failure) {
     const string fuseMountPoint = StartupAuxiliary;
     const uint64 mountServiceSerialInstanceNumber = StartupSerial;
     const int activationChannel = 15;
@@ -356,9 +380,23 @@ static void SimulateStartupFailure(bool unconfirmedAttach) {
     volume->Path = StartupContainer;
     MountOptions options;
     options.Path = make_shared<DirectoryPath>(StartupContainer);
-    try {
-        if (unconfirmedAttach)
+    auto MountAuxVolumeImage = [failure](const DirectoryPath &, const MountOptions &) -> DevicePath {
+        if (failure == StartupFailure::AttachTimeout)
             throw MountServiceCleanupFailed(SRC_POS, L"attach remains unconfirmed");
+        return "/dev/disk42";
+    };
+''' + attachment_setup + r'''
+    try {
+        if (failure != StartupFailure::BeforeAttach) {
+            try { throw NotApplicable(); }
+''' + attachment_attempt + r'''
+        }
+        if (failure == StartupFailure::AfterHandoff) {
+            auto mountedVolume = make_shared<VolumeInfo>();
+            mountedVolume->Discovery = VolumeInfo::ImageAttached;
+            mountedVolume->VirtualDevice = mountedVirtualDevice;
+''' + observation + r'''
+        }
         throw runtime_error("startup failed");
     }
 ''' + rollback + "\n}\n"
@@ -378,6 +416,7 @@ static void SendMediaIdentity(int channel, uint64 identity) { Reports.emplace_ba
 static void Observe(VolumeInfo::DiscoveryState discovery, const DevicePath &discovered, uint64 identity) {
     const int activationChannel = 15;
     const DevicePath mountedVirtualDevice = "/dev/disk42";
+    bool needsMediaObservation = true;
     auto mountedVolume = make_shared<VolumeInfo>();
     mountedVolume->Discovery = discovery;
     mountedVolume->VirtualDevice = discovered;
@@ -701,27 +740,49 @@ static void CheckAttach(CoreMacOSX &core, const DirectoryPath &auxiliary) {
     Require(failed && AttachCommands.size() == 2, "repeated option error retried an attach again");
 }
 static void CheckStartupRollback() {
-    bool keptStartupError = false;
-    try { SimulateStartupFailure(false); }
-    catch (const runtime_error &e) { keptStartupError = string(e.what()) == "startup failed"; }
-    Require(keptStartupError && RollbackTarget && RollbackTarget->AuxMountPoint == StartupAuxiliary
-            && RollbackTarget->SerialInstanceNumber == StartupSerial && RollbackTarget->SlotNumber == 2
-            && RollbackTarget->Path == StartupContainer, "startup rollback used a replacement mount identity");
+    for (const auto failure : {StartupFailure::BeforeAttach, StartupFailure::AfterAttach}) {
+        bool keptStartupError = false;
+        try { SimulateStartupFailure(failure); }
+        catch (const runtime_error &e) { keptStartupError = string(e.what()) == "startup failed"; }
+        Require(keptStartupError && RollbackTarget && RollbackTarget->AuxMountPoint == StartupAuxiliary
+                && RollbackTarget->SerialInstanceNumber == StartupSerial && RollbackTarget->SlotNumber == 2
+                && RollbackTarget->Path == StartupContainer, "startup rollback used a replacement mount identity");
+        Require(LateAttachmentChannels.empty(), "confirmed rollback requested a late attach probe");
+    }
 
     RefuseRollback = true;
-    bool warnedOfFailure = false;
-    try { SimulateStartupFailure(false); }
-    catch (const MountServiceCleanupFailed &e) {
-        warnedOfFailure = e.Reason == StringConverter::ToWide(StartupAuxiliary) + L"\nworker identity unavailable";
+    for (const auto failure : {StartupFailure::BeforeAttach, StartupFailure::AfterAttach, StartupFailure::AfterHandoff}) {
+        LateAttachmentChannels.clear();
+        AttachedMediaChannels.clear();
+        bool warnedOfFailure = false;
+        try { SimulateStartupFailure(failure); }
+        catch (const MountServiceCleanupFailed &e) {
+            warnedOfFailure = e.Reason == StringConverter::ToWide(StartupAuxiliary) + L"\nworker identity unavailable";
+        }
+        Require(warnedOfFailure, "startup rollback failure was hidden");
+        if (failure == StartupFailure::AfterAttach)
+            Require(LateAttachmentChannels == vector<int>{15}, "failed rollback lost late attachment observation");
+        else
+            Require(LateAttachmentChannels.empty(), "rollback requested an unnecessary late attach probe");
+        if (failure == StartupFailure::AfterHandoff)
+            Require(AttachedMediaChannels == vector<int>{15}, "rollback repeated the direct media handoff");
     }
-    Require(warnedOfFailure, "startup rollback failure was hidden");
-    Require(LateAttachmentChannel == -1, "confirmed startup failures requested a late attach probe");
 
+    LateAttachmentChannels.clear();
+    UnconfirmedRollback = true;
+    bool keptRollbackWarning = false;
+    try { SimulateStartupFailure(StartupFailure::AfterAttach); }
+    catch (const DismountServiceCleanupFailed &e) { keptRollbackWarning = e.Reason == L"detach remains unconfirmed"; }
+    Require(keptRollbackWarning && LateAttachmentChannels == vector<int>{15},
+            "unconfirmed detach lost its warning or the media observation handoff");
+    UnconfirmedRollback = false;
+
+    LateAttachmentChannels.clear();
     RollbackTarget.reset();
     bool keptAttachWarning = false;
-    try { SimulateStartupFailure(true); }
+    try { SimulateStartupFailure(StartupFailure::AttachTimeout); }
     catch (const MountServiceCleanupFailed &e) { keptAttachWarning = e.Reason == L"attach remains unconfirmed"; }
-    Require(keptAttachWarning && !RollbackTarget && LateAttachmentChannel == 15,
+    Require(keptAttachWarning && !RollbackTarget && LateAttachmentChannels == vector<int>{15},
             "unconfirmed attach did not preserve its worker for late observation");
 }
 static void CheckAuxiliaryMountStartup() {
@@ -794,7 +855,24 @@ static void CheckDismount(CoreMacOSX &core, const string &image, const string &r
     mounted->AuxMountPoint = image.substr(0, image.rfind('/'));
     DismountMountPoint = mounted->AuxMountPoint;
     const string exactInventory = Inventory;
-    for (const auto *record : {"exact", "reattached", "unknown_record"}) {
+    InventoryAfterDetach = Read(root + "/absent");
+    for (const auto *record : {"conflicting_exact", "conflicting_alias", "conflicting_alias_first",
+                              "conflicting_aliases", "conflicting_mount_points"}) {
+        Inventory = Read(root + "/" + record);
+        for (bool force : {false, true}) {
+            Commands.clear();
+            const int queries = Queries;
+            bool refused = false;
+            try { core.DismountVolume(mounted, force, false); }
+            catch (const VolumeDiscoveryFailed &error) {
+                refused = string(error.what()).find("conflicting attachments") != string::npos;
+            }
+            Require(refused && Queries == queries + 1 && Commands.empty(),
+                    "ambiguous attachment reached detach or backing cleanup");
+        }
+    }
+    Inventory = exactInventory;
+    for (const auto *record : {"exact", "reattached", "unknown_record", "conflicting_exact"}) {
         InventoryAfterDetach = Read(root + "/" + record);
         for (bool force : {false, true}) {
             Commands.clear();
@@ -921,7 +999,7 @@ static void CheckDismount(CoreMacOSX &core, const string &image, const string &r
 int main(int argc, char **argv) {
     try {
         std::string root=argv[1], image=argv[2];
-        for (const auto &name : {"exact", "alias", "exact_after_unknown"}) {
+        for (const auto &name : {"exact", "alias", "exact_after_unknown", "same_attachment"}) {
             DevicePath device; DirectoryPath mount;
             Require(FindDiskImageInfoByImagePath(Read(root+"/"+name),image,device,mount), "positive match lost");
             Require(device=="/dev/disk42" && mount=="/Volumes/unit", "wrong mapping");
@@ -942,21 +1020,26 @@ int main(int argc, char **argv) {
         Queries=0; Inventory=Read(root+"/exact"); core.UpdateMountedVolumesInfo(volumes);
         Require(Queries==1, "more than one inventory per enumeration");
         for(auto volume:volumes)Require(volume->Discovery==VolumeInfo::ImageAttached, "attached status");
-        Inventory=Read(root+"/broken"); core.UpdateMountedVolumesInfo(volumes);
-        for(auto volume:volumes)Require(volume->Discovery==VolumeInfo::DiscoveryUnknown && volume->VirtualDevice.empty() && volume->MountPoint.empty(), "stale device survived failure");
+        for (const auto *record : {"conflicting_exact", "broken"}) {
+            Inventory = Read(root + "/" + record);
+            core.UpdateMountedVolumesInfo(volumes);
+            for (auto volume : volumes)
+                Require(volume->Discovery == VolumeInfo::DiscoveryUnknown && volume->VirtualDevice.empty()
+                        && volume->MountPoint.empty(), "ambiguous or unreadable inventory published an attachment");
+        }
         Inventory=Read(root+"/absent"); core.UpdateMountedVolumesInfo(volumes);
         for(auto volume:volumes)Require(volume->Discovery==VolumeInfo::ImageAbsent, "absent status");
         Inventory=Read(root+"/exact"); core.UpdateMountedVolumeInfo(volumes.front());
-        Require(Queries==4 && volumes.front()->VirtualDevice=="/dev/disk42", "destructive lookup reused display snapshot");
-        std::cout << "PASS: exact/alias matches, unrelated and incomplete inventories, batch query count, unknown/absent states, fresh lookup\n";
+        Require(Queries==5 && volumes.front()->VirtualDevice=="/dev/disk42", "destructive lookup reused display snapshot");
+        std::cout << "PASS: exact and alias matches, conflicting and incomplete inventories, batch queries, and fresh lookup\n";
         Inventory = Read(root + "/exact");
         CheckDismount(core, image, root);
-        std::cout << "PASS: FSKit deadlines, busy preservation, cleanup ordering, identity and explicit force\n";
+        std::cout << "PASS: FSKit deadlines, busy preservation, ambiguous attachments, cleanup ordering, identity and force\n";
         AttachReply = Read(root + "/attach");
         CheckAttach(core, image.substr(0, image.rfind('/')));
         std::cout << "PASS: FSKit attach deadline, read-only and attach-only flags, and one compatibility retry\n";
         CheckStartupRollback();
-        std::cout << "PASS: startup rollback preserves identity and reports unconfirmed cleanup\n";
+        std::cout << "PASS: startup rollback preserves identity, cleanup warnings, and the eject observer handoff\n";
         CheckMediaObservation();
         std::cout << "PASS: verified media is observed directly and incomplete attachment evidence requests a bounded lookup\n";
         SlotViewTest::CheckVisibleSlots();

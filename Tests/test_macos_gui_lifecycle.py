@@ -5,6 +5,7 @@ Requires a logged-in macOS desktop and no other LambCrypt or VeraCrypt processes
 Uses only a disposable container, isolated preferences, and a local app bundle.
 No fault injection, device reassignment, or forced unmount is performed.
 The default tests FUSE-T. Select --fskit-external-eject for signed FSKit and HFS+.
+Select --fskit-kernel-fat on an isolated Tahoe host for the signed FSKit CLI trial.
 """
 import argparse
 import errno
@@ -19,6 +20,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from xml.parsers.expat import ExpatError
 
 
 def is_fskit(binary):
@@ -40,6 +42,24 @@ def fskit_mounts(mount_table):
     return paths
 
 
+def require_no_retained_fat_image():
+    # Disk Arbitration can remove a mount-table row before it releases the image.
+    try:
+        inventory = plistlib.loads(subprocess.check_output(["/usr/bin/hdiutil", "info", "-plist"], timeout=8))
+    except (OSError, subprocess.SubprocessError, ValueError, ExpatError) as error:
+        raise RuntimeError("could not verify Disk Images inventory before the FAT trial") from error
+    if not isinstance(inventory, dict) or not isinstance(inventory.get("images"), list):
+        raise RuntimeError("Disk Images inventory is incomplete")
+    for record in inventory["images"]:
+        image = record.get("image-path") if isinstance(record, dict) else None
+        if not isinstance(image, str) or not image:
+            raise RuntimeError("Disk Images inventory is incomplete")
+        directories = Path(image).parts[:-1]
+        if any(part.startswith((".veracrypt_aux_mnt", "lambcrypt-fskit.", "lambcrypt-fat-repro-"))
+               for part in directories):
+            raise RuntimeError(f"a previous LambCrypt or VeraCrypt disk image remains attached at {image}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", required=True, type=Path)
@@ -47,20 +67,36 @@ def main():
                         help="Create and verify the container with this released FUSE-T client")
     parser.add_argument("--cli-only", action="store_true",
                         help="Verify the container round trip without launching the background GUI")
-    parser.add_argument("--fskit-external-eject", action="store_true",
-                        help="Test a signed FSKit bundle with HFS+ and Disk Arbitration eject")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--fskit-external-eject", action="store_true",
+                      help="Test a signed FSKit bundle with HFS+ and Disk Arbitration eject")
+    mode.add_argument("--fskit-kernel-fat", action="store_true",
+                      help="Test production FSKit read-write teardown with the kernel FAT driver")
+    parser.add_argument("--isolated-host", action="store_true",
+                        help="Confirm this is a dedicated test host for the FAT trial")
     parser.add_argument("--keep-artifacts", action="store_true")
     args = parser.parse_args()
+    if args.fskit_kernel_fat:
+        if not args.isolated_host:
+            parser.error("--fskit-kernel-fat requires --isolated-host")
+        if sys.platform != "darwin" or os.uname().machine != "arm64" or os.geteuid() == 0:
+            parser.error("run the kernel FAT trial as a regular user on Apple Silicon macOS")
+    fskit = args.fskit_external_eject or args.fskit_kernel_fat
+    cli_only = args.cli_only or args.fskit_kernel_fat
     binary = args.binary.resolve(strict=True)
     release = args.release_binary.resolve(strict=True) if args.release_binary else binary
-    if args.fskit_external_eject:
+    if fskit:
         if (not is_fskit(binary) or binary.parent.name != "MacOS" or binary.parents[2].suffix != ".app"
-                or args.cli_only or args.release_binary):
-            parser.error("--fskit-external-eject requires a signed FSKit bundle and the background GUI")
-        subprocess.run(["/usr/bin/codesign", "--verify", "--deep", "--strict", binary.parents[2]],
-                       check=True, timeout=10)
+                or args.release_binary or (args.fskit_external_eject and cli_only)):
+            parser.error("the FSKit modes require a signed FSKit bundle and no release binary")
+        app = binary.parents[2]
+        if args.fskit_kernel_fat:
+            extension = app / "Contents/Extensions/LambCryptFSKit.appex/Contents"
+            if Path("/Applications") in app.parents or not (extension / "embedded.provisionprofile").is_file():
+                parser.error("the kernel FAT trial requires a provisioned scratch FSKit bundle")
+        subprocess.run(["/usr/bin/codesign", "--verify", "--deep", "--strict", app], check=True, timeout=10)
     elif is_fskit(binary) or is_fskit(release):
-        parser.error("the FUSE-T check uses FAT. For FSKit, use --fskit-external-eject with the signed app")
+        parser.error("select an explicit FSKit mode for the signed app")
 
     def mounts():
         return subprocess.check_output(["/sbin/mount"], text=True, timeout=8)
@@ -68,12 +104,14 @@ def main():
     initial_mounts = mounts()
     if ".veracrypt_aux_mnt" in initial_mounts or fskit_mounts(initial_mounts):
         raise RuntimeError("Dismount existing LambCrypt or VeraCrypt volumes before this isolated GUI test")
+    if args.fskit_kernel_fat:
+        require_no_retained_fat_image()
     processes = subprocess.check_output(["/bin/ps", "-axo", "comm="], text=True)
     if any(Path(line.strip()).name.lower() in {"lambcrypt", "lambcrypt-fskit", "veracrypt"}
            for line in processes.splitlines()):
         raise RuntimeError("Close other LambCrypt or VeraCrypt processes before this isolated GUI test")
 
-    root = Path(tempfile.mkdtemp(prefix="vc-gui-lifecycle-")).resolve()
+    root = Path(tempfile.mkdtemp(prefix="vc-gui-lifecycle-", dir="/private/tmp" if args.fskit_kernel_fat else None)).resolve()
     print("Artifacts:", root, flush=True)
     temporary = root / "tmp"
     mountpoint = root / "mount"
@@ -90,7 +128,7 @@ def main():
     ) + "</configuration></VeraCrypt>")
     env = dict(os.environ, TMPDIR=str(temporary) + "/", XDG_CONFIG_HOME=str(root / "config"))
     executable = binary
-    if not args.cli_only:
+    if not cli_only:
         contents = binary.parent.parent
         in_app_bundle = (binary.parent.name == "MacOS" and contents.name == "Contents"
                          and contents.parent.suffix == ".app" and (contents / "Info.plist").is_file())
@@ -111,29 +149,51 @@ def main():
     succeeded = False
 
     def run(label, command, timeout=90, expected_returncode=0):
-        result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=timeout)
-        (root / (label + ".log")).write_text(result.stdout + result.stderr)
+        log = root / (label + ".log")
+        try:
+            result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired as error:
+            log.write_bytes((error.stdout or b"") + (error.stderr or b"") + f"\nTimed out after {timeout} seconds.\n".encode())
+            raise
+        log.write_text(result.stdout + result.stderr)
         if result.returncode != expected_returncode:
-            raise RuntimeError(f"{label} failed; see {root / (label + '.log')}")
+            raise RuntimeError(f"{label} failed; see {log}")
         return result
 
-    def vc(label, *options, client=binary):
-        run(label, [client, "--text", "--non-interactive", *options])
+    def vc(label, *options, client=binary, expected_returncode=0):
+        return run(label, [client, "--text", "--non-interactive", *options],
+                   expected_returncode=expected_returncode)
 
     def mount(read_only=False, client=binary):
         nonlocal active, mount_client
         mount_client = client
-        before = fskit_mounts(mounts()) if args.fskit_external_eject else set()
-        vc("mount", "--mount", volume, mountpoint, "--password=" + password,
+        before = fskit_mounts(mounts()) if fskit else set()
+        target = "--filesystem=none" if args.fskit_kernel_fat else mountpoint
+        label = "mount-readonly" if args.fskit_kernel_fat and read_only else "mount"
+        vc(label, "--mount", volume, target, "--password=" + password,
            "--pim=1", "--keyfiles=", "--protect-hidden=no",
            *(["--mount-options=ro"] if read_only else []), client=client)
-        if args.fskit_external_eject:
+        if fskit:
             aux, = fskit_mounts(mounts()) - before
             assert aux.parent.as_posix().startswith("/private/tmp/lambcrypt-fskit."), aux
             workers = subprocess.check_output(["/usr/sbin/lsof", "-t", volume], text=True, timeout=8)
             pid, = {int(pid) for pid in workers.split()}
             active = (pid, aux, None)
-            confirm_fskit_attachment(aux, read_only)
+            if args.fskit_kernel_fat:
+                image, = fskit_images(aux)
+                assert not any(entry.get("mount-point") for entry in image["system-entities"])
+                device = kernel_fat_device(image, read_only)
+                evidence = "fat-attachment-readonly.plist" if read_only else "fat-attachment.plist"
+                (root / evidence).write_bytes(plistlib.dumps({
+                    "device": device, "writeable": image["writeable"],
+                    "uses-helper": bool(image.get("hdid-pid")), "diskimages2": bool(image.get("diskimages2")),
+                }))
+                options = "ro,nosuid,nodev" if read_only else "nosuid,nodev"
+                run("mount-kernel-fat-readonly" if read_only else "mount-kernel-fat",
+                    ["/sbin/mount_msdos", "-o", options, device, mountpoint], timeout=15)
+                assert confirm_kernel_fat(aux, read_only) == device
+            else:
+                confirm_fskit_attachment(aux, read_only)
             return
         identities = list(temporary.glob("**/.veracrypt_aux_mnt*/shutdown"))
         assert len(identities) == 1, "Expected one disposable FUSE-T service"
@@ -152,14 +212,34 @@ def main():
                 raise AssertionError("Disposable service still running")
             assert not aux.exists() and not aux.parent.exists(), "Auxiliary mount or directory remains"
             assert endpoint is None or not endpoint.exists(), "Shutdown endpoint remains"
+            if args.fskit_kernel_fat:
+                assert not fskit_images(aux), "Disposable Disk Images attachment remains"
         assert str(root) not in mounts(), "Disposable mount remains"
         handles = subprocess.run(["/usr/sbin/lsof", "-t", str(volume)], capture_output=True, text=True)
         assert handles.returncode == 1 and not handles.stdout.strip(), "Backing file still open"
 
-    def confirm_fskit_attachment(aux, read_only):
+    def fskit_images(aux):
         inventory = subprocess.check_output(["/usr/bin/hdiutil", "info", "-plist"], timeout=8)
-        image, = (image for image in plistlib.loads(inventory)["images"]
-                  if image.get("image-path") == str(aux / "volume.dmg"))
+        return [image for image in plistlib.loads(inventory)["images"]
+                if image.get("image-path") == str(aux / "volume.dmg")]
+
+    def kernel_fat_device(image, read_only):
+        assert image.get("writeable") is (not read_only), "Unexpected Disk Images protection"
+        device, = (entry["dev-entry"] for entry in image["system-entities"]
+                   if re.fullmatch(r"/dev/disk[0-9]+", entry.get("dev-entry", "")))
+        return device
+
+    def confirm_kernel_fat(aux, read_only):
+        image, = fskit_images(aux)
+        device = kernel_fat_device(image, read_only)
+        prefix = f"{device} on {mountpoint} (msdos, "
+        line, = (line for line in mounts().splitlines() if line.startswith(prefix))
+        flags = line[len(prefix):].removesuffix(")").split(", ")
+        assert "fskit" not in flags and ("read-only" in flags) == read_only, line
+        return device
+
+    def confirm_fskit_attachment(aux, read_only):
+        image, = fskit_images(aux)
         device, = (entity["dev-entry"] for entity in image["system-entities"]
                    if entity.get("mount-point") == str(mountpoint))
         assert re.fullmatch(r"/dev/disk[0-9]+(?:s[0-9]+)?", device), device
@@ -208,28 +288,52 @@ with open(sys.argv[1], 'r+b') as stream:
         fcntl.lockf(stream, fcntl.LOCK_UN, 1)
         run("lock-after-release", [*probe, "0"], timeout=8)
 
+    def check_busy_kernel_fat(stream, payload):
+        pid, aux, _ = active
+        device = confirm_kernel_fat(aux, read_only=False)
+        result = vc("busy-kernel-fat-unmount", "--unmount", volume, expected_returncode=1)
+        assert "The volume is in use." in result.stdout + result.stderr
+        listing = vc("busy-kernel-fat-list", "--list", "--verbose", volume).stdout
+        assert str(volume) in listing and str(mountpoint) in listing
+        assert confirm_kernel_fat(aux, read_only=False) == device
+        holders = run("busy-kernel-fat-worker", ["/usr/sbin/lsof", "-t", volume], timeout=8)
+        assert {int(word) for word in holders.stdout.split()} == {pid}
+        stream.seek(0)
+        assert stream.read() == payload
+
     filesystem = "HFS+" if args.fskit_external_eject else "FAT"
     try:
         vc("create", "--create", volume, "--size=33554432", "--volume-type=normal",
            "--encryption=AES", "--hash=sha512", f"--filesystem={filesystem}", "--password=" + password,
            "--pim=1", "--keyfiles=", "--random-source=/dev/urandom", client=release)
         mount()
+        if args.fskit_kernel_fat:
+            marker = mountpoint / "before.bin"
+            marker.write_bytes(b"LambCrypt FAT test")
+            renamed = marker.with_name("after.bin")
+            marker.rename(renamed)
+            assert renamed.read_bytes() == b"LambCrypt FAT test"
+            renamed.unlink()
         payload = bytes(range(256)) * 4096
-        with payload_path.open("wb") as stream:
+        with payload_path.open("w+b" if args.fskit_kernel_fat else "wb") as stream:
             stream.write(payload)
             stream.flush()
             if args.fskit_external_eject:
                 check_writable_metadata(stream)
             os.fsync(stream.fileno())
+            if args.fskit_kernel_fat:
+                check_busy_kernel_fat(stream, payload)
         vc("unmount-write", "--unmount", volume)
         confirm_closed()
-        if args.release_binary or args.cli_only:
+        if args.release_binary or cli_only:
             mount(read_only=True, client=release)
             assert hashlib.sha256((mountpoint / "payload.bin").read_bytes()).digest() == hashlib.sha256(payload).digest()
+            if args.fskit_kernel_fat:
+                assert not (mountpoint / "before.bin").exists() and not (mountpoint / "after.bin").exists()
             vc("unmount-release", "--unmount", volume, client=release)
             confirm_closed()
             print("PASS: create, write/fsync, read-only remount, payload integrity, service/file cleanup", flush=True)
-        if args.cli_only:
+        if cli_only:
             succeeded = True
             return
         mount(read_only=True)
@@ -260,7 +364,8 @@ with open(sys.argv[1], 'r+b') as stream:
         if gui and gui.poll() is None:
             gui.terminate()
             gui.wait(timeout=10)
-        if str(root) in mounts() or (active and active[1].exists()):
+        # Keep a failed FAT trial available for diagnosis without another detach.
+        if not args.fskit_kernel_fat and (str(root) in mounts() or (active and active[1].exists())):
             vc("test-cleanup", "--unmount", volume, client=mount_client)
         if succeeded and not args.keep_artifacts:
             confirm_closed()

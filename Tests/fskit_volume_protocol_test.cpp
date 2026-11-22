@@ -1,6 +1,8 @@
 #include "Driver/FSKit/VolumeProtocol.h"
 #include "Crypto/cpu.h"
 #include "Volume/Pkcs5Kdf.h"
+#include <algorithm>
+#include <errno.h>
 #include <iostream>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -9,8 +11,62 @@
 
 using namespace VeraCrypt;
 
+enum class WriteFault { None, Interrupt, Short, Zero, ShortThenFull, Full };
+static WriteFault nextWriteFault = WriteFault::None;
+static bool interruptNextRead = false;
+
+extern "C" ssize_t TestPositionedRead (int fd, void *data, size_t length, off_t offset)
+{
+	if (interruptNextRead)
+	{
+		interruptNextRead = false;
+		errno = EINTR;
+		return -1;
+	}
+	return pread (fd, data, length, offset);
+}
+
+extern "C" ssize_t TestPositionedWrite (int fd, const void *data, size_t length, off_t offset)
+{
+	switch (nextWriteFault)
+	{
+	case WriteFault::Interrupt:
+		nextWriteFault = WriteFault::Short;
+		errno = EINTR;
+		return -1;
+	case WriteFault::Zero:
+		errno = EACCES;
+		return 0;
+	case WriteFault::Full:
+		errno = ENOSPC;
+		return -1;
+	case WriteFault::Short:
+	case WriteFault::ShortThenFull:
+		nextWriteFault = nextWriteFault == WriteFault::ShortThenFull ? WriteFault::Full : WriteFault::None;
+		length /= 2;
+		break;
+	case WriteFault::None:
+		break;
+	}
+	return pwrite (fd, data, length, offset);
+}
+
 int main (int argc, char **argv)
 {
+	if (argc == 2 && string (argv[1]) == "--check-buffer-erase")
+	{
+		SecureBuffer buffer;
+		buffer.Erase();
+		for (size_t count : {1, 31, 128 * 1024 + 1, 1024 * 1024})
+		{
+			buffer.Allocate (count);
+			std::fill_n (buffer.Ptr(), count, 0xa5);
+			buffer.Erase();
+			if (std::any_of (buffer.Ptr(), buffer.Ptr() + count, [] (uint8 byte) { return byte != 0; }))
+				return 1;
+		}
+		return 0;
+	}
 	if (argc == 6 && string (argv[1]) == "--flush")
 	{
 		try
@@ -38,8 +94,17 @@ int main (int argc, char **argv)
 		catch (const SystemException &error) { return error.GetErrorCode() == ESTALE ? 4 : 1; }
 		catch (...) { return 1; }
 	}
-	if (argc != 4 && (argc != 5 || strcmp (argv[4], "write") != 0))
+	if (argc != 4 && argc != 5)
 		return 2;
+	const string mode = argc == 5 ? argv[4] : "";
+	const bool readOnly = argc == 4 || mode == "read-interrupted";
+	if (!readOnly)
+	{
+		if (mode == "write-interrupted") nextWriteFault = WriteFault::Interrupt;
+		else if (mode == "write-zero") nextWriteFault = WriteFault::Zero;
+		else if (mode == "write-full") nextWriteFault = WriteFault::ShortThenFull;
+		else if (mode != "write") return 2;
+	}
 
 #if defined(CRYPTOPP_CPUID_AVAILABLE)
 	DetectX86Features();
@@ -50,8 +115,9 @@ int main (int argc, char **argv)
 	Volume volume;
 	shared_ptr <VolumePassword> password (new VolumePassword (reinterpret_cast <const uint8 *> ("test"), 4));
 	volume.Open (VolumePath (argv[1]), false, password, 0, Pkcs5Kdf::GetAlgorithm (L"HMAC-SHA-512"),
-		shared_ptr <KeyfileList> (), false, argc == 5 ? VolumeProtection::None : VolumeProtection::ReadOnly);
+		shared_ptr <KeyfileList> (), false, readOnly ? VolumeProtection::ReadOnly : VolumeProtection::None);
 	password.reset ();
+	interruptNextRead = mode == "read-interrupted";
 
 	const int listener = socket (AF_UNIX, SOCK_STREAM, 0);
 	sockaddr_un address = {};

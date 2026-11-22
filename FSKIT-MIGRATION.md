@@ -69,11 +69,14 @@ The default build's volume library also matched all five VeraCrypt fixtures.
 MacFUSE live mounts and runtime measurements still require an enabled driver.
 
 The macOS build wrapper and Make now default to a 26.0 deployment target for
-all three backends, independent of the selected Xcode SDK. Fresh arm64 bundles
-linked with SDK 27.2 and recorded 26.0 in their Mach-O and bundle metadata.
-Crypto self-tests passed for all three. The macFUSE volume library verified
-the five VeraCrypt fixtures, and FUSE-T verified the SHA-512 fixture. These
-checks used an unsigned FSKit bundle and exercised no live mounts.
+all three backends, independent of the selected Xcode SDK. The refreshed
+arm64 scratch bundles include the recent teardown and write fixes. All three
+linked with SDK 27.2, recorded 26.0 in their Mach-O and bundle metadata, and
+passed their crypto self-tests on Tahoe. The MacFUSE volume library verified
+all five VeraCrypt fixtures. FUSE-T and FSKit verified the SHA-512 fixture.
+The current FSKit CLI also created a disposable FAT volume whose full
+plaintext matched an independent upstream VeraCrypt reader. These checks
+used unsigned bundles and exercised no live mounts.
 
 Both FUSE bundles contain the English guide and have no FSKit extension. The
 signed FSKit scratch bundle contains the same English guide and its own
@@ -168,6 +171,11 @@ read-only HFS+ disk after the mount command returned its timeout. The payload
 matched and a later external eject released the worker automatically. When
 the disk never appeared, the observation helper exited and LambCrypt still
 listed the worker for explicit dismount.
+
+If attachment starts and rollback cannot confirm teardown, LambCrypt also
+requests this observation before closing the activation channel. The
+offline startup regression checks that the worker receives exactly one
+handoff and that the caller retains the original cleanup warning.
 
 A successful attach also requests this lookup when the first inventory and
 attach result do not identify the same disk or the first IOKit lookup returns
@@ -268,6 +276,10 @@ FAT and FSKit configuration. The exact kernel dependency remains unknown.
    attachment or incomplete inventory leaves the backing mount and worker
    available. The offline check covers ordinary and forced dismount and
    reuse of the old BSD device number by an unrelated image.
+   When more than one record refers to the same backing image, the records
+   must agree on its device and mount point. Conflicts leave discovery
+   unconfirmed and stop teardown before invoking detach. The regression
+   covers canonical paths, aliases, and conflicts after a successful detach.
 
    In a separate socket-only read benchmark against the same worker, the
    deadlines reduced median 16 KiB throughput from 631 to 590 MiB/s after
@@ -286,6 +298,36 @@ FAT and FSKit configuration. The exact kernel dependency remains unknown.
    with the worker change alone, and from 617 to 598 MiB/s when combined with
    a scatter read in the extension. The worker still sends the header and
    payload separately.
+
+   The Swift client now encodes the fixed 40-byte request header directly
+   into a temporary buffer. On Apple Silicon with macOS 26.6.2, nine
+   interleaved, warmed runs per build measured a 16 KiB median of 605.4
+   MiB/s before and 610.2 MiB/s after. Two earlier comparisons measured
+   595.7 to 607.3 MiB/s and 601.5 to 603.8 MiB/s. Median throughput changed
+   by less than 0.2% at 128 KiB and 1 MiB in the nine-run comparison.
+   Each timed run read 128 MiB through the same Unix socket worker and
+   disposable VeraCrypt-format fixture. The existing protocol test checks
+   exact header bytes and verifies the VeraCrypt payload checksum.
+   These measurements cover the socket path.
+
+   A 4-second sample of the worker during 128 KiB encrypted socket writes
+   found 568 of 998 main-thread stacks in `Buffer::Erase`. The macOS build
+   now clears buffers with `memset_s` and uses the existing volatile wipe if
+   the system call reports an error. On an Apple M5 with macOS 26.6.2, the
+   median for 128 KiB writes rose from 1,120 to 1,830 MiB/s. At 1 MiB it
+   rose from 1,240 to 2,838 MiB/s. Both measurements used seven interleaved
+   pairs, with one warm-up and three timed 128 MiB passes per build in each
+   pair. Each writable run used a disposable container and verified its
+   written data after a flush. The suite also checks that the full buffer
+   is erased at small, odd, and bulk allocation sizes. Mounted copy speeds
+   for this change remain unmeasured.
+
+   The encrypted worker now completes short positioned writes and retries
+   interruptions before reporting success. Protocol tests injected both
+   faults while writing a disposable VeraCrypt fixture, then synchronized and
+   reopened it read-only to verify the payload. A follow-up storage error
+   still returns its original error code.
+
    FSKit discovery reads the worker's current counters directly. With two
    disposable HFS+ images attached read-only, activity on the second moved
    only its own dismount deadline.
@@ -384,7 +426,11 @@ FAT and FSKit configuration. The exact kernel dependency remains unknown.
    worker still stalls, compare the callbacks, backing-file open flags, and
    worker traffic. Apple's kernel FAT driver passed unprivileged read-only
    mounting on a plain image and an FSKit-backed VeraCrypt fixture. The new
-   diagnostic runner passed offline checks. The live writable kernel-driver
+   diagnostic runner passed offline checks. The
+   [production kernel FAT trial](Tests/README-macos-lifecycle.md#isolated-production-kernel-fat-trial)
+   checks verified attachment, busy refusal, payload persistence, and worker
+   and image release with the signed LambCrypt CLI. Its command and
+   failure-order checks passed offline. The live writable kernel-driver
    trials remain pending. Writable FAT parity requires clean and
    busy-release dismount, read-only remount with a matching checksum, Finder
    eject, and confirmed worker exit. MacFUSE stays the default while this
@@ -419,11 +465,44 @@ FAT and FSKit configuration. The exact kernel dependency remains unknown.
    [Apple Disk Arbitration source](https://github.com/apple-oss-distributions/DiskArbitration/blob/a542bda934211dc3c301bfdcc7f21349c4164a85/diskarbitrationd/DARequest.c#L1345-L1475)
 
    The exported image refused writable opens, the exact attached image was
-   read-only, and the diagnostic had no encrypted worker. The kernel wait
-   and its relationship to the writable FAT stall remain unverified. Run the
-   missing APFS control with automatic FAT and in-kernel Disk Images first
-   on the isolated host. Use the same read-only fixture and compare kernel
-   and FAT deactivation events before repeating the stalled FSKit case.
+   read-only, and the diagnostic had no encrypted worker. A later sample
+   of the retained FAT process located the read-only wait in
+   `FSVolumeConnector unmount:` and `FSBlockDeviceResource metadataReadInto`
+   through an IOKit call. The direct backing extension was idle in its
+   concurrent sample. The writable trace used the same initial FAT unmount
+   frames and blocked in the metadata write. Resolving the sampled call
+   sites against the installed Apple FAT binary identifies both waits in
+   the forced rewrite of the FAT clean flag. The read-only trial stalled
+   while reading the FAT block. The writable trial stalled during the
+   subsequent write. Apple's published implementation skips this rewrite
+   for FAT12. [Apple FAT unmount code](https://github.com/apple-oss-distributions/msdosfs/blob/8aac438d87dc696cf424f0c0f46e874e7d85b9f0/msdos_appex/FATVolume.m#L1905-L1938),
+   [Apple FAT flag update](https://github.com/apple-oss-distributions/msdosfs/blob/8aac438d87dc696cf424f0c0f46e874e7d85b9f0/msdos_appex/FATManager.m#L1153-L1214)
+
+   A read-only `fsck_msdos` scan of the diagnostic FAT16 fixture, the APFS
+   control, and the captured writable-stall image reported no structural
+   errors. Both FAT copies in the diagnostic and APFS images were marked
+   clean. The writable image retained its dirty flag in both copies. The
+   kernel dependency behind the wait remains unverified. The diagnostic
+   allows up to 12 seconds for the two-second process sample.
+   Run the missing APFS control with automatic FAT and in-kernel Disk Images
+   first on the isolated host. The runner saves a bounded kernel and Disk
+   Arbitration trace for completed detaches after checking the mount and
+   image inventories. Use the same read-only fixture and compare kernel
+   and FAT deactivation events before repeating the stalled case.
    The runner holds a per-user lock and checks macOS's mount table and Disk
    Images inventory before preparing each new fixture. It refused to start
    another case while the affected auxiliary mount remained present.
+
+   The four successful production read-only trials used a 256 KiB FAT12
+   VeraCrypt fixture and mounted FAT separately after attachment. The stalled
+   direct FSKit trial mounted its FAT16 fixture during attachment. The FAT16
+   diagnostic image matches the earlier successful APFS control byte for byte
+   and has the same geometry as the captured production writable-stall image.
+   The diagnostic now offers the verified VeraCrypt FAT12 plaintext and a
+   separate automatic read-only mount as independent controls. Once the
+   original APFS control passes, keep the original mount sequence when
+   comparing FAT12 with FAT16. FAT12 exercises unmount without the forced
+   flag rewrite. Vary the mount sequence in a separate comparison with a
+   fixed fixture. Run the matching APFS control before each FSKit case.
+   The new controls passed offline checks and await isolated Tahoe
+   verification.

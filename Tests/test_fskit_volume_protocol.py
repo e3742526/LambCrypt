@@ -313,12 +313,21 @@ struct Client {
 
 def build(build_dir, work):
     source = ROOT / "src"
-    subprocess.run([
+    compiler = [
         "clang++", "-std=c++11", "-O2", "-DTC_UNIX", "-DTC_BSD", "-DTC_MACOSX",
         "-DARGON2_NO_THREADS", "-D_FILE_OFFSET_BITS=64",
         "-I", source, "-I", source / "Crypto", "-I", source / "Crypto/Argon2/include",
-        "-I", source / "PKCS11", ROOT / "Tests/fskit_volume_protocol_test.cpp",
-        FSKIT / "VolumeProtocol.cpp", build_dir / "Volume/Volume.a",
+        "-I", source / "PKCS11",
+    ]
+    # Substitute positioned I/O only in the production file implementation.
+    # Successful reads and writes still use real system calls.
+    subprocess.run([
+        *compiler, "-Dpread=TestPositionedRead", "-Dpwrite=TestPositionedWrite",
+        "-c", source / "Platform/Unix/File.cpp", "-o", work / "file-io-test.o",
+    ], check=True)
+    subprocess.run([
+        *compiler, ROOT / "Tests/fskit_volume_protocol_test.cpp", FSKIT / "VolumeProtocol.cpp",
+        work / "file-io-test.o", build_dir / "Volume/Volume.a",
         build_dir / "Platform/Platform.a", "-framework", "CoreFoundation",
         "-framework", "IOKit", "-o", work / "server",
     ], check=True)
@@ -343,11 +352,11 @@ def build(build_dir, work):
 
 
 @contextlib.contextmanager
-def serve(work, count, writable=False):
+def serve(work, count, mode=None):
     start = time.time_ns() // 1000
     with subprocess.Popen([
         work / "server", work / FIXTURE.name, work / "io", str(count),
-        *(["write"] if writable else []),
+        *([mode] if mode else []),
     ], stdout=subprocess.PIPE, text=True) as process:
         try:
             with selectors.DefaultSelector() as selector:
@@ -376,6 +385,29 @@ def exchange(work, packet):
 def read_control(work):
     line = subprocess.check_output([work / "server", "--control", work / "io"], text=True, timeout=4)
     return tuple(map(int, line.split()))
+
+
+def inspect_worker(work):
+    packet = struct.pack("<IIQII16s", SIGNATURE, 1, 0, 40, 0, bytes(16))
+    reply = exchange(work, packet)
+    assert struct.unpack_from("<II", reply) == (0, 40)
+    return struct.unpack_from("<QQ16sQ", reply, 8)
+
+
+def check_positioned_write_failures(work):
+    failure_dir = work / "write-failures"
+    failure_dir.mkdir(mode=0o700)
+    (failure_dir / "server").symlink_to(work / "server")
+    fixture = FIXTURE.read_bytes()
+    backing = failure_dir / FIXTURE.name
+    for mode, code in (("write-zero", errno.EIO), ("write-full", errno.ENOSPC)):
+        backing.write_bytes(fixture)
+        with serve(failure_dir, 2, mode=mode):
+            _, _, generation, _ = inspect_worker(failure_dir)
+            data = b"1" * 1024
+            packet = struct.pack("<IIQII16s", SIGNATURE, 4, 4096, len(data), 0, generation) + data
+            assert exchange(failure_dir, packet) == struct.pack("<II", code, 0), mode
+        assert (backing.read_bytes() != fixture) == (mode == "write-full"), mode
 
 
 def check_write_request_deadline(work, generation):
@@ -445,7 +477,7 @@ def check_native_flush(work):
     endpoint = work / "io"
     fixture = work / FIXTURE.name
     inspect = struct.pack("<IIQII16s", SIGNATURE, 1, 0, 40, 0, bytes(16))
-    with serve(work, 11, writable=True) as serial:
+    with serve(work, 11, mode="write") as serial:
         command = [work / "server", "--flush", endpoint]
         for target in ((serial + 1, fixture, 1), (serial, work / "different.hc", 1), (serial, fixture, 2)):
             arguments = [str(value) for value in target]
@@ -582,10 +614,12 @@ def main():
         work = Path(directory)
         shutil.copyfile(FIXTURE, work / FIXTURE.name)
         build(args.build_dir.resolve(), work)
+        subprocess.run([work / "server", "--check-buffer-erase"], check=True, timeout=10)
         command = [work / "client", work, DIGESTS[FIXTURE.name]]
         with serve(work, 2):
             subprocess.run([work / "client", work, "--enumeration"], check=True, timeout=10)
-        with serve(work, 19) as first_serial:
+        # Interrupt the first ciphertext read after the worker opens the volume.
+        with serve(work, 19, mode="read-interrupted") as first_serial:
             assert read_control(work) == (first_serial, 0)
             generation = uuid.UUID(subprocess.check_output(command, text=True, timeout=20).strip())
             serial, activity = read_control(work)
@@ -607,12 +641,9 @@ def main():
         with serve(work, 7) as later_serial:
             assert later_serial > first_serial
             subprocess.run([*command, str(generation)], check=True, timeout=20)
-        with serve(work, 19, writable=True):
+        with serve(work, 19, mode="write-interrupted"):
             # Inspect the writable worker independently before the Swift client runs.
-            inspection = struct.pack("<IIQII16s", SIGNATURE, 1, 0, 40, 0, bytes(16))
-            reply = exchange(work, inspection)
-            assert struct.unpack_from("<II", reply) == (0, 40)
-            image_size, _, writable_id, _ = struct.unpack_from("<QQ16sQ", reply, 8)
+            image_size, _, writable_id, _ = inspect_worker(work)
             for offset, expected_error in ((0, 0), (image_size, 0), (image_size + 1, errno.ENOSPC)):
                 empty_write = struct.pack("<IIQII16s", SIGNATURE, 4, offset, 0, 0, writable_id)
                 assert exchange(work, empty_write) == struct.pack("<II", expected_error, 0), offset
@@ -621,6 +652,13 @@ def main():
             check_write_request_deadline(work, writable_id)
             assert (work / FIXTURE.name).read_bytes() == FIXTURE.read_bytes()
             subprocess.run([*command, str(generation), "--write"], check=True, timeout=20)
+        with serve(work, 3):
+            _, _, reopened_id, read_only = inspect_worker(work)
+            assert read_only == 1 and reopened_id != writable_id
+            for offset, data in ((511, b"\x5a\xc3\x13"), (4096, b"\x71" * (128 * 1024))):
+                packet = struct.pack("<IIQII16s", SIGNATURE, 2, offset, len(data), 0, reopened_id)
+                assert exchange(work, packet) == struct.pack("<II", 0, len(data)) + data
+        check_positioned_write_failures(work)
         not_private = work / "not-private"
         not_private.mkdir()
         not_private.chmod(0o755)
@@ -639,6 +677,9 @@ def main():
     print("PASS: inspection metadata bounds and buffer clearing after an interrupted multi-chunk read")
     print("PASS: FSKit provider honors worker protection and read-only load options")
     print("PASS: FSKit enumeration verifier, packing, resumption, attributes, EOF, and invalid cookies")
+    print("PASS: secure erase clears the full allocation across small, odd, and bulk buffer sizes")
+    print("PASS: the encrypted read retries EINTR and matches the VeraCrypt plaintext checksum")
+    print("PASS: encrypted writes resume after interruption and short progress, preserve I/O errors, and survive reopen")
     print("PASS: VeraCrypt payload, control metadata, EOF, malformed input, worker identity, empty, partial and bulk writes, request and reply deadlines, sync")
 
 

@@ -112,6 +112,28 @@ python3 Tests/test_macos_gui_lifecycle.py --fskit-external-eject --keep-artifact
   --binary "$VC_FSKIT_BUILD_SRC/Main/LambCrypt-FSKit.app/Contents/MacOS/LambCrypt-FSKit"
 ```
 
+### Isolated production kernel FAT trial
+
+After the direct-backing control passes with default Disk Images and the
+kernel FAT driver, run the matching trial on isolated Apple Silicon Tahoe.
+Use a provisioned, signed scratch FSKit app with its extension enabled.
+The preflight checks both the mount table and the Disk Images inventory for
+retained LambCrypt, VeraCrypt, or FAT diagnostic images before creating a container.
+
+```sh
+python3 -B Tests/test_macos_gui_lifecycle.py --fskit-kernel-fat --isolated-host --keep-artifacts \
+  --binary "$VC_FSKIT_BUILD_SRC/Main/LambCrypt-FSKit.app/Contents/MacOS/LambCrypt-FSKit"
+```
+
+The CLI attaches the disposable FAT image through the production encrypted
+worker. The test confirms the exact Disk Images record, then mounts its
+device with Apple's `mount_msdos` and checks the kernel FAT and protection
+flags. It checks file creation, rename and deletion, a synced payload, and
+busy refusal with the original mount still listed. It then verifies ordinary
+dismount, worker and image release, and payload integrity after a read-only
+reopen. A failure leaves the disposable volume and evidence for diagnosis.
+Native Finder eject has its own smoke check.
+
 The inactivity check takes about two minutes. It attaches two
 disposable HFS+ containers read-only and verifies independent idle timers. Use
 `--active-second` to read the second image and verify that only its deadline

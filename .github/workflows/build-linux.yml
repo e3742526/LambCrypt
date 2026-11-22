@@ -80,10 +80,8 @@ on:
       - 'Tests/smartcard_parser_test.cpp'
       - '.github/workflows/build-linux.yml'
 
-# The cache-cleanup step deletes old Actions caches; nothing else writes.
 permissions:
   contents: read
-  actions: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -107,7 +105,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
     - name: Generate cache key
       id: cache-key
@@ -115,7 +113,7 @@ jobs:
         echo "cache_key=${{ matrix.os }}-${{ env.WXWIDGETS_VERSION }}-${{ hashFiles('src/Makefile', '.github/workflows/build-linux.yml') }}" >> "$GITHUB_OUTPUT"
 
     - name: Cache wxBuildConsole
-      uses: actions/cache@v5
+      uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       id: cache-wxbuildconsole
       with:
         path: /tmp/wxBuildConsole
@@ -123,14 +121,14 @@ jobs:
 
     - name: Cache wxBuildGUI
       if: matrix.os == 'ubuntu-24.04'
-      uses: actions/cache@v5
+      uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       id: cache-wxbuildgui
       with:
         path: /tmp/wxBuildGUI
         key: wxBuildGUI-${{ steps.cache-key.outputs.cache_key }}
 
     - name: Cache wxWidgets
-      uses: actions/cache@v5
+      uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       id: cache-wxwidgets
       with:
         path: /tmp/wxWidgets-${{ env.WXWIDGETS_VERSION }}
@@ -175,13 +173,13 @@ jobs:
         fi
 
     - name: Upload GUI .deb packages
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: lambcrypt-gui-debs-${{ matrix.os }}
         path: /tmp/LambCrypt_Packaging/GUI/Packaging/lambcrypt-*.*
 
     - name: Upload Console .deb packages
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: lambcrypt-console-debs-${{ matrix.os }}
         path: /tmp/LambCrypt_Packaging/Console/Packaging/lambcrypt-console-*.*
@@ -285,29 +283,4 @@ jobs:
         fi
         sudo lambcrypt -d
         sudo apt remove -y lambcrypt-console
-
-    - name: Cleanup old caches
-      uses: actions/github-script@v8
-      if: ${{ always() && github.event_name == 'push' && github.ref == 'refs/heads/master' }}
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          const caches = await github.rest.actions.getActionsCacheList({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-          })
-          for (const cache of caches.data.actions_caches) {
-            if (cache.key.startsWith('wxBuildConsole-${{ matrix.os }}-') || cache.key.startsWith('wxBuildGUI-${{ matrix.os }}-') || cache.key.startsWith('wxWidgets-${{ matrix.os }}-')) {
-              if (cache.key !== `wxBuildConsole-${{ steps.cache-key.outputs.cache_key }}` &&
-                  cache.key !== `wxBuildGUI-${{ steps.cache-key.outputs.cache_key }}` &&
-                  cache.key !== `wxWidgets-${{ steps.cache-key.outputs.cache_key }}`) {
-                console.log(`Deleting cache with key: ${cache.key}`)
-                await github.rest.actions.deleteActionsCacheById({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  cache_id: cache.id,
-                })
-              }
-            }
-          }
 
