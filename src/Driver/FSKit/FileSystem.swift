@@ -215,8 +215,17 @@ final class VolumeImage: FSVolume, FSVolume.Operations, FSVolume.OpenCloseOperat
     }
 
     func closeItem(_ item: FSItem, modes: FSVolume.OpenModes, replyHandler: @escaping (Error?) -> Void) {
-        do { _ = try checked(item); replyHandler(nil) }
-        catch { replyHandler(error) }
+        do {
+            let item = try checked(item)
+            // FSKit has no per-file fsync callback. Flush when the kernel
+            // releases write access to the decrypted disk image.
+            if item.operation == .readImage && !readOnly && !modes.contains(.write) {
+                try connection.flush(expecting: identifier)
+            }
+            replyHandler(nil)
+        } catch {
+            replyHandler(error)
+        }
     }
 
     func read(from item: FSItem, at offset: off_t, length: Int, into buffer: FSMutableFileDataBuffer,
@@ -228,15 +237,9 @@ final class VolumeImage: FSVolume, FSVolume.Operations, FSVolume.OpenCloseOperat
             guard offset >= 0, length >= 0 else { throw POSIXError(.EINVAL) }
             try buffer.withUnsafeMutableBytes { destination in
                 guard length <= destination.count else { throw POSIXError(.EINVAL) }
-                while completed < length {
-                    let count = min(length - completed, VolumeConnection.maximumTransfer)
-                    let slice = UnsafeMutableRawBufferPointer(
-                        start: destination.baseAddress?.advanced(by: completed), count: count)
-                    let read = try connection.read(operation, expecting: identifier,
-                                                   at: UInt64(offset) + UInt64(completed), into: slice)
-                    completed += read
-                    if read < count { break }
-                }
+                let requested = UnsafeMutableRawBufferPointer(rebasing: destination[..<length])
+                try connection.read(operation, expecting: identifier, at: UInt64(offset),
+                                    into: requested, completed: &completed)
             }
             replyHandler(completed, nil)
         } catch {

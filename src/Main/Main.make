@@ -289,7 +289,7 @@ endif
 
 prepare: bundle
 ifeq "$(VC_OSX_FSKIT)" "1"
-	test -n "$(VC_APP_SIGN_IDENTITY)" || { echo "Set VC_APP_SIGN_IDENTITY to sign the FSKit app and extension." >&2; exit 1; }
+	@test -n "$$VC_APP_SIGN_IDENTITY" || { echo "Set VC_APP_SIGN_IDENTITY to sign the FSKit app and extension." >&2; exit 1; }
 	test -f "$$VC_FSKIT_PROVISIONING_PROFILE" || { echo "Set VC_FSKIT_PROVISIONING_PROFILE to the extension's Apple-issued provisioning profile." >&2; exit 1; }
 	@set -eu; \
 	signing_dir=$$(mktemp -d); \
@@ -313,13 +313,13 @@ ifeq "$(VC_OSX_FSKIT)" "1"
 		/usr/libexec/PlistBuddy -c "Add :com.apple.security.application-groups:0 string $$group_id" "$$entitlements"; \
 	done; \
 	cp "$$VC_FSKIT_PROVISIONING_PROFILE" "$(FSKIT_EXTENSION)/Contents/embedded.provisionprofile"; \
-	codesign --force --sign "$(VC_APP_SIGN_IDENTITY)" $(FSKIT_SIGN_TIMESTAMP) \
+	codesign --force --sign "$$VC_APP_SIGN_IDENTITY" $(FSKIT_SIGN_TIMESTAMP) \
 		--entitlements "$$signing_dir/entitlements.plist" "$(FSKIT_EXTENSION)"; \
-	codesign --force --sign "$(VC_APP_SIGN_IDENTITY)" $(FSKIT_SIGN_TIMESTAMP) \
+	codesign --force --sign "$$VC_APP_SIGN_IDENTITY" $(FSKIT_SIGN_TIMESTAMP) \
 		--entitlements "$$signing_dir/app-entitlements.plist" "$(APPNAME).app"
 else ifneq ("$(LOCAL_DEVELOPMENT_BUILD)","true")
-	test -n "$(VC_APP_SIGN_IDENTITY)" || { echo "Set VC_APP_SIGN_IDENTITY for a signed build."; exit 1; }
-	codesign -s "$(VC_APP_SIGN_IDENTITY)" --timestamp $(APPNAME).app
+	@test -n "$$VC_APP_SIGN_IDENTITY" || { echo "Set VC_APP_SIGN_IDENTITY for a signed build."; exit 1; }
+	codesign -s "$$VC_APP_SIGN_IDENTITY" --timestamp $(APPNAME).app
 endif
 
 ifeq "$(VC_OSX_FSKIT)" "1"
@@ -332,12 +332,12 @@ install: prepare
 
 package: prepare
 ifneq ("$(LOCAL_DEVELOPMENT_BUILD)","true")
-	test -n "$(VC_INSTALLER_SIGN_IDENTITY)" || { echo "Set VC_INSTALLER_SIGN_IDENTITY for a signed package."; exit 1; }
+	@test -n "$$VC_INSTALLER_SIGN_IDENTITY" || { echo "Set VC_INSTALLER_SIGN_IDENTITY for a signed package."; exit 1; }
 endif
 ifdef VC_LEGACY_BUILD
 	/usr/local/bin/packagesbuild $(BASE_DIR)/Setup/MacOSX/lambcrypt_Legacy.pkgproj
 ifneq ("$(LOCAL_DEVELOPMENT_BUILD)","true")
-	productsign --sign "$(VC_INSTALLER_SIGN_IDENTITY)" --timestamp "$(BASE_DIR)/Setup/MacOSX/LambCrypt Legacy $(TC_VERSION).pkg" $(BASE_DIR)/Setup/MacOSX/LambCrypt_$(TC_VERSION).pkg
+	productsign --sign "$$VC_INSTALLER_SIGN_IDENTITY" --timestamp "$(BASE_DIR)/Setup/MacOSX/LambCrypt Legacy $(TC_VERSION).pkg" $(BASE_DIR)/Setup/MacOSX/LambCrypt_$(TC_VERSION).pkg
 else
 	cp "$(BASE_DIR)/Setup/MacOSX/LambCrypt Legacy $(TC_VERSION).pkg" $(BASE_DIR)/Setup/MacOSX/LambCrypt_$(TC_VERSION).pkg
 endif
@@ -349,7 +349,7 @@ else
 	/usr/local/bin/packagesbuild $(BASE_DIR)/Setup/MacOSX/lambcrypt.pkgproj
 endif
 ifneq ("$(LOCAL_DEVELOPMENT_BUILD)","true")
-	productsign --sign "$(VC_INSTALLER_SIGN_IDENTITY)" --timestamp "$(BASE_DIR)/Setup/MacOSX/LambCrypt $(TC_VERSION).pkg" $(BASE_DIR)/Setup/MacOSX/LambCrypt_$(TC_VERSION).pkg
+	productsign --sign "$$VC_INSTALLER_SIGN_IDENTITY" --timestamp "$(BASE_DIR)/Setup/MacOSX/LambCrypt $(TC_VERSION).pkg" $(BASE_DIR)/Setup/MacOSX/LambCrypt_$(TC_VERSION).pkg
 else
 	# copy the unsigned package to the expected location
 	cp "$(BASE_DIR)/Setup/MacOSX/LambCrypt $(TC_VERSION).pkg" $(BASE_DIR)/Setup/MacOSX/LambCrypt_$(TC_VERSION).pkg

@@ -34,12 +34,28 @@ src/Setup/Linux/lambcrypt-*-setup-*
 # LambCrypt macOS build artifacts
 src/Main/LambCrypt
 src/Main/LambCrypt.app
+src/Main/LambCrypt-FSKit
+src/Main/LambCrypt-FSKit.app/
 src/Main/*.dmg
 src/Setup/MacOSX/*.pkg
 *.oo
 *.o.32
 *.o.64
 .DS_Store
+
+# Local signing configuration and assets
+signing.local.env
+*.local.xcconfig
+*.provisionprofile
+*.mobileprovision
+*.cer
+*.crt
+*.pem
+*.p12
+*.pfx
+*.p8
+*.keychain
+*.keychain-db
 
 # wxWidgets Linux build artifacts
 src/wxrelease

@@ -51,8 +51,24 @@ struct VolumeConnection {
     }
 
     func read(_ operation: Operation, expecting identifier: UUID, at offset: UInt64,
-              into buffer: UnsafeMutableRawBufferPointer) throws -> Int {
-        try request(operation, expecting: identifier, at: offset, into: buffer)
+              into buffer: UnsafeMutableRawBufferPointer, completed: inout Int) throws {
+        completed = 0
+        defer {
+            // FSKit can consume the requested range even after a short or failed read.
+            if completed < buffer.count {
+                let unread = UnsafeMutableRawBufferPointer(rebasing: buffer[completed...])
+                unread.initializeMemory(as: UInt8.self, repeating: 0)
+            }
+        }
+        while completed < buffer.count {
+            let count = min(buffer.count - completed, Self.maximumTransfer)
+            let slice = UnsafeMutableRawBufferPointer(rebasing: buffer[completed..<(completed + count)])
+            let (position, overflow) = offset.addingReportingOverflow(UInt64(completed))
+            guard !overflow else { throw POSIXError(.EOVERFLOW) }
+            let received = try request(operation, expecting: identifier, at: position, into: slice)
+            completed += received
+            if received < count { break }
+        }
     }
 
     func write(_ buffer: UnsafeRawBufferPointer, expecting identifier: UUID, at offset: UInt64) throws {

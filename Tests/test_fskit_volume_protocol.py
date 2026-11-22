@@ -38,17 +38,20 @@ struct Client {
         let metadata = try connection.inspect()
         let identifier = metadata.identifier
         precondition(metadata.imageSize == 262144 && metadata.controlSize > 0)
-        var slice = Data(count: 5)
+        var slice = Data(repeating: 0xa5, count: 5)
+        var completed = 0
         let writable = CommandLine.arguments.last == "--write"
         precondition(metadata.readOnly != writable)
         if CommandLine.arguments.count == 4 && !writable {
             guard let stale = UUID(uuidString: CommandLine.arguments[3]) else { fatalError("invalid UUID") }
             precondition(stale != identifier)
             do {
-                _ = try slice.withUnsafeMutableBytes { try connection.read(.readImage, expecting: stale, at: 0, into: $0) }
+                try slice.withUnsafeMutableBytes {
+                    try connection.read(.readImage, expecting: stale, at: 0, into: $0, completed: &completed)
+                }
                 fatalError("replaced worker accepted an image read")
             } catch let error as POSIXError {
-                precondition(error.code == .ESTALE)
+                precondition(error.code == .ESTALE && completed == 0 && slice.allSatisfy { $0 == 0 })
             }
             do {
                 _ = try connection.inspect(expectedIdentifier: stale)
@@ -59,32 +62,38 @@ struct Client {
         }
 
         var image = Data(count: Int(metadata.imageSize))
-        let count = try image.withUnsafeMutableBytes { try connection.read(.readImage, expecting: identifier, at: 0, into: $0) }
-        precondition(count == image.count)
+        try image.withUnsafeMutableBytes {
+            try connection.read(.readImage, expecting: identifier, at: 0, into: $0, completed: &completed)
+        }
+        precondition(completed == image.count)
         let hash = SHA256.hash(data: image).map { String(format: "%02x", $0) }.joined()
         precondition(hash == CommandLine.arguments[2])
 
-        let tail = try slice.withUnsafeMutableBytes {
-            try connection.read(.readImage, expecting: identifier, at: metadata.imageSize - 3, into: $0)
+        var tail = Data(repeating: 0xa5, count: VolumeConnection.maximumTransfer + 1)
+        try tail.withUnsafeMutableBytes {
+            try connection.read(.readImage, expecting: identifier, at: metadata.imageSize - 3,
+                                into: $0, completed: &completed)
         }
-        precondition(tail == 3 && slice.prefix(3) == image.suffix(3))
-        let eof = try slice.withUnsafeMutableBytes {
-            try connection.read(.readImage, expecting: identifier, at: UInt64.max, into: $0)
+        precondition(completed == 3 && tail.prefix(3) == image.suffix(3))
+        precondition(tail.dropFirst(3).allSatisfy { $0 == 0 })
+        slice = Data(repeating: 0xa5, count: 5)
+        try slice.withUnsafeMutableBytes {
+            try connection.read(.readImage, expecting: identifier, at: UInt64.max, into: $0, completed: &completed)
         }
-        precondition(eof == 0)
+        precondition(completed == 0 && slice.allSatisfy { $0 == 0 })
         var control = Data(count: Int(metadata.controlSize))
-        let controlLength = try control.withUnsafeMutableBytes {
-            try connection.read(.readControl, expecting: identifier, at: 0, into: $0)
+        try control.withUnsafeMutableBytes {
+            try connection.read(.readControl, expecting: identifier, at: 0, into: $0, completed: &completed)
         }
-        precondition(controlLength == control.count)
+        precondition(completed == control.count)
         if writable {
             let bytes: [UInt8] = [0x5a, 0xc3, 0x13]
             try bytes.withUnsafeBytes { try connection.write($0, expecting: identifier, at: 511) }
             try connection.flush(expecting: identifier)
-            let count = try slice.withUnsafeMutableBytes {
-                try connection.read(.readImage, expecting: identifier, at: 510, into: $0)
+            try slice.withUnsafeMutableBytes {
+                try connection.read(.readImage, expecting: identifier, at: 510, into: $0, completed: &completed)
             }
-            precondition(count == 5 && Array(slice) == [image[510]] + bytes + [image[514]])
+            precondition(completed == 5 && Array(slice) == [image[510]] + bytes + [image[514]])
             do {
                 try bytes.withUnsafeBytes { try connection.write($0, expecting: identifier, at: metadata.imageSize - 1) }
                 fatalError("write past end succeeded")

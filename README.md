@@ -263,10 +263,11 @@ to find the wxWidgets sources at the same level as where you put
 LambCrypt sources (i.e. if "src" path is "/Users/joe/Projects/LambCrypt/src"
 then wxWidgets should be at "/Users/joe/Projects/wxWidgets-3.2.10" by default)
 
-Local development builds can be prepared without Developer ID certificates.
-For signed builds, set `VC_APP_SIGN_IDENTITY` and `VC_INSTALLER_SIGN_IDENTITY` to
-your signing identities. The notarization script also requires `VC_SIGN_TEAM_ID`
-and a configured `VC_NOTARY_PROFILE`.
+Use the [local signing template](src/Setup/MacOSX/signing.env.example) to set
+signing values outside the checkout. Keep certificates and their private keys
+in Keychain. The experimental FSKit build supports Apple Development signing
+with a matching FSKit Module provisioning profile. The [FSKit migration
+plan](FSKIT-MIGRATION.md#integrator-checklist) covers setup and verification.
 
 Because of incompatibility issues with macFUSE, the SDK 10.9 generates a
 LambCrypt binary that has issues communicating with the macFUSE kernel extension.

@@ -60,6 +60,8 @@ export PKG_CONFIG_PATH ?= /usr/local/lib/pkgconfig
 
 export VC_OSX_FUSET ?= 0
 export VC_OSX_FSKIT ?= 0
+export VC_APP_SIGN_IDENTITY
+export VC_INSTALLER_SIGN_IDENTITY
 export VC_FSKIT_PROVISIONING_PROFILE
 
 export WX_CONFIG ?= wx-config
