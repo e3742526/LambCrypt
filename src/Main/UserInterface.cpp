@@ -840,6 +840,7 @@ namespace VeraCrypt
 			catch (DriverError&) { }
 			catch (MissingVolumeData&) { }
 			catch (PasswordException&) { }
+			catch (VolumeAlreadyMounted&) { }
 			catch (SystemException&) { }
 			catch (ExecutedProcessFailed&) { }
 		}

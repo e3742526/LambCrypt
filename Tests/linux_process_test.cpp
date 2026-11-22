@@ -7,6 +7,8 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <sys/prctl.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/wait.h>
@@ -271,6 +273,14 @@ int main (int argc, char **argv)
                     Require (Clock::now() - start < std::chrono::seconds (1), "waited for a callback descendant");
                 }
             }
+        }
+        else if (name == "core-dumps")
+        {
+            Process::DisableCoreDumps();
+            struct rlimit limit;
+            Require (getrlimit (RLIMIT_CORE, &limit) == 0 && limit.rlim_cur == 0 && limit.rlim_max == 0,
+                "process can generate core files");
+            Require (prctl (PR_GET_DUMPABLE, 0L, 0L, 0L, 0L) == 0, "process remains dumpable");
         }
         else if (name == "descriptors") Require (Run (self, name).empty(), "exec inherited spare descriptors");
         else if (name == "forged") Require (Run (self, name) == "ok", "child injected an exception");

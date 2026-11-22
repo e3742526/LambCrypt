@@ -115,6 +115,35 @@ namespace VeraCrypt
 		GetDeviceSizeRequest *deviceRequest = dynamic_cast <GetDeviceSizeRequest *> (result.get());
 		if (!deviceRequest || deviceRequest->Path != request.Path)
 			throw TestFailed (SRC_POS);
+
+		// Mount credentials and their KDF/PIM pairs must survive the service
+		// boundary as separate values, including on a backup-header retry.
+		MountOptions options;
+		const uint8 outer[] = { 'o' };
+		const uint8 hidden[] = { 'h' };
+		options.Path.reset (new VolumePath (wstring (L"/test/volume.hc")));
+		options.Password.reset (new VolumePassword (outer, sizeof (outer)));
+		options.Pim = 1;
+		options.Kdf = Pkcs5Kdf::GetAlgorithm (L"HMAC-SHA-512");
+		options.Protection = VolumeProtection::HiddenVolumeReadOnly;
+		options.ProtectionPassword.reset (new VolumePassword (hidden, sizeof (hidden)));
+		options.ProtectionPim = 2;
+		options.ProtectionKdf = Pkcs5Kdf::GetAlgorithm (L"HMAC-SHA-256");
+		options.NoKernelCrypto = true;
+		options.UseBackupHeaders = true;
+
+		stream.reset (new MemoryStream);
+		MountVolumeRequest (&options).Serialize (stream);
+		shared_ptr <MountVolumeRequest> mount = Serializable::DeserializeNew <MountVolumeRequest> (stream);
+		const MountOptions &received = *mount->Options;
+		if (!received.Path || *received.Path != *options.Path
+			|| !received.Password || *received.Password != *options.Password
+			|| !received.Kdf || received.Kdf->GetName() != options.Kdf->GetName() || received.Pim != options.Pim
+			|| received.Protection != options.Protection
+			|| !received.ProtectionPassword || *received.ProtectionPassword != *options.ProtectionPassword
+			|| !received.ProtectionKdf || received.ProtectionKdf->GetName() != options.ProtectionKdf->GetName()
+			|| received.ProtectionPim != options.ProtectionPim || !received.NoKernelCrypto || !received.UseBackupHeaders)
+			throw TestFailed (SRC_POS);
 	}
 
 	void CoreTest::TestAll ()

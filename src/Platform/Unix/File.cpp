@@ -286,6 +286,21 @@ namespace VeraCrypt
 		return length;
 	}
 
+#ifdef TC_LINUX
+	void File::GetIdentity (struct stat &info) const
+	{
+		if (RequesterBacked)
+		{
+			memset (&info, 0, sizeof (info));
+			info.st_mode = S_IFREG;
+			info.st_dev = static_cast <dev_t> (RequesterDevice);
+			info.st_ino = static_cast <ino_t> (RequesterInode);
+		}
+		else
+			throw_sys_sub_if (fstat (FileHandle, &info) != 0, wstring (Path));
+	}
+#endif
+
 	void File::Open (const FilePath &path, FileOpenMode mode, FileShareMode shareMode, FileOpenFlags flags)
 	{
 #ifdef TC_LINUX
@@ -305,6 +320,10 @@ namespace VeraCrypt
 
 		case CreateWrite:
 			sysFlags |= O_CREAT | O_TRUNC | O_WRONLY;
+			break;
+
+		case CreateNewWrite:
+			sysFlags |= O_CREAT | O_EXCL | O_WRONLY;
 			break;
 
 		case OpenRead:

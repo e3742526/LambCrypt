@@ -65,6 +65,12 @@ namespace VeraCrypt
 #ifdef TC_LINUX
 		virtual void DismountFilesystemLazy (const DirectoryPath &mountPoint) const;
 		virtual void DismountNativeVolumeDeferred (shared_ptr <VolumeInfo> mountedVolume) const { DismountNativeVolume (mountedVolume); }
+		virtual string GetMountLockDirectory () const { return "/var/run/veracrypt"; }
+		int ReserveMountSlot (MountOptions &options) const;
+		int ReserveMountVolume (const File &volumeFile, bool readOnly) const;
+		virtual bool IsMountSlotUsedByKernel (VolumeSlotNumber slot) const { return false; }
+		virtual void GetVolumeIdentity (const File &volumeFile, struct stat &identity) const { volumeFile.GetIdentity (identity); }
+		virtual bool IsVolumeUsedByKernelDevice (const struct stat &identity) const { return false; }
 #endif
 		virtual bool FilesystemSupportsUnixPermissions (const DevicePath &devicePath) const;
 		virtual string GetDefaultMountPointPrefix () const;

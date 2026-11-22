@@ -31,6 +31,8 @@ namespace VeraCrypt
 		Process ();
 		virtual ~Process ();
 
+		// Best-effort protection for service processes that handle credentials or keys.
+		static void DisableCoreDumps ();
 		static bool IsExecutable(const std::string& path);
 		// Resolves a program name against fixed system directories. By default only
 		// candidates whose whole path is root-owned and not group/world-writable are

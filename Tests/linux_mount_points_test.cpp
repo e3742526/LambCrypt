@@ -17,10 +17,11 @@ static void Require (bool condition, const string &message)
     if (!condition) throw std::runtime_error (message);
 }
 
-extern "C" void WrapFuseMount (shared_ptr<Volume>, VolumeSlotNumber, const string &path)
+extern "C" uint64 WrapFuseMount (shared_ptr<Volume>, VolumeSlotNumber, const string &path, int, int)
 {
     ++FuseCalls;
     AuxPath = path;
+    return FuseCalls;
 }
 
 extern "C" string WrapExecute (const string &program, const list<string> &args,
@@ -77,6 +78,8 @@ struct TestCore : CoreLinux
     MountedFilesystemList GetMountedFilesystems (const DevicePath & = DevicePath(),
         const DirectoryPath & = DirectoryPath()) const override { return MountedFilesystemList(); }
     string GetTempDirectory () const override { return Root; }
+    string GetMountLockDirectory () const override { return Root + "/locks"; }
+    bool IsVolumeUsedByKernelDevice (const struct stat &) const override { return false; }
     shared_ptr<VolumeInfo> GetMountedVolume (const VolumePath &) const override
     {
         shared_ptr<VolumeInfo> info (new VolumeInfo);

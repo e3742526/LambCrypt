@@ -59,6 +59,8 @@ namespace VeraCrypt
 		int32 Error;
 		int64 AccessTime;
 		int64 ModificationTime;
+		uint64 Device;
+		uint64 Inode;
 	};
 
 	// Both ends run the same executable (/proc/self/exe), including after an upgrade.
@@ -364,6 +366,8 @@ namespace VeraCrypt
 				reply.Stage = RequesterHelperSucceeded;
 				reply.AccessTime = statData.st_atime;
 				reply.ModificationTime = statData.st_mtime;
+				reply.Device = statData.st_dev;
+				reply.Inode = statData.st_ino;
 			}
 		}
 
@@ -552,6 +556,8 @@ namespace VeraCrypt
 		ReleaseOnly = false;
 		RequesterUserId = userId;
 		RequesterGroupId = groupId;
+		RequesterDevice = reply.Device;
+		RequesterInode = reply.Inode;
 		return true;
 	}
 

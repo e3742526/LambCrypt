@@ -69,7 +69,7 @@ extern "C" shared_ptr<VolumeInfo> WrapAuxInfo (const DirectoryPath &)
     return info;
 }
 
-extern "C" uint64 WrapFuseMount (shared_ptr<Volume>, VolumeSlotNumber, const string &path)
+extern "C" uint64 WrapFuseMount (shared_ptr<Volume>, VolumeSlotNumber, const string &path, int, int)
 {
     Require (MountFlow, "unexpected FUSE service mount");
     ++FuseMountCalls;
@@ -141,6 +141,8 @@ struct FallbackCore : TestCore
     MountedFilesystemList GetMountedFilesystems (const DevicePath & = DevicePath(),
         const DirectoryPath & = DirectoryPath()) const override { return MountedFilesystemList(); }
     string GetTempDirectory () const override { return VolumeFilePath.substr (0, VolumeFilePath.rfind ('/')); }
+    string GetMountLockDirectory () const override { return GetTempDirectory() + "/locks"; }
+    bool IsVolumeUsedByKernelDevice (const struct stat &) const override { return false; }
     void MountFilesystem (const DevicePath &device, const DirectoryPath &, const string &,
         bool readOnly, const string &, bool) const override
     {
@@ -222,11 +224,14 @@ int main (int argc, char **argv)
             mountOptions.NoKernelCrypto = scenario >= 2;
             mountOptions.FilesystemType = L"vfat";
             mountOptions.Protection = incomplete ? VolumeProtection::None : protection;
+            mountOptions.Password.reset (new VolumePassword);
+            mountOptions.ProtectionPassword.reset (new VolumePassword);
             ReadOnly = protection == VolumeProtection::ReadOnly;
             LoopCalls = LoopFailures = Layers = FuseMountCalls = 0;
             AuxInfoSent = false;
             AuxPath.clear();
             fallback.MountVolume (mountOptions);
+            Require (!mountOptions.Password && !mountOptions.ProtectionPassword, "mount retained credentials");
             Require (mountOptions.Protection == protection, "effective protection not propagated or hidden protection changed");
             Require (FuseMountCalls == 1 && LoopCalls == 1 && Layers == 0 && AuxInfoSent,
                 "FUSE fallback not completed");

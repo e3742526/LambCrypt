@@ -1302,7 +1302,7 @@ namespace VeraCrypt
 		return MountedVolume->GetSize();
 	}
 
-	uint64 FuseService::Mount (shared_ptr <Volume> openVolume, VolumeSlotNumber slotNumber, const string &fuseMountPoint)
+	uint64 FuseService::Mount (shared_ptr <Volume> openVolume, VolumeSlotNumber slotNumber, const string &fuseMountPoint, int slotLock, int volumeLock)
 	{
 #if defined(TC_MACOSX) && defined(VC_MACOSX_FUSET)
 		// Keep the descriptor in the service across fork, but do not let exec'd
@@ -1351,6 +1351,8 @@ namespace VeraCrypt
 		const uint64 serialInstanceNumber = (uint64)tv.tv_sec * 1000000ULL + tv.tv_usec;
 
 		ExecFunctor execFunctor (openVolume, slotNumber, serialInstanceNumber);
+		execFunctor.SlotLock = slotLock;
+		execFunctor.VolumeLock = volumeLock;
 #if defined(TC_MACOSX) && defined(VC_MACOSX_FUSET)
 		// This inherited channel binds startup to this exact child, without
 		// depending on a working public socket or readable SMB metadata.
@@ -1749,6 +1751,8 @@ namespace VeraCrypt
 
 	void FuseService::ExecFunctor::operator() (int argc, char *argv[])
 	{
+		// The service and its forked children inherit the mounted volume's keys.
+		Process::DisableCoreDumps();
 #if defined(TC_MACOSX) && defined(VC_MACOSX_FUSET)
 		close (StartupPeerFd);
 #endif
@@ -1814,6 +1818,11 @@ namespace VeraCrypt
 
 		if (forkedPid == 0)
 		{
+			// Only the data-serving process retains the mount reservations.
+			if (SlotLock != -1)
+				close (SlotLock);
+			if (VolumeLock != -1)
+				close (VolumeLock);
 #if defined(TC_MACOSX) && defined(VC_MACOSX_FUSET)
 			close (StartupFd);
 #endif

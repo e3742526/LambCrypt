@@ -465,7 +465,33 @@ namespace VeraCrypt
 			throw UserAbort (SRC_POS);
 
 		File backupFile;
-		backupFile.Open (filePath, File::CreateWrite);
+		if (CmdLine->ArgForce)
+			backupFile.Open (filePath, File::CreateWrite);
+		else
+		{
+			try
+			{
+				// The destination can appear after the filename prompt.
+				backupFile.Open (filePath, File::CreateNewWrite);
+			}
+			catch (SystemException &e)
+			{
+				if (e.GetErrorCode() != EEXIST)
+					throw;
+
+				struct stat destination;
+				if (lstat (string (filePath).c_str(), &destination) != 0 || !S_ISREG (destination.st_mode))
+					throw;
+
+				wxString overwritePrompt = wxString::Format (_("File '%s' already exists, do you really want to overwrite it?"), wstring (filePath).c_str());
+				if (Preferences.NonInteractive)
+					throw_err (_("The backup file already exists. Use --force to replace it."));
+				if (!AskYesNo (overwritePrompt, false, true))
+					throw UserAbort (SRC_POS);
+
+				backupFile.Open (filePath, File::CreateWrite);
+			}
+		}
 
 		RandomNumberGenerator::Start();
 		/* force the display of the random enriching interface */
@@ -623,24 +649,30 @@ namespace VeraCrypt
 
 	void TextUserInterface::CreateKeyfile (shared_ptr <FilePath> keyfilePath) const
 	{
-		FilePath path;
+		FilePath path = keyfilePath ? *keyfilePath : FilePath (AskFilePath());
+		if (!keyfilePath && path.IsEmpty())
+			return;
+
+		const bool overwrite = CmdLine->ArgForce;
+		const wxString existsMessage = wxString::Format (_("The keyfile '%s' already exists. Use --force to replace it."), wstring (path).c_str());
+		struct stat destination;
+		if (!overwrite && lstat (string (path).c_str(), &destination) == 0)
+			throw_err (existsMessage);
 
 		RandomNumberGenerator::Start();
 		/* force the display of the random enriching interface */
 		RandomNumberGenerator::SetEnrichedByUserStatus (false);
 		UserEnrichRandomPool();
 
-		if (keyfilePath)
+		try
 		{
-			Core->CreateKeyfile (*keyfilePath);
+			Core->CreateKeyfile (path, overwrite);
 		}
-		else
+		catch (SystemException &e)
 		{
-			wstring fileName = AskFilePath();
-			if (fileName.empty())
-				return;
-
-			Core->CreateKeyfile (fileName);
+			if (!overwrite && e.GetErrorCode() == EEXIST)
+				throw_err (existsMessage);
+			throw;
 		}
 
 		ShowInfo ("KEYFILE_CREATED");

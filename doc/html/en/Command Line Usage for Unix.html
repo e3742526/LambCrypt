@@ -56,7 +56,7 @@
 </tr>
 <tr>
 <td><em>--backup-headers [VOLUME_PATH]</em></td>
-<td>Back up volume headers to a file. Required values not specified on the command line are requested from the user.</td>
+<td>Back up volume headers to a file. Required values not specified on the command line are requested from the user. In text mode, replacing an existing backup file requires confirmation or <em>--force</em>.</td>
 </tr>
 <tr>
 <td><em>-c</em> or <em>--create [VOLUME_PATH]</em></td>
@@ -64,7 +64,7 @@
 </tr>
 <tr>
 <td><em>--create-keyfile [FILE_PATH]</em></td>
-<td>Create a new keyfile containing pseudo-random data.</td>
+<td>Create a new keyfile containing pseudo-random data. In text mode, an existing keyfile is replaced only with <em>--force</em>.</td>
 </tr>
 <tr>
 <td><em>-C</em> or <em>--change [VOLUME_PATH]</em></td>

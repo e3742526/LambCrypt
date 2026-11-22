@@ -18,9 +18,11 @@
 #include <stdio.h>
 #include <sstream>
 #include <unistd.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #ifdef TC_LINUX
+#include <sys/prctl.h>
 #include <sys/statvfs.h>
 #endif
 #include "Process.h"
@@ -42,6 +44,15 @@
 
 namespace VeraCrypt
 {
+	void Process::DisableCoreDumps ()
+	{
+		struct rlimit limit = { 0, 0 };
+		setrlimit (RLIMIT_CORE, &limit);
+#ifdef TC_LINUX
+		// Linux can pipe core dumps to a handler even when RLIMIT_CORE is zero.
+		prctl (PR_SET_DUMPABLE, 0L, 0L, 0L, 0L);
+#endif
+	}
 
 #ifdef TC_MACOSX
 	uint64 Process::GetProcessStartTime (pid_t processId)

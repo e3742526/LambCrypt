@@ -346,8 +346,56 @@ class LoopIdentityChecks:
                     f"exit {result.returncode}, listed: {self.listed()}")
         if result.returncode == 0:
             self.mounted = None
-        self.stop(process)
+        alias = self.root / "same-container.hc"
+        os.link(self.volume, alias)
+        remount = tuple(arg for arg in self.mount_args(alias, kernel)
+                        if not str(arg).startswith("--slot="))
+        try:
+            attempt = self.vc(label + "-remount-while-detached", *remount, expected=None)
+            message = (attempt.stdout + attempt.stderr).lower()
+            self.expect(label + "-remount-rejected",
+                        attempt.returncode != 0 and "already mounted" in message, message.strip())
+            if attempt.returncode == 0:
+                self.vc(label + "-alias-cleanup", "--unmount", alias, expected=None)
+        finally:
+            self.stop(process)
         self.expect(label + "-released", *self.released())
+        self.vc(label + "-remount-after-release", *remount)
+        self.vc(label + "-unmount-alias", "--unmount", alias)
+        alias.unlink()
+
+    def check_parallel(self, kernel):
+        label = ("kernel" if kernel else "fuse") + "-parallel"
+        second = self.root / "second.hc"
+        shutil.copyfile(self.volume, second)
+        before = aux_mounts()
+        processes = []
+        try:
+            for path, mountpoint in ((self.volume, self.mountpoint), (second, self.other)):
+                arguments = list(self.mount_args(path, kernel))
+                arguments[2] = mountpoint
+                arguments = [str(arg) for arg in arguments if not str(arg).startswith("--slot=")]
+                processes.append(subprocess.Popen(
+                    [self.binary, "--text", "--non-interactive", *arguments],
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                ))
+            for process in processes:
+                output, _ = process.communicate(timeout=45)
+                self.expect(label + "-mount-exit", process.returncode == 0, output.strip())
+            self.expect(label + "-distinct-mounts",
+                        len(aux_mounts() - before) == 2 and str(self.mountpoint) in mounts()
+                        and str(self.other) in mounts(), "both mount paths present")
+            listing = self.vc(label + "-list", "--list").stdout.splitlines()
+            slots = {line.split()[0] for line in listing
+                     if str(self.volume) in line or str(second) in line}
+            self.expect(label + "-distinct-slots", len(slots) == 2, str(slots))
+        finally:
+            for process in processes:
+                if process.poll() is None:
+                    process.kill()
+                    process.wait()
+            for path in (self.volume, second):
+                self.vc(label + "-cleanup-" + path.name, "--unmount", path, expected=None)
 
     def check_rollback(self, kernel):
         mode = "kernel" if kernel else "fuse"
@@ -497,6 +545,8 @@ def main():
     parser.add_argument("--slot", type=int, default=62, help="free slot for the test volume (default: 62)")
     parser.add_argument("--mode", choices=("fuse", "kernel"), action="append",
                         help="mount mode to check (default: both)")
+    parser.add_argument("--case", choices=("emergency", "parallel"), action="append",
+                        help="only run the selected mount reservation case")
     args = parser.parse_args()
     if not sys.platform.startswith("linux") or os.geteuid() != 0:
         parser.error("Run on Linux as root")
@@ -523,6 +573,7 @@ def main():
                        ("reuse", lambda: checks.check_reuse(kernel)),
                        ("stale-layer", lambda: checks.check_stale_layer(kernel)),
                        ("emergency", lambda: checks.check_emergency(kernel)),
+                       ("parallel", lambda: checks.check_parallel(kernel)),
                        ("rollback", lambda: checks.check_rollback(kernel)),
                        ("device-hosted", lambda: checks.check_device_hosted(kernel))]
         if kernel:
@@ -533,6 +584,8 @@ def main():
             if kernel:
                 mode_checks.append(("legacy-moved", checks.check_legacy_moved))
         for name, check in mode_checks:
+            if args.case and name not in args.case:
+                continue
             try:
                 check()
             except Exception as e:

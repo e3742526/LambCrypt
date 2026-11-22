@@ -107,13 +107,13 @@ namespace VeraCrypt
 			options.MountPoint.reset (new DirectoryPath (SlotNumberToMountPoint (options.SlotNumber)));
 	}
 
-	void CoreBase::CreateKeyfile (const FilePath &keyfilePath) const
+	void CoreBase::CreateKeyfile (const FilePath &keyfilePath, bool overwrite) const
 	{
 		SecureBuffer keyfileBuffer (VolumePassword::MaxSize);
 		RandomNumberGenerator::GetData (keyfileBuffer);
 
 		File keyfile;
-		keyfile.Open (keyfilePath, File::CreateWrite);
+		keyfile.Open (keyfilePath, overwrite ? File::CreateWrite : File::CreateNewWrite);
 		keyfile.Write (keyfileBuffer);
 	}
 

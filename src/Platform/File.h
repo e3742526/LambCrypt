@@ -19,6 +19,7 @@
 #include "SystemException.h"
 
 #ifdef TC_LINUX
+#include <sys/stat.h>
 #define TC_REQUESTER_HELPER_CMDLINE_OPTION "--requester-helper"
 #endif
 
@@ -33,7 +34,8 @@ namespace VeraCrypt
 			CreateWrite,
 			OpenRead,
 			OpenWrite,
-			OpenReadWrite
+			OpenReadWrite,
+			CreateNewWrite
 		};
 
 		enum FileShareMode
@@ -66,7 +68,7 @@ namespace VeraCrypt
 				,AccTime(0), ModTime (0)
 #endif
 #ifdef TC_LINUX
-				,RequesterBacked (false), ReleaseOnly (false), RequesterUserId (0), RequesterGroupId (0)
+				,RequesterBacked (false), ReleaseOnly (false), RequesterUserId (0), RequesterGroupId (0), RequesterDevice (0), RequesterInode (0)
 #endif
 		 { }
 		virtual ~File ();
@@ -94,6 +96,10 @@ namespace VeraCrypt
 		static int RunRequesterHelperService (const char *socketDescriptor);
 		// The descriptor was opened with the requester's credentials (AllowRequesterAccess).
 		bool IsRequesterBacked () const { return RequesterBacked; }
+		// The descriptor's identity is captured in the requester process when
+		// its filesystem won't let the root process call fstat().
+		void GetIdentity (struct stat &info) const;
+		SystemFileHandleType GetSystemHandle () const { return FileHandle; }
 		// For copies held by processes that do not serve the volume: release the
 		// descriptor without restoring timestamps through a requester process.
 		void SetReleaseOnly () { ReleaseOnly = true; }
@@ -139,6 +145,8 @@ namespace VeraCrypt
 		bool ReleaseOnly;
 		uid_t RequesterUserId;
 		gid_t RequesterGroupId;
+		uint64 RequesterDevice;
+		uint64 RequesterInode;
 #endif
 
 	private:

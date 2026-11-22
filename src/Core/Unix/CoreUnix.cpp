@@ -25,6 +25,8 @@
 #include <sys/mount.h>
 #endif
 #ifdef TC_LINUX
+#include <fcntl.h>
+#include <sys/file.h>
 #include <sys/utsname.h>
 #endif
 #include <stdio.h>
@@ -1274,9 +1276,131 @@ namespace VeraCrypt
 			throw MountPointNotAllowed (SRC_POS);
 	}
 
+#ifdef TC_LINUX
+	// All mounts share this directory. Keep the checked directory open while
+	// opening the lock file and keep its name in place after releasing the lock.
+	static int OpenMountLock (const string &directory, const string &name)
+	{
+		throw_sys_sub_if (mkdir (directory.c_str(), S_IRWXU) != 0 && errno != EEXIST, directory);
+		int directoryFd = open (directory.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+		throw_sys_sub_if (directoryFd == -1, directory);
+		finally_do_arg (int, directoryFd, { close (finally_arg); });
+
+		struct stat info;
+		throw_sys_sub_if (fstat (directoryFd, &info) != 0, directory);
+		if (info.st_uid != geteuid() || (info.st_mode & (S_IWGRP | S_IWOTH)))
+		{
+			errno = EPERM;
+			throw SystemException (SRC_POS, directory);
+		}
+
+		const string path = directory + "/" + name;
+		int fd = openat (directoryFd, name.c_str(), O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK, S_IRUSR | S_IWUSR);
+		throw_sys_sub_if (fd == -1, path);
+		bool valid = false;
+		finally_do_arg2 (int, fd, bool &, valid, { if (!finally_arg2) close (finally_arg); });
+		throw_sys_sub_if (fstat (fd, &info) != 0, path);
+		if (!S_ISREG (info.st_mode) || info.st_uid != geteuid()
+			|| info.st_nlink != 1 || (info.st_mode & (S_IWGRP | S_IWOTH)))
+		{
+			errno = EPERM;
+			throw SystemException (SRC_POS, path);
+		}
+		valid = true;
+		return fd;
+	}
+
+	static bool TryAcquireMountLock (int fd)
+	{
+		int result;
+		do { result = flock (fd, LOCK_EX | LOCK_NB); } while (result == -1 && errno == EINTR);
+		if (result == 0)
+			return true;
+		throw_sys_if (errno != EWOULDBLOCK);
+		return false;
+	}
+
+	int CoreUnix::ReserveMountSlot (MountOptions &options) const
+	{
+		const bool hasMountPoint = options.MountPoint && !options.MountPoint->IsEmpty();
+		VolumeSlotNumber slot = options.SlotNumber;
+		if (slot < GetFirstSlotNumber() && hasMountPoint)
+			slot = GetDefaultMountPointSlot (*options.MountPoint);
+		const bool automatic = slot < GetFirstSlotNumber();
+		if (automatic)
+			slot = GetFirstFreeSlotNumber();
+
+		const string lockDirectory = GetMountLockDirectory();
+		for (; IsSlotNumberValid (slot); ++slot)
+		{
+			int fd = OpenMountLock (lockDirectory, "slot-" + StringConverter::ToSingle (slot));
+			bool reserved = false;
+			finally_do_arg2 (int, fd, bool &, reserved, { if (!finally_arg2) close (finally_arg); });
+
+			// Check after taking the lock so already-mounted volumes and
+			// deferred mappings also reserve their slot.
+			if (TryAcquireMountLock (fd) && IsSlotNumberAvailable (slot) && !IsMountSlotUsedByKernel (slot))
+			{
+				options.SlotNumber = slot;
+				if (!options.NoFilesystem && !hasMountPoint)
+					options.MountPoint.reset (new DirectoryPath (SlotNumberToMountPoint (slot)));
+				reserved = true;
+				return fd;
+			}
+			if (!automatic)
+				break;
+		}
+		throw VolumeSlotUnavailable (SRC_POS);
+	}
+
+	int CoreUnix::ReserveMountVolume (const File &volumeFile, bool readOnly) const
+	{
+		struct stat identity;
+		GetVolumeIdentity (volumeFile, identity);
+		stringstream name;
+		name << hex;
+		if (S_ISBLK (identity.st_mode))
+			name << "device-" << static_cast <uint64> (identity.st_rdev);
+		else if (S_ISCHR (identity.st_mode))
+			name << "character-device-" << static_cast <uint64> (identity.st_rdev);
+		else if (S_ISREG (identity.st_mode))
+			name << "file-" << static_cast <uint64> (identity.st_dev) << "-" << static_cast <uint64> (identity.st_ino);
+		else
+			throw NotApplicable (SRC_POS);
+
+		int fd = OpenMountLock (GetMountLockDirectory(), name.str());
+		bool reserved = false;
+		finally_do_arg2 (int, fd, bool &, reserved, { if (!finally_arg2) close (finally_arg); });
+		if (!TryAcquireMountLock (fd))
+			throw VolumeAlreadyMounted (SRC_POS);
+
+		bool usedByKernel = false;
+		try
+		{
+			// A deferred device-mapper device can outlive the FUSE service
+			// and its reservation. Check the kernel after taking the lock.
+			usedByKernel = IsVolumeUsedByKernelDevice (identity);
+		}
+		catch (SystemException &)
+		{
+			if (!readOnly)
+				throw;
+		}
+		if (usedByKernel)
+			throw VolumeAlreadyMounted (SRC_POS);
+		reserved = true;
+		return fd;
+	}
+#endif
+
 	shared_ptr <VolumeInfo> CoreUnix::MountVolume (MountOptions &options)
 	{
+#ifdef TC_LINUX
+		int slotLock = ReserveMountSlot (options);
+		finally_do_arg (int, slotLock, { close (finally_arg); });
+#else
 		CoalesceSlotNumberAndMountPoint (options);
+#endif
 
 		if (IsVolumeMounted (*options.Path))
 			throw VolumeAlreadyMounted (SRC_POS);
@@ -1311,7 +1435,10 @@ namespace VeraCrypt
 					options.PartitionInSystemEncryptionScope
 					);
 
+				// Neither password is needed after the header has been opened.
+				// Release both before the FUSE service inherits the mount state.
 				options.Password.reset();
+				options.ProtectionPassword.reset();
 			}
 			catch (SystemException &e)
 			{
@@ -1324,6 +1451,7 @@ namespace VeraCrypt
 				}
 
 				options.Password.reset();
+				options.ProtectionPassword.reset();
 				throw;
 			}
 
@@ -1334,6 +1462,11 @@ namespace VeraCrypt
 		// protection. Carry that effective mode into either mount backend.
 		if (volume->GetProtectionType() == VolumeProtection::ReadOnly)
 			options.Protection = VolumeProtection::ReadOnly;
+
+#ifdef TC_LINUX
+		int volumeLock = ReserveMountVolume (*volume->GetFile(), options.Protection == VolumeProtection::ReadOnly);
+		finally_do_arg (int, volumeLock, { close (finally_arg); });
+#endif
 
 		if (options.Path->IsDevice())
 		{
@@ -1372,68 +1505,14 @@ namespace VeraCrypt
 					+ L"\nThe temporary directory must be owned by root and not writable by other users unless sticky.");
 		}
 
-		// Find a free mount point for FUSE service
-		MountedFilesystemList mountedFilesystems = GetMountedFilesystems ();
-		for (int i = 1; true; i++)
-		{
-			stringstream path;
-			path << tempDirectory << "/" << GetFuseMountDirPrefix() << i;
-			const string pathStr = path.str();
-
-			bool inUse = false;
-
-			foreach_ref (const MountedFilesystem &mf, mountedFilesystems)
-			{
-				if (mf.MountPoint == pathStr)
-				{
-					inUse = true;
-					break;
-				}
-			}
-
-			if (!inUse)
-			{
-				try
-				{
-					// Reuse only a stale, empty directory of our own. Never follow or
-					// remove another user's object, such as a symlink planted in /tmp.
-					struct stat existing;
-					if (lstat (pathStr.c_str(), &existing) == 0
-						&& (!S_ISDIR (existing.st_mode) || existing.st_uid != geteuid() || rmdir (pathStr.c_str()) != 0))
-						throw TemporaryDirectoryFailure (SRC_POS, StringConverter::ToWide (pathStr));
-
-					throw_sys_sub_if (mkdir (pathStr.c_str(), S_IRUSR | S_IXUSR) == -1, pathStr);
-
-					struct stat created;
-					if (lstat (pathStr.c_str(), &created) != 0 || !S_ISDIR (created.st_mode) || created.st_uid != geteuid())
-						throw TemporaryDirectoryFailure (SRC_POS, StringConverter::ToWide (pathStr));
-
-					fuseMountPoint = pathStr;
-					break;
-				}
-				catch (...)
-				{
-					if (i > 255)
-					{
-						// Every numbered name is taken (possibly pre-created by another
-						// user in a shared /tmp). Fall back to an unpredictable name;
-						// auxiliary mount discovery only depends on the name prefix.
-						string mountTemplate = tempDirectory + "/" + GetFuseMountDirPrefix() + "-XXXXXXXXXXXX";
-						vector <char> mountDirectory (mountTemplate.begin(), mountTemplate.end());
-						mountDirectory.push_back ('\0');
-						if (mkdtemp (&mountDirectory[0]) == NULL)
-							throw TemporaryDirectoryFailure (SRC_POS, StringConverter::ToWide (pathStr));
-						fuseMountPoint = &mountDirectory[0];
-						if (chmod (fuseMountPoint.c_str(), S_IRUSR | S_IXUSR) == -1)
-						{
-							rmdir (fuseMountPoint.c_str());
-							throw TemporaryDirectoryFailure (SRC_POS, StringConverter::ToWide (fuseMountPoint));
-						}
-						break;
-					}
-				}
-			}
-		}
+		// Allocate each auxiliary path atomically. Parallel services must never
+		// remove or reuse another mount's directory before it becomes visible.
+		const string mountTemplate = tempDirectory + "/" + GetFuseMountDirPrefix() + "-XXXXXXXXXXXX";
+		vector <char> mountDirectory (mountTemplate.begin(), mountTemplate.end());
+		mountDirectory.push_back ('\0');
+		if (mkdtemp (&mountDirectory[0]) == nullptr)
+			throw TemporaryDirectoryFailure (SRC_POS, StringConverter::ToWide (mountTemplate));
+		fuseMountPoint = &mountDirectory[0];
 #endif
 
 #ifdef VC_MACOSX_FUSET
@@ -1455,6 +1534,8 @@ namespace VeraCrypt
 #endif
 #ifdef VC_MACOSX_FUSET
 			fuseServiceSerialInstanceNumber = FuseService::Mount (volume, options.SlotNumber, fuseMountPoint);
+#elif defined(TC_LINUX)
+			FuseService::Mount (volume, options.SlotNumber, fuseMountPoint, slotLock, volumeLock);
 #else
 			FuseService::Mount (volume, options.SlotNumber, fuseMountPoint);
 #endif

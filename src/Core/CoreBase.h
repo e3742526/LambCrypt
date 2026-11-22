@@ -37,7 +37,7 @@ namespace VeraCrypt
 		virtual shared_ptr <Volume> ChangePassword (shared_ptr <VolumePath> volumePath, bool preserveTimestamps, shared_ptr <VolumePassword> password, int pim, shared_ptr <Pkcs5Kdf> kdf, shared_ptr <KeyfileList> keyfiles, shared_ptr <VolumePassword> newPassword, int newPim, shared_ptr <KeyfileList> newKeyfiles, bool emvSupportEnabled, shared_ptr <Pkcs5Kdf> newPkcs5Kdf = shared_ptr <Pkcs5Kdf> (), int wipeCount = PRAND_HEADER_WIPE_PASSES) const;
 		virtual void CheckFilesystem (shared_ptr <VolumeInfo> mountedVolume, bool repair = false) const = 0;
 		virtual void CoalesceSlotNumberAndMountPoint (MountOptions &options) const;
-		virtual void CreateKeyfile (const FilePath &keyfilePath) const;
+		virtual void CreateKeyfile (const FilePath &keyfilePath, bool overwrite) const;
 		virtual void DismountFilesystem (const DirectoryPath &mountPoint, bool force) const = 0;
 		virtual shared_ptr <VolumeInfo> DismountVolume (shared_ptr <VolumeInfo> mountedVolume, bool ignoreOpenFiles = false, bool syncVolumeInfo = false) = 0;
 #if defined(TC_LINUX)

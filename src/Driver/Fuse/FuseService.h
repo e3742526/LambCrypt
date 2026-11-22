@@ -41,6 +41,8 @@ namespace VeraCrypt
 			int StartupFd;
 			int StartupPeerFd;
 #endif
+			int SlotLock = -1;
+			int VolumeLock = -1;
 
 		protected:
 			shared_ptr <Volume> MountedVolume;
@@ -73,7 +75,7 @@ namespace VeraCrypt
 		static shared_ptr <Buffer> GetVolumeInfo ();
 		static uint64 GetVolumeSize ();
 		static uint64 GetVolumeSectorSize () { return MountedVolume->GetSectorSize(); }
-		static uint64 Mount (shared_ptr <Volume> openVolume, VolumeSlotNumber slotNumber, const string &fuseMountPoint);
+		static uint64 Mount (shared_ptr <Volume> openVolume, VolumeSlotNumber slotNumber, const string &fuseMountPoint, int slotLock = -1, int volumeLock = -1);
 		static void ReadVolumeSectors (const BufferPtr &buffer, uint64 byteOffset);
 		static void ReceiveAuxDeviceInfo (const ConstBufferPtr &buffer);
 		static void SendAuxDeviceInfo (const DirectoryPath &fuseMountPoint, const DevicePath &virtualDevice, const DevicePath &loopDevice = DevicePath());

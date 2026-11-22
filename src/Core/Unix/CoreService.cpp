@@ -1213,6 +1213,7 @@ namespace VeraCrypt
 
 	void CoreService::ProcessRequests (int inputFD, int outputFD)
 	{
+		Process::DisableCoreDumps();
 		finally_do ({ CloseDoasAuthTerminal (); });
 
 		try

@@ -15,7 +15,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = ("file", "descriptors", "forged", "output", "errors", "timeouts",
-         "input", "closed-stdio", "fork", "background-output", "exit-deadline")
+         "input", "closed-stdio", "fork", "background-output", "exit-deadline", "core-dumps")
 
 
 def main():
