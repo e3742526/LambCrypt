@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>LambCrypt FSKit</string>
+	<key>CFBundleExecutable</key>
+	<string>LambCryptFSKit</string>
+	<key>CFBundleIdentifier</key>
+	<string>io.github.e3742526.LambCrypt.fskit.module</string>
+	<key>CFBundleName</key>
+	<string>LambCrypt FSKit</string>
+	<key>CFBundlePackageType</key>
+	<string>XPC!</string>
+	<key>CFBundleVersion</key>
+	<string>_VERSION_</string>
+	<key>CFBundleShortVersionString</key>
+	<string>_VERSION_</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>_MINIMUM_OS_</string>
+	<key>EXAppExtensionAttributes</key>
+	<dict>
+		<key>EXExtensionPointIdentifier</key>
+		<string>com.apple.fskit.fsmodule</string>
+		<key>FSShortName</key>
+		<string>lambcryptfs</string>
+		<key>FSActivateOptionSyntax</key>
+		<dict>
+			<key>shortOptions</key>
+			<string>u:g:m:o:</string>
+		</dict>
+		<key>FSPersonalities</key>
+		<dict/>
+		<key>FSMediaTypes</key>
+		<dict/>
+		<key>FSSupportsBlockResources</key>
+		<false/>
+		<key>FSSupportsPathURLs</key>
+		<true/>
+		<key>FSRequiresSecurityScopedPathURLResources</key>
+		<true/>
+	</dict>
+</dict>
+</plist>

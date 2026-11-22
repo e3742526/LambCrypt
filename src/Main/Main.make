@@ -106,7 +106,9 @@ endif
 
 #------ FUSE configuration ------
 
+ifneq "$(VC_OSX_FSKIT)" "1"
 FUSE_LIBS = $(shell $(PKG_CONFIG) $(VC_FUSE_PACKAGE) --libs)
+endif
 
 #------ Executable ------
 
@@ -224,6 +226,14 @@ endif
 
 ifeq "$(PLATFORM)" "MacOSX"
 .PHONY: bundle prepare
+ifeq "$(VC_OSX_FSKIT)" "1"
+FSKIT_EXTENSION := $(APPNAME).app/Contents/Extensions/LambCryptFSKit.appex
+ifeq "$(LOCAL_DEVELOPMENT_BUILD)" "true"
+FSKIT_SIGN_TIMESTAMP := --timestamp=none
+else
+FSKIT_SIGN_TIMESTAMP := --timestamp
+endif
+endif
 
 # Keep bundle assembly available to builds that do not have signing credentials.
 bundle: $(APPNAME)
@@ -261,14 +271,62 @@ ifdef VC_LEGACY_BUILD
 else
 	sed -e 's/_VERSION_/$(patsubst %a,%.1,$(patsubst %b,%.2,$(TC_VERSION)))/' ../Build/Resources/MacOSX/Info.plist.xml >$(APPNAME).app/Contents/Info.plist
 endif
+ifeq "$(VC_OSX_FSKIT)" "1"
+	plutil -replace CFBundleIdentifier -string io.github.e3742526.LambCrypt.fskit $(APPNAME).app/Contents/Info.plist
+	plutil -replace CFBundleExecutable -string $(APPNAME) $(APPNAME).app/Contents/Info.plist
+	plutil -replace CFBundleName -string "LambCrypt FSKit" $(APPNAME).app/Contents/Info.plist
+	plutil -replace LSMinimumSystemVersion -string "$(VC_OSX_TARGET)" $(APPNAME).app/Contents/Info.plist
+	mkdir -p "$(FSKIT_EXTENSION)/Contents/MacOS"
+	rm -f "$(FSKIT_EXTENSION)/Contents/embedded.provisionprofile"
+	sed -e 's/_VERSION_/$(patsubst %a,%.1,$(patsubst %b,%.2,$(TC_VERSION)))/g' \
+		-e 's/_MINIMUM_OS_/$(VC_OSX_TARGET)/g' ../Driver/FSKit/Info.plist > "$(FSKIT_EXTENSION)/Contents/Info.plist"
+	xcrun --sdk macosx$(VC_OSX_SDK) swiftc -O -target $(shell uname -m)-apple-macos$(VC_OSX_TARGET) \
+		-application-extension -parse-as-library -Xlinker -e -Xlinker _NSExtensionMain \
+		../Driver/FSKit/FileSystem.swift ../Driver/FSKit/VolumeConnection.swift \
+		-o "$(FSKIT_EXTENSION)/Contents/MacOS/LambCryptFSKit"
+endif
 	chmod -R go-w $(APPNAME).app
 
 prepare: bundle
-ifneq ("$(LOCAL_DEVELOPMENT_BUILD)","true")
+ifeq "$(VC_OSX_FSKIT)" "1"
+	test -n "$(VC_APP_SIGN_IDENTITY)" || { echo "Set VC_APP_SIGN_IDENTITY to sign the FSKit app and extension." >&2; exit 1; }
+	test -f "$$VC_FSKIT_PROVISIONING_PROFILE" || { echo "Set VC_FSKIT_PROVISIONING_PROFILE to the extension's Apple-issued provisioning profile." >&2; exit 1; }
+	@set -eu; \
+	signing_dir=$$(mktemp -d); \
+	trap 'rm -f "$$signing_dir/profile.plist" "$$signing_dir/entitlements.plist" "$$signing_dir/app-entitlements.plist"; rmdir "$$signing_dir"' EXIT; \
+	security cms -D -i "$$VC_FSKIT_PROVISIONING_PROFILE" -o "$$signing_dir/profile.plist"; \
+	app_id=$$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.application-identifier' "$$signing_dir/profile.plist" 2>/dev/null || true); \
+	team_id=$$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.developer.team-identifier' "$$signing_dir/profile.plist" 2>/dev/null || true); \
+	bundle_id=$$(plutil -extract CFBundleIdentifier raw "$(FSKIT_EXTENSION)/Contents/Info.plist"); \
+	if [ -z "$$team_id" ] || [ "$${app_id#*.}" != "$$bundle_id" ] || \
+	   [ "$$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.developer.fskit.fsmodule' "$$signing_dir/profile.plist" 2>/dev/null)" != true ]; then \
+		echo "The provisioning profile must authorize the FSKit Module capability for $$bundle_id." >&2; exit 1; \
+	fi; \
+	cp ../Setup/MacOSX/FSKit.entitlements.plist "$$signing_dir/entitlements.plist"; \
+	/usr/libexec/PlistBuddy -c "Add :com.apple.application-identifier string $$app_id" "$$signing_dir/entitlements.plist"; \
+	/usr/libexec/PlistBuddy -c "Add :com.apple.developer.team-identifier string $$team_id" "$$signing_dir/entitlements.plist"; \
+	group_id="$$team_id.lambcrypt-fskit"; \
+	plutil -insert LambCryptFSKitIPCGroup -string "$$group_id" "$(APPNAME).app/Contents/Info.plist"; \
+	plutil -create xml1 "$$signing_dir/app-entitlements.plist"; \
+	for entitlements in "$$signing_dir/entitlements.plist" "$$signing_dir/app-entitlements.plist"; do \
+		/usr/libexec/PlistBuddy -c 'Add :com.apple.security.application-groups array' "$$entitlements"; \
+		/usr/libexec/PlistBuddy -c "Add :com.apple.security.application-groups:0 string $$group_id" "$$entitlements"; \
+	done; \
+	cp "$$VC_FSKIT_PROVISIONING_PROFILE" "$(FSKIT_EXTENSION)/Contents/embedded.provisionprofile"; \
+	codesign --force --sign "$(VC_APP_SIGN_IDENTITY)" $(FSKIT_SIGN_TIMESTAMP) \
+		--entitlements "$$signing_dir/entitlements.plist" "$(FSKIT_EXTENSION)"; \
+	codesign --force --sign "$(VC_APP_SIGN_IDENTITY)" $(FSKIT_SIGN_TIMESTAMP) \
+		--entitlements "$$signing_dir/app-entitlements.plist" "$(APPNAME).app"
+else ifneq ("$(LOCAL_DEVELOPMENT_BUILD)","true")
 	test -n "$(VC_APP_SIGN_IDENTITY)" || { echo "Set VC_APP_SIGN_IDENTITY for a signed build."; exit 1; }
 	codesign -s "$(VC_APP_SIGN_IDENTITY)" --timestamp $(APPNAME).app
 endif
 
+ifeq "$(VC_OSX_FSKIT)" "1"
+install package:
+	@echo "Build the experimental FSKit app with make bundle or make prepare to sign it." >&2
+	@exit 1
+else
 install: prepare
 	cp -R $(APPNAME).app /Applications/.
 
@@ -304,6 +362,7 @@ endif
 		cp "$(BASE_DIR)/Setup/MacOSX/LambCrypt_$(TC_VERSION).pkg" "$$dmg_stage/LambCrypt_Installer.pkg"; \
 		hdiutil create -quiet -format UDZO -imagekey zlib-level=9 -volname LambCrypt \
 			-srcfolder "$$dmg_stage" "$(APPNAME)$(if $(VC_LEGACY_BUILD),_Legacy)_$(TC_VERSION).dmg"
+endif
 endif
 
 

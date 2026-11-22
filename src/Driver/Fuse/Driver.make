@@ -12,10 +12,12 @@
 
 NAME := Driver
 
-OBJS :=
-OBJS += FuseService.o
-
+ifeq "$(VC_OSX_FSKIT)" "1"
+OBJS := ../FSKit/FSKitService.o ../FSKit/VolumeProtocol.o
+else
+OBJS := FuseService.o
 CXXFLAGS += $(shell $(PKG_CONFIG) $(VC_FUSE_PACKAGE) --cflags)
 CXXFLAGS += -DVC_FUSE_VERSION=$(VC_FUSE_VERSION)
+endif
 
 include $(BUILD_INC)/Makefile.inc

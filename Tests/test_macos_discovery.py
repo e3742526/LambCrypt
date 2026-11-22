@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unit checks for macOS discovery; no mounted volumes or sudo needed.
+"""Unit checks for macOS discovery and FSKit teardown; no mounts or sudo needed.
 
 Compiles the production plist helpers and batch-refresh methods with a fake
 inventory provider, so tests can supply incomplete inventories safely. Optional
@@ -18,7 +18,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--platform-archive", type=Path)
     args = parser.parse_args()
-    with tempfile.TemporaryDirectory(prefix="vc-discovery-unit-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="lambcrypt-fskit.unit-", dir="/private/tmp") as temporary:
         work = Path(temporary)
         image = work / ".veracrypt_aux_mnt-test" / "volume.dmg"
         image.parent.mkdir()
@@ -43,7 +43,9 @@ def main():
         (work / "broken").write_text("invalid plist")
 
         source = (ROOT / "src/Core/Unix/MacOSX/CoreMacOSX.cpp").read_text()
-        helpers = source[source.index("\tclass CFHolder"):source.index("\tstatic bool AuxiliaryControlFileHasVirtualDevice")]
+        helpers = source[source.index("\tclass CFHolder"):source.index("\tCoreMacOSX::CoreMacOSX ()")]
+        dismount = source[source.index("\tshared_ptr <VolumeInfo> CoreMacOSX::DismountVolume"):
+                          source.index("\tstatic void ClearDiskImageInfo")]
         refresh = source[source.index("\tstatic void ClearDiskImageInfo"):source.index("\t// Strict /dev/diskN")]
         prelude = r'''
 #include "Platform/Finally.h"
@@ -53,24 +55,59 @@ def main():
 #include <stdexcept>
 #include <algorithm>
 #include <cstdlib>
+#include <unistd.h>
+#include <vector>
 #define throw_sys_sub_if(condition, subject) do { if (condition) throw std::runtime_error(subject); } while(false)
+using namespace std;
+#undef SRC_POS
+#define SRC_POS "test source"
 using DevicePath = std::string;
 struct DirectoryPath : std::string {
     using std::string::string;
     DirectoryPath() {}
     DirectoryPath(const std::string &s) : std::string(s) {}
     bool IsEmpty() const { return empty(); }
+    bool IsBlockDevice() const { return find("/dev/disk") == 0; }
+    explicit operator wstring() const { return wstring(begin(), end()); }
 };
 struct ParameterIncorrect : std::runtime_error { ParameterIncorrect(const std::string &s) : std::runtime_error(s) {} };
 struct VolumeDiscoveryFailed : std::runtime_error { VolumeDiscoveryFailed(const std::string &s, const std::wstring &) : std::runtime_error(s) {} };
+struct DismountServiceCleanupFailed {
+    DismountServiceCleanupFailed(const string &, const wstring &reason) : Reason(reason) {}
+    wstring Reason;
+};
+struct MountedVolumeInUse { explicit MountedVolumeInUse(const string &) {} };
+struct TimeOut {};
+struct ExecutedProcessFailed { string GetErrorOutput() const { return "Resource busy"; } };
 struct StringConverter {
     static std::string Trim(std::string s) { size_t b=s.find_first_not_of(" \t\r\n"); if(b==std::string::npos)return ""; return s.substr(b,s.find_last_not_of(" \t\r\n")-b+1); }
     static std::wstring ToExceptionString(const std::exception &) { return L"failure"; }
 };
 static std::string Inventory;
 static int Queries;
-struct Process { static std::string ExecuteBounded(const std::string &, const std::list<std::string> &, int deadline) { if(deadline!=2000)throw std::runtime_error("discovery deadline"); ++Queries; return Inventory; } };
+static vector<pair<string, int>> Commands;
+static string TimeoutCommand;
+static bool BusyImage;
+struct Process {
+    static string ExecuteBounded(const string &path, const list<string> &arguments, int deadline) {
+        if (arguments.front() == "info") {
+            if (deadline != 2000) throw runtime_error("discovery deadline");
+            ++Queries;
+            return Inventory;
+        }
+        Commands.emplace_back(path, deadline);
+        if (path == TimeoutCommand) throw TimeOut{};
+        if (BusyImage && arguments.front() == "detach") throw ExecutedProcessFailed{};
+        return {};
+    }
+    static void Execute(const string &path, const list<string> &) { Commands.emplace_back(path, 0); }
+};
 struct FuseService { static std::string GetVolumeImagePath() { return "/volume.dmg"; } };
+namespace FSKit {
+    static void WaitForServiceExit(const DirectoryPath &) { Commands.emplace_back("wait", 0); }
+}
+namespace Thread { static void Sleep(int) {} }
+namespace VolumeProtection { enum { None, HiddenVolumeReadOnly }; }
 struct SystemLog { static void WriteException(const std::exception &) {} };
 #define foreach(declaration, collection) for (declaration : collection)
 struct VolumeInfo {
@@ -78,12 +115,15 @@ struct VolumeInfo {
     DiscoveryState Discovery = DiscoveryUnknown;
     DirectoryPath AuxMountPoint, MountPoint;
     DevicePath VirtualDevice;
+    int Protection = VolumeProtection::None;
 };
 using VolumeInfoList = std::list<std::shared_ptr<VolumeInfo>>;
 struct MountedFilesystem { DirectoryPath MountPoint; };
 using MountedFilesystemList = std::list<std::shared_ptr<MountedFilesystem>>;
 class CoreMacOSX {
 public:
+    shared_ptr<VolumeInfo> DismountVolume(shared_ptr<VolumeInfo>, bool, bool);
+    shared_ptr<VolumeInfo> ValidateMountedVolume(shared_ptr<VolumeInfo> volume) const { return volume; }
     void UpdateMountedVolumesInfo(VolumeInfoList &) const;
     void UpdateMountedVolumeInfo(std::shared_ptr<VolumeInfo>) const;
     void UpdateMountedVolumeInfo(std::shared_ptr<VolumeInfo>, const std::string &) const;
@@ -96,6 +136,40 @@ public:
         tests = r'''
 static void Require(bool condition, const char *message) { if(!condition)throw std::runtime_error(message); }
 static std::string Read(const std::string &path) { std::ifstream f(path); return std::string(std::istreambuf_iterator<char>(f), {}); }
+static void CheckDismount(CoreMacOSX &core, const string &image) {
+    auto mounted = make_shared<VolumeInfo>();
+    mounted->AuxMountPoint = image.substr(0, image.rfind('/'));
+    auto attempt = [&](const char *blocked, const wchar_t *detail, size_t expectedCommands) {
+        TimeoutCommand = blocked;
+        Commands.clear();
+        bool failed = false;
+        try { core.DismountVolume(mounted, false, false); }
+        catch (const DismountServiceCleanupFailed &e) { failed = e.Reason.find(detail) != wstring::npos; }
+        Require(failed && Commands.size() == expectedCommands, "timeout ran later teardown steps or lost the failed step");
+        Require(Commands[0] == make_pair(string("/usr/bin/hdiutil"), 30000), "disk detach deadline missing");
+        if (Commands.size() == 2)
+            Require(Commands[1] == make_pair(string("/sbin/umount"), 10000), "auxiliary unmount deadline missing");
+    };
+    attempt("/usr/bin/hdiutil", L"disk image detach", 1);
+    attempt("/sbin/umount", L"auxiliary unmount", 2);
+    Commands.clear();
+    TimeoutCommand.clear();
+    BusyImage = true;
+    bool busy = false;
+    try { core.DismountVolume(mounted, false, false); }
+    catch (const MountedVolumeInUse &) { busy = true; }
+    Require(busy && Commands.size() == 1, "busy disk was not preserved");
+    BusyImage = false;
+    Commands.clear();
+    core.DismountVolume(mounted, false, false);
+    Require(Commands.size() == 3 && Commands.back().first == "wait", "successful detach skipped worker wait");
+
+    mounted->AuxMountPoint = string(mounted->AuxMountPoint).substr(string("/private").size());
+    Commands.clear();
+    core.DismountVolume(mounted, false, false);
+    Require(Commands == vector<pair<string, int>>{{"/usr/bin/hdiutil", 0}, {"/sbin/umount", 0}},
+            "legacy auxiliary path inherited the FSKit deadlines");
+}
 int main(int argc, char **argv) {
     try {
         std::string root=argv[1], image=argv[2];
@@ -127,12 +201,15 @@ int main(int argc, char **argv) {
         Inventory=Read(root+"/exact"); core.UpdateMountedVolumeInfo(volumes.front());
         Require(Queries==4 && volumes.front()->VirtualDevice=="/dev/disk42", "destructive lookup reused display snapshot");
         std::cout << "PASS: exact/alias matches, unrelated and incomplete inventories, batch query count, unknown/absent states, fresh lookup\n";
+        Inventory = Read(root + "/exact");
+        CheckDismount(core, image);
+        std::cout << "PASS: FSKit detach and unmount deadlines, busy preservation, successful cleanup ordering\n";
     } catch(std::exception &e) { std::cerr << e.what() << '\n'; return 1; }
 }
 '''
         unit = work / "discovery.cpp"
-        unit.write_text(prelude + helpers + refresh + tests)
-        command = ["clang++", "-std=c++11", "-I" + str(ROOT / "src"), str(unit), "-framework", "CoreFoundation", "-o", str(work / "discovery")]
+        unit.write_text(prelude + helpers + dismount + refresh + tests)
+        command = ["clang++", "-std=c++11", "-DVC_MACOSX_FSKIT", "-I" + str(ROOT / "src"), str(unit), "-framework", "CoreFoundation", "-o", str(work / "discovery")]
         subprocess.run(command, check=True)
         subprocess.run([str(work / "discovery"), str(work), str(image)], check=True, timeout=20)
         if args.platform_archive:

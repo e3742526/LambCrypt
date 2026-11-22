@@ -1313,22 +1313,22 @@ namespace VeraCrypt
 
 	void TextUserInterface::DoShowError (const wxString &message) const
 	{
-		wcerr << L"Error: " << static_cast<wstring> (message) << endl;
+		cerr << "Error: " << message.utf8_str() << endl;
 	}
 
 	void TextUserInterface::DoShowInfo (const wxString &message) const
 	{
-		wcout << static_cast<wstring> (message) << endl;
+		cout << message.utf8_str() << endl;
 	}
 
 	void TextUserInterface::DoShowString (const wxString &str) const
 	{
-		wcout << str.c_str() << flush;
+		cout << str.utf8_str() << flush;
 	}
 
 	void TextUserInterface::DoShowWarning (const wxString &message) const
 	{
-		wcerr << L"Warning: " << static_cast<wstring> (message) << endl;
+		cerr << "Warning: " << message.utf8_str() << endl;
 	}
 
 	void TextUserInterface::ExportTokenKeyfile () const

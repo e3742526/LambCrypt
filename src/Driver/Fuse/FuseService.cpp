@@ -918,42 +918,19 @@ namespace VeraCrypt
 			if (!FuseService::CheckAccessRights())
 				return -EACCES;
 
+			if (offset < 0)
+				return -EINVAL;
+
 			if (strcmp (path, FuseService::GetVolumeImagePath()) == 0)
 			{
 				try
 				{
-					// Test for read beyond the end of the volume
-					if ((uint64) offset + size > FuseService::GetVolumeSize())
-						size = FuseService::GetVolumeSize() - offset;
-
-					size_t sectorSize = FuseService::GetVolumeSectorSize();
-					if (size % sectorSize != 0 || offset % sectorSize != 0)
-					{
-						// Support for non-sector-aligned read operations is required by some loop device tools
-						// which may analyze the volume image before attaching it as a device
-
-						uint64 alignedOffset = offset - (offset % sectorSize);
-						uint64 alignedSize = size + (offset % sectorSize);
-
-						if (alignedSize % sectorSize != 0)
-							alignedSize += sectorSize - (alignedSize % sectorSize);
-
-						SecureBuffer alignedBuffer (alignedSize);
-
-						FuseService::ReadVolumeSectors (alignedBuffer, alignedOffset);
-						BufferPtr ((uint8 *) buf, size).CopyFrom (alignedBuffer.GetRange (offset % sectorSize, size));
-					}
-					else
-					{
-						FuseService::ReadVolumeSectors (BufferPtr ((uint8 *) buf, size), offset);
-					}
+					return FuseService::ReadVolumeBytes (BufferPtr ((uint8 *) buf, size), offset);
 				}
 				catch (MissingVolumeData&)
 				{
 					return 0;
 				}
-
-				return size;
 			}
 
 			if (strcmp (path, FuseService::GetControlPath()) == 0)
@@ -1285,15 +1262,6 @@ namespace VeraCrypt
 		return outBuf;
 	}
 
-	const char *FuseService::GetVolumeImagePath ()
-	{
-#ifdef TC_MACOSX
-		return "/volume.dmg";
-#else
-		return "/volume";
-#endif
-	}
-
 	uint64 FuseService::GetVolumeSize ()
 	{
 		if (!MountedVolume)
@@ -1446,12 +1414,12 @@ namespace VeraCrypt
 		return serialInstanceNumber;
 	}
 
-	void FuseService::ReadVolumeSectors (const BufferPtr &buffer, uint64 byteOffset)
+	size_t FuseService::ReadVolumeBytes (const BufferPtr &buffer, uint64 byteOffset)
 	{
 		if (!MountedVolume)
 			throw NotInitialized (SRC_POS);
 
-		MountedVolume->ReadSectors (buffer, byteOffset);
+		return MountedVolume->ReadBytes (buffer, byteOffset);
 	}
 
 	void FuseService::ReceiveAuxDeviceInfo (const ConstBufferPtr &buffer)

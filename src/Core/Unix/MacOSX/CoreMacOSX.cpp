@@ -26,6 +26,9 @@
 #include <sys/stat.h>
 #include "CoreMacOSX.h"
 #include "Driver/Fuse/FuseService.h"
+#ifdef VC_MACOSX_FSKIT
+#include "Driver/FSKit/FSKitService.h"
+#endif
 #include "Core/Unix/CoreServiceProxy.h"
 #include "Platform/FileStream.h"
 #include "Platform/MemoryStream.h"
@@ -251,33 +254,6 @@ namespace VeraCrypt
 		return false;
 	}
 
-	static bool AuxiliaryControlFileHasVirtualDevice (const DirectoryPath &auxMountPoint, const DevicePath &virtualDev, int retryCount = 50)
-	{
-		for (int t = 0; t < retryCount; ++t)
-		{
-			try
-			{
-				shared_ptr <File> controlFile (new File);
-				controlFile->Open (string (auxMountPoint) + FuseService::GetControlPath());
-
-				FileStream controlFileReader (controlFile);
-				string controlFileData = controlFileReader.ReadToEnd();
-				if (controlFileData.empty() || controlFileData.size() > 1024 * 1024)
-					throw ParameterIncorrect (SRC_POS);
-
-				shared_ptr <Stream> controlFileStream (new MemoryStream (ConstBufferPtr ((const uint8 *) controlFileData.data(), controlFileData.size())));
-				shared_ptr <VolumeInfo> mountedVol = Serializable::DeserializeNew <VolumeInfo> (controlFileStream);
-				if (mountedVol && string (mountedVol->VirtualDevice) == string (virtualDev))
-					return true;
-			}
-			catch (...) { }
-
-			Thread::Sleep (100);
-		}
-
-		return false;
-	}
-
 	CoreMacOSX::CoreMacOSX ()
 	{
 	}
@@ -305,6 +281,10 @@ namespace VeraCrypt
 	{
 		if (!mountedVolume || mountedVolume->AuxMountPoint.IsEmpty())
 			throw ParameterIncorrect (SRC_POS);
+#ifdef VC_MACOSX_FSKIT
+		const bool fskitMount = string (mountedVolume->AuxMountPoint).compare (0,
+			sizeof ("/private/tmp/lambcrypt-fskit.") - 1, "/private/tmp/lambcrypt-fskit.") == 0;
+#endif
 #ifdef VC_MACOSX_FUSET
 		// Validate the mount and check the service protocol before detaching
 		// the disk image. Retain its identity independently of SMB metadata.
@@ -340,8 +320,22 @@ namespace VeraCrypt
 
 			try
 			{
+#ifdef VC_MACOSX_FSKIT
+				if (fskitMount)
+					Process::ExecuteBounded ("/usr/bin/hdiutil", args, 30000);
+				else
+#endif
 				Process::Execute ("/usr/bin/hdiutil", args);
 			}
+#ifdef VC_MACOSX_FSKIT
+			catch (const TimeOut &)
+			{
+				// The OS can still be detaching the image. Keep its backing
+				// mount alive and report that teardown could not be confirmed.
+				throw DismountServiceCleanupFailed (SRC_POS,
+					L"macOS did not confirm disk image detach: " + wstring (mountedVolume->VirtualDevice));
+			}
+#endif
 			catch (ExecutedProcessFailed &e)
 			{
 				if (!ignoreOpenFiles)
@@ -400,9 +394,21 @@ namespace VeraCrypt
 		{
 			try
 			{
+#ifdef VC_MACOSX_FSKIT
+				if (fskitMount)
+					Process::ExecuteBounded ("/sbin/umount", args, 10000);
+				else
+#endif
 				Process::Execute ("/sbin/umount", args);
 				break;
 			}
+#ifdef VC_MACOSX_FSKIT
+			catch (const TimeOut &)
+			{
+				throw DismountServiceCleanupFailed (SRC_POS,
+					L"macOS did not confirm auxiliary unmount: " + wstring (mountedVolume->AuxMountPoint));
+			}
+#endif
 			catch (ExecutedProcessFailed&)
 			{
 				if (t > 10)
@@ -422,6 +428,10 @@ namespace VeraCrypt
 #endif
 		}
 
+#ifdef VC_MACOSX_FSKIT
+		if (fskitMount)
+			FSKit::WaitForServiceExit (mountedVolume->AuxMountPoint);
+#endif
 		return mountedVolume;
 	}
 
@@ -645,9 +655,38 @@ namespace VeraCrypt
 		Process::Execute ("/usr/bin/open", args);
 	}
 
+#ifndef VC_MACOSX_FSKIT
+	static bool AuxiliaryControlFileHasVirtualDevice (const DirectoryPath &auxMountPoint, const DevicePath &virtualDev, int retryCount = 50)
+	{
+		for (int t = 0; t < retryCount; ++t)
+		{
+			try
+			{
+				shared_ptr <File> controlFile (new File);
+				controlFile->Open (string (auxMountPoint) + FuseService::GetControlPath());
+
+				FileStream controlFileReader (controlFile);
+				string controlFileData = controlFileReader.ReadToEnd();
+				if (controlFileData.empty() || controlFileData.size() > 1024 * 1024)
+					throw ParameterIncorrect (SRC_POS);
+
+				shared_ptr <Stream> controlFileStream (new MemoryStream (ConstBufferPtr ((const uint8 *) controlFileData.data(), controlFileData.size())));
+				shared_ptr <VolumeInfo> mountedVol = Serializable::DeserializeNew <VolumeInfo> (controlFileStream);
+				if (mountedVol && string (mountedVol->VirtualDevice) == string (virtualDev))
+					return true;
+			}
+			catch (...) { }
+
+			Thread::Sleep (100);
+		}
+
+		return false;
+	}
+#endif
+
 	DevicePath CoreMacOSX::MountAuxVolumeImage (const DirectoryPath &auxMountPoint, const MountOptions &options) const
 	{
-#ifndef VC_MACOSX_FUSET
+#if !defined(VC_MACOSX_FUSET) && !defined(VC_MACOSX_FSKIT)
 		// Check FUSE version
 		char fuseVersionString[MAXHOSTNAMELEN + 1] = { 0 };
 		size_t fuseVersionStringLength = MAXHOSTNAMELEN;
@@ -740,6 +779,7 @@ namespace VeraCrypt
 			throw ParameterIncorrect (SRC_POS);
 		(void) mountPoint;
 
+#ifndef VC_MACOSX_FSKIT
 		try
 		{
 			FuseService::SendAuxDeviceInfo (auxMountPoint, virtualDev);
@@ -781,6 +821,7 @@ namespace VeraCrypt
 				<< "; continuing with hdiutil device";
 			SystemLog::WriteError (logMessage.str());
 		}
+#endif
 #endif
 
 		return virtualDev;

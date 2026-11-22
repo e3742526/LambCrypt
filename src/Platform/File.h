@@ -99,10 +99,12 @@ namespace VeraCrypt
 		// The descriptor's identity is captured in the requester process when
 		// its filesystem won't let the root process call fstat().
 		void GetIdentity (struct stat &info) const;
-		SystemFileHandleType GetSystemHandle () const { return FileHandle; }
 		// For copies held by processes that do not serve the volume: release the
 		// descriptor without restoring timestamps through a requester process.
 		void SetReleaseOnly () { ReleaseOnly = true; }
+#endif
+#if defined(TC_LINUX) || defined(VC_MACOSX_FSKIT)
+		SystemFileHandleType GetSystemHandle () const { return FileHandle; }
 #endif
 		FilePath GetPath () const;
 		uint64 Length () const;

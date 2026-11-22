@@ -21,6 +21,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <limits>
 
 using namespace VeraCrypt;
 
@@ -76,6 +77,19 @@ static void CheckRanges (Volume &volume, const SecureBuffer &data, const char *m
 	}
 }
 
+static void CheckByteReads (Volume &volume, const SecureBuffer &data)
+{
+	const size_t sectorSize = volume.GetSectorSize();
+	SecureBuffer buffer (sectorSize + 3);
+	Require (volume.ReadBytes (buffer, sectorSize - 1) == buffer.Size(), "unaligned read was truncated");
+	Require (memcmp (buffer.Ptr(), data.Ptr() + sectorSize - 1, buffer.Size()) == 0, "unaligned read differs");
+	Require (volume.ReadBytes (buffer, data.Size() - 3) == 3, "read crossing EOF returned the wrong size");
+	Require (memcmp (buffer.Ptr(), data.Ptr() + data.Size() - 3, 3) == 0, "last bytes differ");
+	Require (volume.ReadBytes (buffer, data.Size()) == 0, "read at EOF did not return zero");
+	Require (volume.ReadBytes (buffer, data.Size() + 1) == 0, "read past EOF did not return zero");
+	Require (volume.ReadBytes (buffer, std::numeric_limits <uint64>::max()) == 0, "out-of-range offset did not return zero");
+}
+
 int main (int argc, char **argv)
 {
 	const bool requireThreadPool = (argc == 6 && strcmp (argv[5], "--require-thread-pool") == 0);
@@ -110,6 +124,7 @@ int main (int argc, char **argv)
 		SecureBuffer data ((size_t) size);
 		volume.ReadSectors (data, 0);
 		CheckRanges (volume, data, "read of several sectors differs");
+		CheckByteReads (volume, data);
 
 		EncryptionThreadPool::Start();
 		finally_do ({ EncryptionThreadPool::Stop(); });

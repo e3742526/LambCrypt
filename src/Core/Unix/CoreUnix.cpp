@@ -36,6 +36,9 @@
 #include "Platform/SystemLog.h"
 #include "Core/Unix/UnixUser.h"
 #include "Driver/Fuse/FuseService.h"
+#ifdef VC_MACOSX_FSKIT
+#include "Driver/FSKit/FSKitService.h"
+#endif
 #include "Volume/VolumePasswordCache.h"
 
 namespace VeraCrypt
@@ -77,7 +80,7 @@ namespace VeraCrypt
 		return result;
 	}
 
-#ifndef VC_MACOSX_FUSET
+#if !defined(VC_MACOSX_FUSET) && !defined(VC_MACOSX_FSKIT)
 	// The elevated service creates the auxiliary FUSE mountpoint by pathname
 	// and mounts on it afterwards. No directory on that path may be replaceable
 	// by a non-root user in the meantime: each must be root-owned and either not
@@ -1477,7 +1480,9 @@ namespace VeraCrypt
 		}
 
 		string fuseMountPoint;
-#ifdef VC_MACOSX_FUSET
+#if defined(VC_MACOSX_FSKIT)
+		fuseMountPoint = FSKit::CreateMountPoint (GetFuseMountDirPrefix());
+#elif defined(VC_MACOSX_FUSET)
 		// An older service may still be shutting down after its SMB mount has
 		// disappeared. FUSE-T also uses the pathname during backend teardown,
 		// so a replacement volume must have a different auxiliary path.
@@ -1532,7 +1537,9 @@ namespace VeraCrypt
 			finally_do_arg (char *, canonicalPath, { free (finally_arg); });
 			fuseMountPoint = canonicalPath;
 #endif
-#ifdef VC_MACOSX_FUSET
+#if defined(VC_MACOSX_FSKIT)
+			FSKit::Mount (volume, options.SlotNumber, fuseMountPoint);
+#elif defined(VC_MACOSX_FUSET)
 			fuseServiceSerialInstanceNumber = FuseService::Mount (volume, options.SlotNumber, fuseMountPoint);
 #elif defined(TC_LINUX)
 			FuseService::Mount (volume, options.SlotNumber, fuseMountPoint, slotLock, volumeLock);
@@ -1542,11 +1549,15 @@ namespace VeraCrypt
 		}
 		catch (...)
 		{
+#ifdef VC_MACOSX_FSKIT
+			FSKit::RemoveEmptyMountDirectory (fuseMountPoint);
+#else
 			try
 			{
 				DirectoryPath (fuseMountPoint).Delete();
 			}
 			catch (...) { }
+#endif
 			throw;
 		}
 
@@ -1724,6 +1735,10 @@ namespace VeraCrypt
 
 	DevicePath CoreUnix::MountAuxVolumeImage (const DirectoryPath &auxMountPoint, const MountOptions &options) const
 	{
+#ifdef VC_MACOSX_FSKIT
+		// CoreMacOSX attaches the image via Disk Images.
+		throw NotApplicable (SRC_POS);
+#else
 		DevicePath loopDev = AttachFileToLoopDevice (string (auxMountPoint) + FuseService::GetVolumeImagePath(), options.Protection == VolumeProtection::ReadOnly);
 
 		try
@@ -1767,6 +1782,7 @@ namespace VeraCrypt
 		}
 
 		return loopDev;
+#endif
 	}
 
 	void CoreUnix::SetFileOwner (const FilesystemPath &path, const UserId &owner) const

@@ -60,7 +60,14 @@ namespace VeraCrypt
 		static void FlushVolume ();
 		static const char *GetAuxDeviceInfoPath () { return "/aux-device-info"; }
 		static const char *GetControlPath () { return "/control"; }
-		static const char *GetVolumeImagePath ();
+		static const char *GetVolumeImagePath ()
+		{
+#ifdef TC_MACOSX
+			return "/volume.dmg";
+#else
+			return "/volume";
+#endif
+		}
 #if defined(TC_MACOSX) && defined(VC_MACOSX_FUSET)
 		static const char *GetShutdownPath () { return "/shutdown"; }
 		static const char *GetShutdownSocketPath () { return "/shutdown-socket"; }
@@ -74,9 +81,8 @@ namespace VeraCrypt
 		static shared_ptr <Buffer> GetAuxDeviceInfo ();
 		static shared_ptr <Buffer> GetVolumeInfo ();
 		static uint64 GetVolumeSize ();
-		static uint64 GetVolumeSectorSize () { return MountedVolume->GetSectorSize(); }
 		static uint64 Mount (shared_ptr <Volume> openVolume, VolumeSlotNumber slotNumber, const string &fuseMountPoint, int slotLock = -1, int volumeLock = -1);
-		static void ReadVolumeSectors (const BufferPtr &buffer, uint64 byteOffset);
+		static size_t ReadVolumeBytes (const BufferPtr &buffer, uint64 byteOffset);
 		static void ReceiveAuxDeviceInfo (const ConstBufferPtr &buffer);
 		static void SendAuxDeviceInfo (const DirectoryPath &fuseMountPoint, const DevicePath &virtualDevice, const DevicePath &loopDevice = DevicePath());
 #if defined(TC_MACOSX) && defined(VC_MACOSX_FUSET)

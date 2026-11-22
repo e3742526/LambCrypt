@@ -25,9 +25,15 @@ namespace VeraCrypt
 		bool IsAuxiliaryMountCandidate (const string &prefix, uid_t userId, uid_t realUserId) const
 		{
 			const string name = MountPoint.ToBaseName();
+			bool backend = Type == "smbfs" || Type == "nfs" || Type == "macfuse" || Type == "osxfuse" || Type == "fusefs";
+#ifdef VC_MACOSX_FSKIT
+			const string path = MountPoint;
+			backend = backend || ((Type == "fskit" || Type == "lambcryptfs")
+				&& path.compare (0, sizeof ("/private/tmp/lambcrypt-fskit.") - 1, "/private/tmp/lambcrypt-fskit.") == 0);
+#endif
 			return name.compare (0, prefix.size(), prefix) == 0
 				&& (Owner == userId || Owner == 0 || (userId == 0 && Owner == realUserId))
-				&& (Type == "smbfs" || Type == "nfs" || Type == "macfuse" || Type == "osxfuse" || Type == "fusefs");
+				&& backend;
 		}
 		uid_t Owner;
 		int32 MountId[2];

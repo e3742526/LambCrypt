@@ -13,6 +13,7 @@
 #ifndef TC_WINDOWS
 #include <errno.h>
 #endif
+#include <algorithm>
 #include "EncryptionModeXTS.h"
 #include "Volume.h"
 #include "VolumeHeader.h"
@@ -321,6 +322,33 @@ namespace VeraCrypt
 		}
 	}
 
+	size_t Volume::ReadBytes (const BufferPtr &buffer, uint64 byteOffset)
+	{
+		if (byteOffset >= VolumeDataSize || buffer.Size() == 0)
+			return 0;
+
+		const size_t length = static_cast <size_t> (std::min <uint64> (buffer.Size(), VolumeDataSize - byteOffset));
+		const size_t sectorOffset = byteOffset % SectorSize;
+		if (sectorOffset == 0 && length % SectorSize == 0)
+		{
+			ReadSectors (buffer.GetRange (0, length), byteOffset);
+		}
+		else
+		{
+			// Read complete sectors and copy only the bytes requested by the filesystem.
+			size_t alignedLength = sectorOffset + length;
+			const size_t remainder = alignedLength % SectorSize;
+			if (remainder != 0)
+				alignedLength += SectorSize - remainder;
+
+			SecureBuffer aligned (alignedLength);
+			ReadSectors (aligned, byteOffset - sectorOffset);
+			buffer.GetRange (0, length).CopyFrom (aligned.GetRange (sectorOffset, length));
+		}
+
+		return length;
+	}
+
 	void Volume::ReadSectors (const BufferPtr &buffer, uint64 byteOffset)
 	{
 		if_debug (ValidateState ());
@@ -393,6 +421,42 @@ namespace VeraCrypt
 			throw NotInitialized (SRC_POS);
 	}
 
+	void Volume::WriteBytes (const ConstBufferPtr &buffer, uint64 byteOffset)
+	{
+		const size_t length = buffer.Size();
+		if (byteOffset > VolumeDataSize || length > VolumeDataSize - byteOffset)
+			throw ParameterIncorrect (SRC_POS);
+		if (length == 0)
+			return;
+		if (Protection == VolumeProtection::ReadOnly)
+			throw VolumeReadOnly (SRC_POS);
+		if (HiddenVolumeProtectionTriggered)
+			throw VolumeProtected (SRC_POS);
+
+		const size_t sectorOffset = byteOffset % SectorSize;
+		if (sectorOffset == 0 && length % SectorSize == 0)
+		{
+			WriteSectors (buffer, byteOffset);
+			return;
+		}
+
+		size_t alignedLength = sectorOffset + length;
+		const size_t remainder = alignedLength % SectorSize;
+		if (remainder != 0)
+			alignedLength += SectorSize - remainder;
+		// Validate the whole affected sector span before reading or modifying it.
+		const uint64 alignedOffset = byteOffset - sectorOffset;
+		if (alignedLength > VolumeDataSize - alignedOffset)
+			throw ParameterIncorrect (SRC_POS);
+		if (Protection == VolumeProtection::HiddenVolumeReadOnly)
+			CheckProtectedRange (VolumeDataOffset + alignedOffset, alignedLength);
+
+		SecureBuffer aligned (alignedLength);
+		ReadSectors (aligned, alignedOffset);
+		aligned.GetRange (sectorOffset, length).CopyFrom (buffer);
+		WriteSectors (aligned, alignedOffset);
+	}
+
 	void Volume::WriteSectors (const ConstBufferPtr &buffer, uint64 byteOffset)
 	{
 		if_debug (ValidateState ());
@@ -402,7 +466,7 @@ namespace VeraCrypt
 
 		if (length % SectorSize != 0
 			|| byteOffset % SectorSize != 0
-			|| byteOffset + length > VolumeDataSize)
+			|| byteOffset > VolumeDataSize || length > VolumeDataSize - byteOffset)
 			throw ParameterIncorrect (SRC_POS);
 
 		if (Protection == VolumeProtection::ReadOnly)

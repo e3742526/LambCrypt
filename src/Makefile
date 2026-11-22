@@ -27,11 +27,13 @@
 # NOSSE2:		Disable SEE2 support in compiler
 # WOLFCRYPT=1:	Build with wolfCrypt as crypto provider (see Crypto/wolfCrypt.md)
 # WITHFUSET:	Build with FUSE-T support on macOS instead of MacFUSE
+# WITHFSKIT:	Build the experimental macOS FSKit variant
 
 #------ Targets ------
 # all
 # clean
 # bundle:           Assemble the macOS app bundle without signing or packaging
+# prepare:          Sign the FSKit app using VC_APP_SIGN_IDENTITY and VC_FSKIT_PROVISIONING_PROFILE
 # wxbuild:		Configure and build wxWidgets - source code must be located at $(WX_ROOT)
 
 
@@ -57,6 +59,8 @@ export PKG_CONFIG ?= pkg-config
 export PKG_CONFIG_PATH ?= /usr/local/lib/pkgconfig
 
 export VC_OSX_FUSET ?= 0
+export VC_OSX_FSKIT ?= 0
+export VC_FSKIT_PROVISIONING_PROFILE
 
 export WX_CONFIG ?= wx-config
 export WX_CONFIG_ARGS := --unicode
@@ -71,6 +75,21 @@ ifeq "$(origin WITHFUSET)" "command line"
 	ifneq "$(WITHFUSET)" "0"
 		VC_OSX_FUSET := 1
 	endif
+endif
+
+ifeq "$(origin WITHFSKIT)" "command line"
+	VC_OSX_FSKIT := $(WITHFSKIT)
+endif
+
+ifeq "$(VC_OSX_FSKIT)" "1"
+	ifneq "$(shell uname -s)" "Darwin"
+$(error WITHFSKIT requires macOS)
+	endif
+	ifneq "$(VC_OSX_FUSET)" "0"
+$(error WITHFSKIT and WITHFUSET select different backends)
+	endif
+else ifneq "$(VC_OSX_FSKIT)" "0"
+$(error WITHFSKIT must be 0 or 1)
 endif
 
 ifeq "$(origin DEBUG)" "command line"
@@ -309,7 +328,14 @@ ifeq "$(shell uname -s)" "Darwin"
 	PLATFORM := MacOSX
 	APPNAME := LambCrypt
 
+ifeq "$(VC_OSX_FSKIT)" "1"
+	APPNAME := LambCrypt-FSKit
+	export VC_OSX_TARGET ?= 26.0
+	C_CXX_FLAGS += -DVC_MACOSX_FSKIT
+	LFLAGS += -framework Foundation
+else
 	export VC_OSX_TARGET ?= 12
+endif
 	# use the output of the command "xcrun --show-sdk-version" to set the SDK version if not set
 	export VC_OSX_SDK ?= $(shell xcrun --show-sdk-version)
 
@@ -560,6 +586,7 @@ ifneq (,$(filter Linux FreeBSD OpenBSD,$(PLATFORM)))
 endif
 
 #------ FUSE selection ------
+ifneq "$(VC_OSX_FSKIT)" "1"
 # User must specify WITHFUSE3 (non-zero) to request fuse3. Otherwise fuse (FUSE2) is used.
 # macOS FUSE-T builds select the fuse-t pkg-config package through WITHFUSET.
 # In all cases, existence is validated and build stops if the selected package is not found.
@@ -588,6 +615,7 @@ endif
 
 export VC_FUSE_PACKAGE
 export VC_FUSE_VERSION := $(shell $(PKG_CONFIG) --modversion $(VC_FUSE_PACKAGE) 2>/dev/null | cut -d. -f1)
+endif
 
 #------ Common configuration ------
 
@@ -711,14 +739,19 @@ all clean:
 
 	@for DIR in $(PROJ_DIRS); do \
 		PROJ=$$(echo $$DIR | cut -d/ -f1); \
-		$(MAKE) -C $$DIR -f $$PROJ.make NAME=$$PROJ $(MAKECMDGOALS) || exit $?; \
+		$(MAKE) -C $$DIR -f $$PROJ.make NAME=$$PROJ $(filter clean,$@) || exit $?; \
 		export LIBS="$(BASE_DIR)/$$DIR/$$PROJ.a $$LIBS"; \
 	done
 
 ifeq "$(PLATFORM)" "MacOSX"
 .PHONY: bundle
-bundle:
+bundle: all
 	$(MAKE) -C Main -f Main.make NAME=Main bundle
+ifeq "$(VC_OSX_FSKIT)" "1"
+.PHONY: prepare
+prepare: all
+	$(MAKE) -C Main -f Main.make NAME=Main prepare
+endif
 endif
 
 install:
