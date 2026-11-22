@@ -73,9 +73,10 @@ FAT and FSKit configuration. The exact kernel dependency remains unknown.
    These cover discovery, attach and detach deadlines, and the volume worker
    protocol without starting Disk Arbitration. Prioritize incomplete
    inventory, stale worker identity, startup rollback, and credential
-   lifetime when reviewing adjacent failure paths. The attach deadline,
-   one-time compatibility retry, and native protocol fixture passed these
-   checks. Live attach-timeout recovery remains pending.
+   lifetime when reviewing adjacent failure paths. These checks passed for the
+   attach deadline, one-time compatibility retry, native protocol fixture, and
+   rollback by captured worker identity. Live startup rollback and
+   attach-timeout recovery remain pending.
 2. **Move the FAT investigation to an isolated Tahoe host.** Use a spare Mac
    or an existing Apple Silicon guest that can load the signed FSKit module.
    The isolated environment and extension support are unverified. Prepare a

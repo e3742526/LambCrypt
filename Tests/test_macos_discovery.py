@@ -50,6 +50,10 @@ def main():
         refresh = source[source.index("\tstatic void ClearDiskImageInfo"):source.index("\t// Strict /dev/diskN")]
         attach = source[source.index("\tDevicePath CoreMacOSX::MountAuxVolumeImage"):
                         source.index("\tunique_ptr <CoreBase> Core (")]
+        unix_source = (ROOT / "src/Core/Unix/CoreUnix.cpp").read_text()
+        mount_end = unix_source.index("\n\t}\n\n\tDevicePath CoreUnix::MountAuxVolumeImage")
+        rollback_start = unix_source.rindex("\n\t\t\treturn mountedVolume;\n\t\t}", 0, mount_end)
+        rollback = unix_source[rollback_start:mount_end].split("\n\t\t}", 1)[1]
         prelude = r'''
 #include "Platform/Finally.h"
 #include <CoreFoundation/CoreFoundation.h>
@@ -64,6 +68,8 @@ def main():
 using namespace std;
 #undef SRC_POS
 #define SRC_POS "test source"
+#define VERSION_NUM 1
+using uint64 = uint64_t;
 using DevicePath = std::string;
 struct DirectoryPath : std::string {
     using std::string::string;
@@ -92,6 +98,7 @@ struct ExecutedProcessFailed {
 };
 struct StringConverter {
     static std::string Trim(std::string s) { size_t b=s.find_first_not_of(" \t\r\n"); if(b==std::string::npos)return ""; return s.substr(b,s.find_last_not_of(" \t\r\n")-b+1); }
+    static std::wstring ToWide(const std::string &s) { return wstring(s.begin(), s.end()); }
     static std::wstring ToExceptionString(const std::exception &) { return L"failure"; }
 };
 static std::string Inventory;
@@ -134,17 +141,25 @@ namespace Thread { static void Sleep(int) {} }
 namespace VolumeProtection { enum { None, HiddenVolumeReadOnly, ReadOnly }; }
 struct MountOptions {
     bool NoFilesystem = false;
-    shared_ptr<DirectoryPath> MountPoint;
+    shared_ptr<DirectoryPath> MountPoint, Path;
     int Protection = VolumeProtection::None;
+    unsigned int SlotNumber = 2;
 };
 struct SystemLog { static void WriteException(const std::exception &) {} };
 #define foreach(declaration, collection) for (declaration : collection)
+struct Volume {
+    string Path;
+};
 struct VolumeInfo {
     enum DiscoveryState { DiscoveryUnknown, ImageAttached, ImageAbsent, ControlUnavailable };
     DiscoveryState Discovery = DiscoveryUnknown;
     DirectoryPath AuxMountPoint, MountPoint;
     DevicePath VirtualDevice;
     int Protection = VolumeProtection::None;
+    string Path;
+    unsigned int ProgramVersion = 0, SlotNumber = 0;
+    uint64 SerialInstanceNumber = 0;
+    void Set(const Volume &volume) { Path = volume.Path; }
 };
 using VolumeInfoList = std::list<std::shared_ptr<VolumeInfo>>;
 struct MountedFilesystem { DirectoryPath MountPoint; };
@@ -164,6 +179,39 @@ public:
         # Production path types expose IsEmpty(); keep that interface in the mock.
         prelude = prelude.replace("using DevicePath = std::string;", "")
         prelude = prelude.replace("struct ParameterIncorrect", "using DevicePath = DirectoryPath;\nstruct ParameterIncorrect")
+        rollback_fixture = r'''
+static const string StartupAuxiliary = "/private/tmp/lambcrypt-fskit.unit/.veracrypt_aux_mnt";
+static const string StartupContainer = "/disposable.hc";
+static const uint64 StartupSerial = 42;
+static bool RefuseRollback;
+static shared_ptr<VolumeInfo> RollbackTarget;
+
+static shared_ptr<VolumeInfo> GetMountedVolume(const DirectoryPath &) {
+    auto replacement = make_shared<VolumeInfo>();
+    replacement->Path = StartupContainer;
+    replacement->AuxMountPoint = "/private/tmp/lambcrypt-fskit.replacement/.veracrypt_aux_mnt";
+    replacement->SerialInstanceNumber = StartupSerial + 1;
+    return replacement;
+}
+
+static void DismountVolume(shared_ptr<VolumeInfo> volume) {
+    RollbackTarget = volume;
+    if (RefuseRollback) throw runtime_error("worker identity unavailable");
+}
+
+static void SimulateStartupFailure(bool unconfirmedAttach) {
+    const string fuseMountPoint = StartupAuxiliary;
+    const uint64 mountServiceSerialInstanceNumber = StartupSerial;
+    auto volume = make_shared<Volume>();
+    volume->Path = StartupContainer;
+    MountOptions options;
+    options.Path = make_shared<DirectoryPath>(StartupContainer);
+    try {
+        if (unconfirmedAttach)
+            throw MountServiceCleanupFailed(SRC_POS, L"attach remains unconfirmed");
+        throw runtime_error("startup failed");
+    }
+''' + rollback + "\n}\n"
         tests = r'''
 static void Require(bool condition, const char *message) { if(!condition)throw std::runtime_error(message); }
 static std::string Read(const std::string &path) { std::ifstream f(path); return std::string(std::istreambuf_iterator<char>(f), {}); }
@@ -203,6 +251,28 @@ static void CheckAttach(CoreMacOSX &core, const DirectoryPath &auxiliary) {
     try { core.MountAuxVolumeImage(auxiliary, options); }
     catch (const ExecutedProcessFailed &) { failed = true; }
     Require(failed && AttachCommands.size() == 2, "repeated option error retried an attach again");
+}
+static void CheckStartupRollback() {
+    bool keptStartupError = false;
+    try { SimulateStartupFailure(false); }
+    catch (const runtime_error &e) { keptStartupError = string(e.what()) == "startup failed"; }
+    Require(keptStartupError && RollbackTarget && RollbackTarget->AuxMountPoint == StartupAuxiliary
+            && RollbackTarget->SerialInstanceNumber == StartupSerial && RollbackTarget->SlotNumber == 2
+            && RollbackTarget->Path == StartupContainer, "startup rollback used a replacement mount identity");
+
+    RefuseRollback = true;
+    bool warnedOfFailure = false;
+    try { SimulateStartupFailure(false); }
+    catch (const MountServiceCleanupFailed &e) {
+        warnedOfFailure = e.Reason == StringConverter::ToWide(StartupAuxiliary) + L"\nfailure";
+    }
+    Require(warnedOfFailure, "startup rollback failure was hidden");
+
+    RollbackTarget.reset();
+    bool keptAttachWarning = false;
+    try { SimulateStartupFailure(true); }
+    catch (const MountServiceCleanupFailed &e) { keptAttachWarning = e.Reason == L"attach remains unconfirmed"; }
+    Require(keptAttachWarning && !RollbackTarget, "startup rollback attempted cleanup after an unconfirmed attach");
 }
 static void CheckDismount(CoreMacOSX &core, const string &image) {
     auto mounted = make_shared<VolumeInfo>();
@@ -275,11 +345,13 @@ int main(int argc, char **argv) {
         AttachReply = Read(root + "/attach");
         CheckAttach(core, image.substr(0, image.rfind('/')));
         std::cout << "PASS: FSKit attach deadline, read-only and attach-only flags, and one compatibility retry\n";
+        CheckStartupRollback();
+        std::cout << "PASS: startup rollback preserves identity and reports unconfirmed cleanup\n";
     } catch(std::exception &e) { std::cerr << e.what() << '\n'; return 1; }
 }
 '''
         unit = work / "discovery.cpp"
-        unit.write_text(prelude + helpers + dismount + refresh + attach + tests)
+        unit.write_text(prelude + helpers + dismount + refresh + attach + rollback_fixture + tests)
         command = ["clang++", "-std=c++11", "-DVC_MACOSX_FSKIT", "-I" + str(ROOT / "src"), str(unit), "-framework", "CoreFoundation", "-o", str(work / "discovery")]
         subprocess.run(command, check=True)
         subprocess.run([str(work / "discovery"), str(work), str(image)], check=True, timeout=20)

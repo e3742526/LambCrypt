@@ -1520,8 +1520,8 @@ namespace VeraCrypt
 		fuseMountPoint = &mountDirectory[0];
 #endif
 
-#ifdef VC_MACOSX_FUSET
-		uint64 fuseServiceSerialInstanceNumber;
+#if defined(VC_MACOSX_FUSET) || defined(VC_MACOSX_FSKIT)
+		uint64 mountServiceSerialInstanceNumber;
 #endif
 
 		try
@@ -1538,9 +1538,9 @@ namespace VeraCrypt
 			fuseMountPoint = canonicalPath;
 #endif
 #if defined(VC_MACOSX_FSKIT)
-			FSKit::Mount (volume, options.SlotNumber, fuseMountPoint);
+			mountServiceSerialInstanceNumber = FSKit::Mount (volume, options.SlotNumber, fuseMountPoint);
 #elif defined(VC_MACOSX_FUSET)
-			fuseServiceSerialInstanceNumber = FuseService::Mount (volume, options.SlotNumber, fuseMountPoint);
+			mountServiceSerialInstanceNumber = FuseService::Mount (volume, options.SlotNumber, fuseMountPoint);
 #elif defined(TC_LINUX)
 			FuseService::Mount (volume, options.SlotNumber, fuseMountPoint, slotLock, volumeLock);
 #else
@@ -1626,7 +1626,7 @@ namespace VeraCrypt
 			shared_ptr <VolumeInfo> mountedVolume = GetMountedVolume (*options.Path);
 			if (mountedVolume)
 			{
-				if (mountedVolume->SerialInstanceNumber != fuseServiceSerialInstanceNumber)
+				if (mountedVolume->SerialInstanceNumber != mountServiceSerialInstanceNumber)
 					throw ParameterIncorrect (SRC_POS);
 				if (!mountedVirtualDevice.IsEmpty())
 				{
@@ -1659,7 +1659,7 @@ namespace VeraCrypt
 				mountedVolume->AuxMountPoint = fuseMountPoint;
 				mountedVolume->VirtualDevice = mountedVirtualDevice;
 
-				mountedVolume->SerialInstanceNumber = fuseServiceSerialInstanceNumber;
+				mountedVolume->SerialInstanceNumber = mountServiceSerialInstanceNumber;
 
 				if (!options.NoFilesystem)
 				{
@@ -1679,6 +1679,12 @@ namespace VeraCrypt
 			}
 #else
 			shared_ptr <VolumeInfo> mountedVolume = GetMountedVolume (*options.Path);
+#ifdef VC_MACOSX_FSKIT
+			if (mountedVolume && (mountedVolume->AuxMountPoint != DirectoryPath (fuseMountPoint)
+				|| mountedVolume->SerialInstanceNumber != mountServiceSerialInstanceNumber
+				|| mountedVolume->SlotNumber != options.SlotNumber))
+				throw MountServiceUnavailable (SRC_POS, StringConverter::ToWide (fuseMountPoint));
+#endif
 #endif
 			if (!mountedVolume)
 				throw ParameterIncorrect (SRC_POS);
@@ -1702,7 +1708,7 @@ namespace VeraCrypt
 #endif
 		catch (...)
 		{
-#ifdef VC_MACOSX_FUSET
+#if defined(VC_MACOSX_FUSET) || defined(VC_MACOSX_FSKIT)
 			// Enumeration may itself have failed. Cleanup belongs to the instance
 			// we just started, not a later volume discovered by path or slot.
 			try { throw; }
@@ -1714,7 +1720,7 @@ namespace VeraCrypt
 				cleanupVolume->Set (*volume);
 				cleanupVolume->ProgramVersion = VERSION_NUM;
 				cleanupVolume->SlotNumber = options.SlotNumber;
-				cleanupVolume->SerialInstanceNumber = fuseServiceSerialInstanceNumber;
+				cleanupVolume->SerialInstanceNumber = mountServiceSerialInstanceNumber;
 				cleanupVolume->AuxMountPoint = fuseMountPoint;
 				DismountVolume (cleanupVolume);
 			}

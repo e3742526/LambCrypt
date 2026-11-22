@@ -155,7 +155,7 @@ namespace VeraCrypt
 			rmdir (ResourcePath (mountPoint).c_str());
 		}
 
-		void Mount (const shared_ptr <Volume> &volume, VolumeSlotNumber slot, const string &mountPoint)
+		uint64 Mount (const shared_ptr <Volume> &volume, VolumeSlotNumber slot, const string &mountPoint)
 		{
 			const string resource = WorkerDirectory (mountPoint);
 			const string endpoint = resource + "/io";
@@ -248,6 +248,7 @@ namespace VeraCrypt
 				}
 				const char ready = 1;
 				throw_sys_if (write (activation[1], &ready, 1) != 1);
+				return identity.SerialInstanceNumber;
 			}
 			catch (...)
 			{

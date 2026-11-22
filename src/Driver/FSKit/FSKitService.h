@@ -9,7 +9,7 @@ namespace VeraCrypt
 	{
 		string CreateMountPoint (const string &prefix);
 		void RemoveEmptyMountDirectory (const string &mountPoint);
-		void Mount (const shared_ptr <Volume> &volume, VolumeSlotNumber slot, const string &mountPoint);
+		uint64 Mount (const shared_ptr <Volume> &volume, VolumeSlotNumber slot, const string &mountPoint);
 		void WaitForServiceExit (const DirectoryPath &mountPoint);
 	}
 }
