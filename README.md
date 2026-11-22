@@ -1,13 +1,15 @@
 # LambCrypt
 
-LambCrypt is an independently maintained disk-encryption fork of [VeraCrypt](https://github.com/veracrypt/VeraCrypt).
+LambCrypt is an independently maintained disk-encryption derivative of [VeraCrypt](https://github.com/veracrypt/VeraCrypt).
+Development focuses on optimizing LambCrypt for Apple silicon Macs running macOS 26 (Tahoe) or later.
+
+LambCrypt retains the VeraCrypt volume format and `.hc` extension, so existing VeraCrypt volumes can be mounted without conversion.
+See [Upstream and compatibility](UPSTREAM.md) for platform-specific details and inherited identifiers.
 
 Based on TrueCrypt, freely available at [http://www.truecrypt.org/](http://www.truecrypt.org/).
 
 The Unix command is `lambcrypt`. The macOS application is `LambCrypt.app`.
 English is the only supported language for the application, installers, and bundled documentation.
-Existing VeraCrypt containers keep their original format. See [Upstream and compatibility](UPSTREAM.md)
-for the inherited components and identifiers.
 
 [Documentation](doc/html/en/Documentation.html) · [Report an issue](https://github.com/e3742526/LambCrypt/issues) · [License](License.txt)
 
