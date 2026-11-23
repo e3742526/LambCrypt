@@ -379,7 +379,7 @@ namespace VeraCrypt
 				{
 					string err = e.GetErrorOutput();
 
-					if (err.find ("couldn't unmount") != string::npos
+					if (e.GetExitCode() == EBUSY || err.find ("couldn't unmount") != string::npos
 						|| err.find ("busy") != string::npos
 						|| err.find ("49153") != string::npos)
 					{

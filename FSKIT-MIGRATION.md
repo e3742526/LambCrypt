@@ -13,12 +13,18 @@ available, and the application ships in English.
   The build uses Make, so source the environment file before building.
 - [ ] Sign in to Xcode with an enrolled Apple Developer Program team. For
   development, make the Apple Development certificate and private key available
-  in the local Keychain and register the test Mac with that team.
+  in the local Keychain and register the test Mac with that team. For a VM, use
+  the guest's Provisioning UDID from System Information and preserve its case
+  exactly as displayed.
 - [ ] Register an explicit App ID for
   `io.github.e3742526.LambCrypt.fskit.module` and enable the FSKit Module
   capability. Obtain the matching macOS development provisioning profile for the
   registered device and certificate. Store the profile outside the checkout
-  and set `VC_FSKIT_PROVISIONING_PROFILE` to its absolute path.
+  and set `VC_FSKIT_PROVISIONING_PROFILE` to its absolute path. Decode the
+  profile with `security cms -D -i "$VC_FSKIT_PROVISIONING_PROFILE"` and verify
+  that `ProvisionedDevices` contains the verbatim identifier reported by the
+  running test Mac. An uppercase variant of a lowercase VM identifier can
+  pass a case-insensitive check and fail at launch.
 - [ ] Set `VC_APP_SIGN_IDENTITY` to the corresponding Keychain identity. In a
   separate build tree with the build dependencies configured, source the local
   environment file and run `LOCAL_DEVELOPMENT_BUILD=true make -C src WITHFSKIT=1 prepare`.
@@ -27,8 +33,9 @@ available, and the application ships in English.
 - [ ] Run `codesign --verify --deep --strict src/Main/LambCrypt-FSKit.app`.
   Verify the app and extension are signed by the same team and have matching
   App Group entitlements. The extension should have the provisioned application
-  identifier and FSKit Module entitlement. Enable the test extension in System
-  Settings and verify it on disposable internal-drive containers.
+  identifier and FSKit Module entitlement. In System Settings, go to General
+  → Login Items & Extensions → By Category → File System Extensions and
+  enable LambCrypt FSKit. Verify it on disposable internal-drive containers.
 - [ ] At the release gate, set `VC_SIGN_TEAM_ID`, select the team's Developer ID
   Application and Developer ID Installer identities, and use a matching
   distribution profile that grants the extension's FSKit capability. Set
@@ -442,8 +449,8 @@ FAT and FSKit configuration. The exact kernel dependency remains unknown.
    [production kernel FAT trial](Tests/README-macos-lifecycle.md#isolated-production-kernel-fat-trial)
    checks verified attachment, busy refusal, payload persistence, and worker
    and image release with the signed LambCrypt CLI. Its command and
-   failure-order checks passed offline. The live writable kernel-driver
-   trials remain pending. Writable FAT parity requires clean and
+   failure-order checks passed offline. The live writable trial with the
+   LambCrypt worker remains pending. Writable FAT parity requires clean and
    busy-release dismount, read-only remount with a matching checksum, Finder
    eject, and confirmed worker exit. MacFUSE stays the default while this
    gate is open.
@@ -569,33 +576,70 @@ FAT and FSKit configuration. The exact kernel dependency remains unknown.
    had I/O Registry media objects and only the outer image still appeared
    in the mount table. A single ordinary `diskutil eject` on the verified
    inner image timed out after 15 seconds. Both images remained attached.
-   Production writable FAT and the kernel FAT workaround still need
-   verification before the stage gate can pass.
+   The kernel FAT route still needs verification with LambCrypt's writable
+   backing worker before the stage gate can pass.
 
    The guest also passed the writable APFS-backed FAT16 control with
    in-kernel Disk Images and Apple's kernel FAT driver. The runner
    confirmed both selections on the writable and read-only attachments.
    It wrote and synced the payload, matched its SHA-256 after a read-only
    remount, confirmed both ejects, and found no residual diagnostic mount.
-   This establishes the direct control for the writable kernel FAT pair.
-   A guest-only launcher now pairs that control with the same inner mount
-   route on an Apple FSKit FAT backing. Archive and command routing checks
-   passed offline. The nested comparison can run without LambCrypt signing
-   once a clean guest is available. The comparison tests the explicit kernel
-   mount route, which also changes mounting from during attach to after
-   attach. The nested comparison and production writable trial remain pending.
+   A fresh guest run passed both that APFS control and the matched trial
+   with Apple FSKit FAT serving the backing file. The nested case wrote and
+   synced the FAT16 payload, matched its checksum after a read-only remount,
+   verified the outer image again after remount, and released both images.
+   The writable inner detach took about 0.25 seconds. Final mount and Disk
+   Images inventories were clear. The comparison uses explicit kernel FAT
+   mounting after in-kernel Disk Images attachment, so it verifies that
+   combined route on Apple backing. A second matched pair kept the kernel
+   FAT mount and selected default Disk Images. All four inner attachments
+   reported a Disk Images helper. Direct and nested writes synced, kept
+   the same payload checksum after read-only remount, and detached cleanly.
+   The nested writable inner detach took about 0.19 seconds. These two
+   controls cover both attachment services while holding the explicit kernel
+   FAT mount route constant. The signed LambCrypt trial remains pending.
+
+   A follow-up held a writable file open in each default-service kernel FAT
+   case. Disk Images refused both detaches with status `EBUSY` (16). The
+   original writable image remained attached and the held file still matched
+   its payload. Both detaches succeeded after close, and the read-only
+   remounts verified the payload again. Final inventories were clear.
+   LambCrypt now recognizes this exit status when reporting a busy volume,
+   including when the system diagnostic is missing or localized.
 
    The diagnostic bundle for the guest builds from the reproducer's recorded
    revision with Xcode 27.2, targeting macOS 26.0 on arm64. The wxWidgets
    dependency's PCRE2 library was linked statically for this separate lab
    build. The executable and extension link only macOS libraries. The crypto
-   self-test and raw backing I/O test passed. The guest reports a provisioning
-   UDID, and the current development profile lists only the physical Mac.
+   self-test and raw backing I/O test passed. The original development profile
+   listed only the physical Mac.
 
    A separate production FAT trial bundle was rebuilt from the current
    worktree with the same static PCRE2 selection. Its app and extension are
    arm64, target macOS 26.0, and link only macOS dynamic libraries. The
    launcher carries the production lifecycle test and refuses to start on a
    physical Mac or with an unprovisioned bundle. The signing step uses the
-   private environment and verifies that the development profile covers the
-   guest before embedding it. Live signing and mounting remain pending.
+   private environment and checks the profile's device list before embedding
+   it. In the guest, the production CLI passed its
+   crypto self-tests. A read-only test executable linked to the same volume
+   code recovered all five VeraCrypt fixtures and verified their plaintext
+   checksums and unchanged encrypted bytes. These tests require no mount.
+
+   The first guest-profile run found a separate IPC bug. The guest's longer
+   home path exceeded the fixed `sockaddr_un` path field. The worker and both
+   clients now use Darwin's variable-length Unix socket addresses and keep
+   the socket in the app group. The [protocol regression](Tests/test_fskit_volume_protocol.py)
+   verified a 253-byte endpoint through both clients. The rebuilt app and
+   extension passed strict signature verification.
+
+   After enabling LambCrypt under File System Extensions, Tahoe attempted
+   to launch it. The guest log reports code `-212`, “Provisioning profile
+   does not allow this device.” Both the profile plist and its signed DER
+   payload carry an uppercase device ID. The running guest reports those
+   digits with lowercase letters. The earlier signing check ignored case.
+   The mount stopped before any image attached, and both inventories were
+   clear. The writable production FAT trial still requires a profile with
+   a case-exact guest identifier. Apple documents what can be changed on
+   registered devices, and its developer forum discusses this provisioning
+   failure. [Apple device metadata](https://developer.apple.com/documentation/appstoreconnectapi/devices),
+   [Apple Developer Forums](https://developer.apple.com/forums/thread/787500?answerId=861714022).

@@ -185,13 +185,15 @@ struct SystemException {
     SystemException(const string &, const string &) {}
 };
 struct ExecutedProcessFailed {
-    explicit ExecutedProcessFailed(string error) : Error(error) {}
-    ExecutedProcessFailed(const char *, const string &, int, const string &error) : Error(error) {}
+    explicit ExecutedProcessFailed(string error, int exitCode = 1) : Error(error), ExitCode(exitCode) {}
+    ExecutedProcessFailed(const char *, const string &, int exitCode, const string &error)
+        : ExecutedProcessFailed(error, exitCode) {}
     const char *what() const { return "mount failed"; }
     string GetCommand() const { return "/sbin/mount"; }
-    int GetExitCode() const { return 1; }
+    int GetExitCode() const { return ExitCode; }
     string GetErrorOutput() const { return Error; }
     string Error;
+    int ExitCode;
 };
 struct StringConverter {
     static std::string Trim(std::string s) { size_t b=s.find_first_not_of(" \t\r\n"); if(b==std::string::npos)return ""; return s.substr(b,s.find_last_not_of(" \t\r\n")-b+1); }
@@ -205,7 +207,8 @@ static int Queries;
 static vector<pair<string, int>> Commands;
 static vector<list<string>> DismountArguments;
 static string TimeoutCommand;
-static bool BusyImage;
+static int ImageDetachStatus;
+static string ImageDetachError;
 static int AuxiliaryUnmountFailures;
 static int MountValidations, RefuseValidation;
 static string DismountMountPoint;
@@ -249,7 +252,8 @@ struct Process {
             DismountArguments.push_back(arguments);
         if (path == TimeoutCommand) throw TimeOut{};
         if (path == "/sbin/mount" && !AuxiliaryFailure.empty()) throw ExecutedProcessFailed(AuxiliaryFailure);
-        if (BusyImage && arguments.front() == "detach") throw ExecutedProcessFailed("Resource busy");
+        if (ImageDetachStatus && arguments.front() == "detach")
+            throw ExecutedProcessFailed(ImageDetachError, ImageDetachStatus);
         if (path == "/sbin/umount" && AuxiliaryUnmountFailures > 0) {
             --AuxiliaryUnmountFailures;
             throw ExecutedProcessFailed("Resource busy");
@@ -950,12 +954,27 @@ static void CheckDismount(CoreMacOSX &core, const string &image, const string &r
         Require(busy && Queries == queriesBeforeContention && Commands.empty(),
                 "competing dismount reached disk image discovery or detach");
     }
-    BusyImage = true;
-    bool busy = false;
-    try { core.DismountVolume(mounted, false, false); }
-    catch (const MountedVolumeInUse &) { busy = true; }
-    Require(busy && Commands.size() == 1, "busy disk was not preserved");
-    BusyImage = false;
+    for (const auto &failure : vector<pair<int, string>>{{1, "Resource busy"}, {EBUSY, ""}}) {
+        ImageDetachStatus = failure.first;
+        ImageDetachError = failure.second;
+        Commands.clear();
+        bool busy = false;
+        try { core.DismountVolume(mounted, false, false); }
+        catch (const MountedVolumeInUse &) { busy = true; }
+        catch (const ExecutedProcessFailed &) { }
+        Require(busy && Commands == vector<pair<string, int>>{{"/usr/bin/hdiutil", 30000}},
+                "busy disk was not preserved or reported using its exit status");
+    }
+    for (bool force : {false, true}) {
+        ImageDetachStatus = force ? EBUSY : EIO;
+        Commands.clear();
+        bool preserved = false;
+        try { core.DismountVolume(mounted, force, false); }
+        catch (const ExecutedProcessFailed &error) { preserved = error.GetExitCode() == ImageDetachStatus; }
+        Require(preserved && Commands == vector<pair<string, int>>{{"/usr/bin/hdiutil", 30000}},
+                "an unrelated or forced detach failure was changed");
+    }
+    ImageDetachStatus = 0;
     Commands.clear();
     DismountArguments.clear();
     InventoryAfterDetach = Read(root + "/unrelated");

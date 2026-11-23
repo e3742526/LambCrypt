@@ -17,7 +17,6 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
-#include <sys/un.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -490,12 +489,8 @@ namespace VeraCrypt
 			const int sendBufferSize = 256 * 1024;
 			(void) setsockopt (listener, SOL_SOCKET, SO_SNDBUF, &sendBufferSize, sizeof (sendBufferSize));
 
-			sockaddr_un address = {};
-			address.sun_len = sizeof (address);
-			address.sun_family = AF_UNIX;
-			if (strlcpy (address.sun_path, endpoint.c_str(), sizeof (address.sun_path)) >= sizeof (address.sun_path))
-				throw ParameterTooLarge (SRC_POS);
-			throw_sys_if (::bind (listener, reinterpret_cast <sockaddr *> (&address), sizeof (address)) != 0);
+			const UnixSocketAddress address (endpoint);
+			throw_sys_if (::bind (listener, address.Get(), address.Length) != 0);
 			bool workerStarted = false;
 			try
 			{

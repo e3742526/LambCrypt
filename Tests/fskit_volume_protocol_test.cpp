@@ -6,7 +6,6 @@
 #include <iostream>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/un.h>
 #include <unistd.h>
 
 using namespace VeraCrypt;
@@ -134,12 +133,9 @@ int main (int argc, char **argv)
 	interruptNextRead = mode == "read-interrupted";
 
 	const int listener = socket (AF_UNIX, SOCK_STREAM, 0);
-	sockaddr_un address = {};
-	address.sun_len = sizeof (address);
-	address.sun_family = AF_UNIX;
-	if (listener < 0 || strlcpy (address.sun_path, argv[2], sizeof (address.sun_path)) >= sizeof (address.sun_path)
-		|| ::bind (listener, reinterpret_cast <sockaddr *> (&address), sizeof (address)) != 0
-		|| chmod (address.sun_path, 0600) != 0 || listen (listener, 8) != 0)
+	const FSKit::UnixSocketAddress address (argv[2]);
+	if (listener < 0 || ::bind (listener, address.Get(), address.Length) != 0
+		|| chmod (argv[2], 0600) != 0 || listen (listener, 8) != 0)
 		return 2;
 
 	const FSKit::VolumeIdentity identity = FSKit::NewVolumeIdentity ();
@@ -160,5 +156,5 @@ int main (int argc, char **argv)
 
 	close (listener);
 	volume.Close ();
-	unlink (address.sun_path);
+	unlink (argv[2]);
 }

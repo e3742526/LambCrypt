@@ -116,18 +116,14 @@ namespace VeraCrypt
 				if (!S_ISSOCK (info.st_mode) || info.st_uid != getuid() || (info.st_mode & 0077) != 0)
 					throw ParameterIncorrect (SRC_POS);
 
-				sockaddr_un address = {};
-				address.sun_family = AF_UNIX;
-				address.sun_len = sizeof (address);
-				if (strlcpy (address.sun_path, endpoint.c_str(), sizeof (address.sun_path)) >= sizeof (address.sun_path))
-					throw ParameterTooLarge (SRC_POS);
+				const UnixSocketAddress address (endpoint);
 				const int fd = socket (AF_UNIX, SOCK_STREAM, 0);
 				throw_sys_if (fd < 0);
 				finally_do_arg (int, fd, { close (finally_arg); });
 				const int noSignal = 1;
 				throw_sys_if (fcntl (fd, F_SETFL, O_NONBLOCK) != 0 || fcntl (fd, F_SETFD, FD_CLOEXEC) != 0
 					|| setsockopt (fd, SOL_SOCKET, SO_NOSIGPIPE, &noSignal, sizeof (noSignal)) != 0);
-				if (connect (fd, reinterpret_cast <const sockaddr *> (&address), sizeof (address)) != 0)
+				if (connect (fd, address.Get(), address.Length) != 0)
 				{
 					throw_sys_if (errno != EINPROGRESS && errno != EINTR);
 					WaitForSocket (fd, POLLOUT, deadline);
@@ -183,6 +179,16 @@ namespace VeraCrypt
 				shared_ptr <Stream> stream (new MemoryStream (reply));
 				return Serializable::DeserializeNew <VolumeInfo> (stream);
 			}
+		}
+
+		UnixSocketAddress::UnixSocketAddress (const string &path) : Length (0), Family (AF_UNIX), Path {}
+		{
+			static_assert (offsetof (UnixSocketAddress, Path) == offsetof (sockaddr_un, sun_path),
+				"Unix socket address must match the Darwin layout");
+			if (path.size() > sizeof (Path))
+				throw ParameterTooLarge (SRC_POS);
+			Length = static_cast <uint8_t> (offsetof (UnixSocketAddress, Path) + path.size());
+			std::copy (path.begin(), path.end(), Path);
 		}
 
 		shared_ptr <VolumeInfo> ReadVolumeControl (const string &endpoint)

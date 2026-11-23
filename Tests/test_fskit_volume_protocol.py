@@ -10,6 +10,7 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor
 import contextlib
 import errno
+import os
 import selectors
 import shutil
 import socket
@@ -18,6 +19,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import unicodedata
 import uuid
 from pathlib import Path
 
@@ -394,6 +396,22 @@ def inspect_worker(work):
     return struct.unpack_from("<QQ16sQ", reply, 8)
 
 
+def check_long_socket_path(work):
+    # Darwin allows 253 path bytes even though sockaddr_un only stores 104.
+    # Foundation's file URL decomposes the accented test directory name.
+    parent = Path(unicodedata.normalize("NFD", str(work)))
+    name_length = 253 - len(os.fsencode(parent / "io")) - 1
+    resource = parent / ("d" * name_length)
+    resource.mkdir(mode=0o700)
+    assert len(os.fsencode(resource / "io")) == 253
+    (resource / "server").symlink_to(work / "server")
+    shutil.copyfile(FIXTURE, resource / FIXTURE.name)
+    with serve(resource, 3) as serial:
+        assert read_control(resource) == (serial, 0)
+        subprocess.run([work / "client", resource, "0", "--inspect-metadata"], check=True, timeout=10)
+    print("PASS: native and Swift clients use the 253-byte Darwin socket path")
+
+
 def check_sync_failures(work):
     for mode, expected_error in (("sync-interrupted", 0), ("sync-error", errno.EIO)):
         with serve(work, 3, mode=mode):
@@ -627,6 +645,7 @@ def main():
         shutil.copyfile(FIXTURE, work / FIXTURE.name)
         build(args.build_dir.resolve(), work)
         subprocess.run([work / "server", "--check-buffer-erase"], check=True, timeout=10)
+        check_long_socket_path(work)
         check_sync_failures(work)
         command = [work / "client", work, DIGESTS[FIXTURE.name]]
         with serve(work, 2):

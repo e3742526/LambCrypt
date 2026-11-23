@@ -25,7 +25,7 @@ struct VolumeConnection {
     private static let unboundIdentifier = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
     private static let transferTimeout = DispatchTimeInterval.seconds(10)
     private let endpointPath: ContiguousArray<CChar>
-    private let socketAddress: sockaddr_un?
+    private let socketAddress: ContiguousArray<CChar>
     private let owner: uid_t
 
     init(resource: URL) throws {
@@ -39,17 +39,12 @@ struct VolumeConnection {
         owner = info.st_uid
         let path = resource.appendingPathComponent("io").path.utf8CString
         endpointPath = path
-        var address = sockaddr_un()
-        address.sun_family = sa_family_t(AF_UNIX)
-        address.sun_len = UInt8(MemoryLayout<sockaddr_un>.size)
-        if path.count <= MemoryLayout.size(ofValue: address.sun_path) {
-            withUnsafeMutableBytes(of: &address.sun_path) { destination in
-                path.withUnsafeBytes { destination.copyBytes(from: $0) }
-            }
-            socketAddress = address
-        } else {
-            socketAddress = nil
-        }
+        // Darwin reads a length byte, an address family byte, and the path
+        // without its terminator. App group paths can outgrow sockaddr_un.
+        let pathBytes = path.dropLast()
+        let addressLength = 2 + pathBytes.count
+        guard addressLength <= SOCK_MAXADDRLEN else { throw POSIXError(.ENAMETOOLONG) }
+        socketAddress = ContiguousArray([CChar(bitPattern: UInt8(addressLength)), CChar(AF_UNIX)]) + pathBytes
     }
 
     func inspect(expectedIdentifier: UUID? = nil) throws -> Metadata {
@@ -165,8 +160,6 @@ struct VolumeConnection {
               info.st_uid == owner, info.st_mode & 0o077 == 0 else {
             throw POSIXError(.EACCES)
         }
-        guard var address = socketAddress else { throw POSIXError(.ENAMETOOLONG) }
-        let addressLength = socklen_t(address.sun_len)
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { throw Self.currentError() }
         do {
@@ -176,8 +169,8 @@ struct VolumeConnection {
                   setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &noSignal, socklen_t(MemoryLayout<Int32>.size)) == 0 else {
                 throw Self.currentError()
             }
-            let result = withUnsafePointer(to: &address) {
-                $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.connect(fd, $0, addressLength) }
+            let result = socketAddress.withUnsafeBytes { address in
+                Darwin.connect(fd, address.baseAddress!.assumingMemoryBound(to: sockaddr.self), socklen_t(address.count))
             }
             if result != 0 {
                 guard errno == EINPROGRESS || errno == EINTR else { throw Self.currentError() }

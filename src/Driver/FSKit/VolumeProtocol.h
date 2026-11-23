@@ -3,11 +3,23 @@
 
 #include "Volume/VolumeInfo.h"
 #include <array>
+#include <sys/socket.h>
 
 namespace VeraCrypt
 {
 	namespace FSKit
 	{
+		// Darwin accepts a variable-length local address up to SOCK_MAXADDRLEN.
+		struct UnixSocketAddress
+		{
+			explicit UnixSocketAddress (const string &path);
+
+			const sockaddr *Get () const { return reinterpret_cast <const sockaddr *> (this); }
+			uint8_t Length;
+			sa_family_t Family;
+			char Path[SOCK_MAXADDRLEN - 2];
+		};
+
 		struct VolumeIdentity
 		{
 			std::array <uint8, 16> Identifier;
