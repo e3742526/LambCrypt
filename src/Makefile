@@ -330,9 +330,12 @@ ifeq "$(shell uname -s)" "Darwin"
 	PLATFORM := MacOSX
 	APPNAME := LambCrypt
 	export VC_OSX_TARGET ?= 26.0
+	export VC_OSX_NATIVE_BUILD := $(LOCAL_DEVELOPMENT_BUILD)
 
 ifeq "$(VC_OSX_FSKIT)" "1"
 	APPNAME := LambCrypt-FSKit
+	# Match the native Swift extension and wxWidgets architecture for both signing modes.
+	VC_OSX_NATIVE_BUILD := true
 	C_CXX_FLAGS += -DVC_MACOSX_FSKIT
 	LFLAGS += -framework Foundation
 endif
@@ -383,7 +386,7 @@ $(error Specified SDK version was not found, ensure your active developer direct
 
 	# Set x86 assembly flags (-msse2, -mssse3, -msse4.1)
 	# Apply flags if SIMD_SUPPORTED is 1 or if not in local development build (we are creating universal binary in this case)
-	ifneq "$(LOCAL_DEVELOPMENT_BUILD)" "true"
+	ifneq "$(VC_OSX_NATIVE_BUILD)" "true"
 		SIMD_SUPPORTED = 1
 	endif
 
@@ -417,7 +420,7 @@ $(error Specified SDK version was not found, ensure your active developer direct
 		ARCH_FLAG := -arch x86_64
 
 		# Set architecture flags based on build type and CPU architecture
-		ifeq "$(LOCAL_DEVELOPMENT_BUILD)" "true"
+		ifeq "$(VC_OSX_NATIVE_BUILD)" "true"
 			ifeq "$(CPU_ARCH)" "arm64"
 				ARCH_FLAG := -arch arm64
 			endif

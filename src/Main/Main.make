@@ -229,9 +229,9 @@ ifeq "$(PLATFORM)" "MacOSX"
 ifeq "$(VC_OSX_FSKIT)" "1"
 FSKIT_EXTENSION := $(APPNAME).app/Contents/Extensions/LambCryptFSKit.appex
 ifeq "$(LOCAL_DEVELOPMENT_BUILD)" "true"
-FSKIT_SIGN_TIMESTAMP := --timestamp=none
+FSKIT_SIGN_OPTIONS := --timestamp=none
 else
-FSKIT_SIGN_TIMESTAMP := --timestamp
+FSKIT_SIGN_OPTIONS := --timestamp --options runtime
 endif
 endif
 
@@ -302,6 +302,10 @@ ifeq "$(VC_OSX_FSKIT)" "1"
 	   [ "$$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.developer.fskit.fsmodule' "$$signing_dir/profile.plist" 2>/dev/null)" != true ]; then \
 		echo "The provisioning profile must authorize the FSKit Module capability for $$bundle_id." >&2; exit 1; \
 	fi; \
+	if [ "$(LOCAL_DEVELOPMENT_BUILD)" != true ] && \
+	   [ "$$(plutil -extract ProvisionsAllDevices raw -o - "$$signing_dir/profile.plist" 2>/dev/null)" != true ]; then \
+		echo "Use an FSKit Developer ID distribution profile or set LOCAL_DEVELOPMENT_BUILD=true." >&2; exit 1; \
+	fi; \
 	cp ../Setup/MacOSX/FSKit.entitlements.plist "$$signing_dir/entitlements.plist"; \
 	/usr/libexec/PlistBuddy -c "Add :com.apple.application-identifier string $$app_id" "$$signing_dir/entitlements.plist"; \
 	/usr/libexec/PlistBuddy -c "Add :com.apple.developer.team-identifier string $$team_id" "$$signing_dir/entitlements.plist"; \
@@ -313,9 +317,9 @@ ifeq "$(VC_OSX_FSKIT)" "1"
 		/usr/libexec/PlistBuddy -c "Add :com.apple.security.application-groups:0 string $$group_id" "$$entitlements"; \
 	done; \
 	cp "$$VC_FSKIT_PROVISIONING_PROFILE" "$(FSKIT_EXTENSION)/Contents/embedded.provisionprofile"; \
-	codesign --force --sign "$$VC_APP_SIGN_IDENTITY" $(FSKIT_SIGN_TIMESTAMP) \
+	codesign --force --sign "$$VC_APP_SIGN_IDENTITY" $(FSKIT_SIGN_OPTIONS) \
 		--entitlements "$$signing_dir/entitlements.plist" "$(FSKIT_EXTENSION)"; \
-	codesign --force --sign "$$VC_APP_SIGN_IDENTITY" $(FSKIT_SIGN_TIMESTAMP) \
+	codesign --force --sign "$$VC_APP_SIGN_IDENTITY" $(FSKIT_SIGN_OPTIONS) \
 		--entitlements "$$signing_dir/app-entitlements.plist" "$(APPNAME).app"
 else ifneq ("$(LOCAL_DEVELOPMENT_BUILD)","true")
 	@test -n "$$VC_APP_SIGN_IDENTITY" || { echo "Set VC_APP_SIGN_IDENTITY for a signed build."; exit 1; }

@@ -40,10 +40,13 @@ available, and the application ships in English.
   Application and Developer ID Installer identities, and use a matching
   distribution profile that grants the extension's FSKit capability. Set
   `VC_NOTARY_PROFILE` to a Keychain credential profile created with
-  `xcrun notarytool store-credentials`. Verify Hardened Runtime and secure
-  timestamps on the release build. The current notarization script targets the
-  MacFUSE and FUSE-T bundles. FSKit packaging and notarization belong to
-  stage 6. [Apple capability matrix](https://developer.apple.com/help/account/reference/supported-capabilities-macos/),
+  `xcrun notarytool store-credentials`. From the release build tree, run
+  `LOCAL_DEVELOPMENT_BUILD=false make -C src WITHFSKIT=1 prepare`, then
+  `bash src/Setup/MacOSX/notarize.sh --fskit --dry-run`. The dry run checks
+  Hardened Runtime and secure timestamps on the app and extension, signs
+  the package, and verifies its expanded payload before cleaning up the
+  scratch installer. It skips the notarization service. Drop `--dry-run` for
+  an authorized release submission. [Apple capability matrix](https://developer.apple.com/help/account/reference/supported-capabilities-macos/),
   [Apple notarization requirements](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
 - [ ] Before committing, review the staged diff for team-specific values and
   files. Keep certificates, private keys, profiles, generated entitlements,
@@ -60,10 +63,10 @@ installed apps alone and collect evidence before advancing each gate.
 | 0. Baseline | Default MacFUSE build, discovery tests, and applicable FUSE-T checks pass. | Passed |
 | 1. Build variant | MacFUSE remains default. The opt-in FSKit bundle builds separately. | Passed |
 | 2. Read-only | Read a VeraCrypt payload and a fresh compatible container, then verify external dismount, background exit, and worker cleanup. | Passed on disposable containers |
-| 3. Read-write | Verify write and sync, file operations, xattrs, advisory locks, busy dismount, dismount after release, read-only remount, Finder eject, and independent inactivity timers. | HFS+ passed file operations, xattrs, advisory locks, permission errors, clean and busy-release dismount, read-only remount, independent timers, and automatic cleanup after an external Disk Arbitration eject. Finder eject through the UI is pending. Plain FAT on APFS passed. Writable FAT on LambCrypt FSKit stalled during unmount with both Disk Images services. |
-| 4. Lifecycle | Verify discovery, preferences, menu-bar state, and background exit from the signed bundle. | Signed background exit and menu population checked. Native menu interaction is pending. |
-| 5. Bugs and performance | Record regressions in [BUGLOG.md](BUGLOG.md) and profile FSKit, MacFUSE, and FUSE-T before claiming gains. | Pending |
-| 6. Packaging | Verify FSKit package signing, notarization dry run, Finder smoke test, and rollback to MacFUSE. | Pending |
+| 3. Read-write | Verify write and sync, file operations, xattrs, advisory locks, busy dismount, dismount after release, read-only remount, Finder eject, and independent inactivity timers. | HFS+ passed, including native Finder eject. Writable FAT passed with explicit kernel FAT on a signed Tahoe guest. Automatic writable FAT unmount and Finder eject for the kernel FAT route remain open. |
+| 4. Lifecycle | Verify discovery, preferences, menu-bar state, and background exit from the signed bundle. | Passed on the signed development bundle. Native menu checks covered Open in Finder, busy refusal, unmount after release, empty state, and opening Preferences. |
+| 5. Bugs and performance | Record regressions in [BUGLOG.md](BUGLOG.md) and profile FSKit, MacFUSE, and FUSE-T before claiming gains. | FSKit and FUSE-T HFS+ measurements are recorded. The MacFUSE runtime comparison is pending on a Mac with the driver enabled. |
+| 6. Packaging | Verify FSKit package signing, notarization dry run, Finder smoke test, and rollback to MacFUSE. | Local payload verification passed. The release dry run requires Developer ID Application and Installer identities and the FSKit distribution profile. Notarization and a MacFUSE rollback trial are also pending. |
 
 ## Current macOS build variants
 
@@ -191,8 +194,15 @@ lookup to fail. The original build retained the worker after eject, and the
 patched build released the worker once the disk was fully ejected. Both
 builds preserved the encrypted fixture checksum.
 
-Finder's UI could not be exercised because the desktop tool could not obtain
-a Finder window.
+On a signed macOS 26.6.2 guest, a disposable read-only HFS+ container appeared
+in the native status menu with its backing path and read-only label. Open in
+Finder showed the verified payload. Finder's Eject command removed the
+volume and released the disk image and worker. On a second mount, the
+menu's Unmount command reported the busy volume while a file was open.
+Declining force kept the volume mounted. After closing the file, Unmount
+released the image, mount, and worker handle, and the menu showed no mounted
+volumes. Preferences opened from the menu. Quitting the scratch app removed
+its menu icon.
 
 ## HFS+ copy measurements
 
@@ -211,8 +221,7 @@ container, then synced and closed the file. FSKit baselines took 0.796 s and
 brought the median to 0.350 s. FUSE-T took 0.240 s. Each run used seven measured
 copies after a warm-up, and the final payload hash matched after read-only
 remount. The FSKit extension was profiled with Instruments and sampled during
-separate writes. MacFUSE runtime comparison and writable FAT verification
-remain pending.
+separate writes. The MacFUSE runtime comparison remains pending.
 
 A follow-up trace split the same workload into copy, caller `fsync`, and
 close. In each of two runs, backing-file flushes overlapped six of seven
@@ -415,7 +424,7 @@ FAT and FSKit configuration. The exact kernel dependency remains unknown.
    [Apple FSKit cache handler](https://developer.apple.com/documentation/fskit/fsvolume/datacachehandler)
 2. **Move the FAT investigation to an isolated Tahoe host.** Use a spare Mac
    or an existing Apple Silicon guest that can load the signed FSKit module.
-   The isolated environment and extension support are unverified. Prepare a
+   Use a guest with a verified development profile. Prepare a
    disposable raw FAT image, expose it through a minimal test FSKit filesystem,
    and attach it using the same raw Disk Images settings as LambCrypt. The
    diagnostic compares two backing paths (APFS and the test FSKit filesystem)
@@ -450,10 +459,11 @@ FAT and FSKit configuration. The exact kernel dependency remains unknown.
    checks verified attachment, busy refusal, payload persistence, and worker
    and image release with the signed LambCrypt CLI. Its command and
    failure-order checks passed offline. The live writable trial with the
-   LambCrypt worker remains pending. Writable FAT parity requires clean and
-   busy-release dismount, read-only remount with a matching checksum, Finder
-   eject, and confirmed worker exit. MacFUSE stays the default while this
-   gate is open.
+   signed LambCrypt worker also passed using explicit kernel FAT and the
+   default Disk Images service. This makes the kernel FAT route a candidate
+   for production integration. That route still needs normal GUI and CLI
+   mount integration and native Finder eject verification. MacFUSE stays
+   the default while this gate is open.
 4. **Compare in-kernel Disk Images attachment on the isolated host.**
    A disposable read-only probe honored `hdiutil attach -kernel` on Tahoe.
    The default attachment started `diskimages-helper`. The in-kernel
@@ -576,8 +586,6 @@ FAT and FSKit configuration. The exact kernel dependency remains unknown.
    had I/O Registry media objects and only the outer image still appeared
    in the mount table. A single ordinary `diskutil eject` on the verified
    inner image timed out after 15 seconds. Both images remained attached.
-   The kernel FAT route still needs verification with LambCrypt's writable
-   backing worker before the stage gate can pass.
 
    The guest also passed the writable APFS-backed FAT16 control with
    in-kernel Disk Images and Apple's kernel FAT driver. The runner
@@ -597,7 +605,7 @@ FAT and FSKit configuration. The exact kernel dependency remains unknown.
    the same payload checksum after read-only remount, and detached cleanly.
    The nested writable inner detach took about 0.19 seconds. These two
    controls cover both attachment services while holding the explicit kernel
-   FAT mount route constant. The signed LambCrypt trial remains pending.
+   FAT mount route constant.
 
    A follow-up held a writable file open in each default-service kernel FAT
    case. Disk Images refused both detaches with status `EBUSY` (16). The
@@ -638,8 +646,60 @@ FAT and FSKit configuration. The exact kernel dependency remains unknown.
    payload carry an uppercase device ID. The running guest reports those
    digits with lowercase letters. The earlier signing check ignored case.
    The mount stopped before any image attached, and both inventories were
-   clear. The writable production FAT trial still requires a profile with
-   a case-exact guest identifier. Apple documents what can be changed on
-   registered devices, and its developer forum discusses this provisioning
-   failure. [Apple device metadata](https://developer.apple.com/documentation/appstoreconnectapi/devices),
-   [Apple Developer Forums](https://developer.apple.com/forums/thread/787500?answerId=861714022).
+   clear. A new development profile matched the running guest's identifier
+   exactly in both the decoded plist and signed DER payload. The re-signed
+   bundle loaded the module and passed the writable production trial with
+   Apple's kernel FAT driver and the default Disk Images service. It wrote
+   and synced data, exercised create, rename and delete, confirmed that a
+   busy unmount preserved the image and worker, then dismounted cleanly after
+   closing the open file. A read-only remount matched the payload checksum.
+   The final inventory contained no test image, mount, or worker handle.
+   This run used an explicit kernel FAT mount. The automatic mount route
+   still selects Apple's FSKit FAT driver on the affected configuration.
+
+## FSKit installer payload check
+
+FSKit builds use the same native architecture for the app, extension and
+wxWidgets in both signing modes. On Apple Silicon the distribution
+preparation built both executables as arm64 and passed the CLI crypto
+self-tests before rejecting the device-scoped development profile.
+Development preparation with that profile still passed strict signature
+verification.
+
+A local `productbuild --component` run packaged the development-signed
+`LambCrypt-FSKit.app`. After expansion with `pkgutil --expand-full`, the
+payload contained one app with the FSKit bundle identifier. Its executable,
+Info.plist, and embedded profile matched the source app byte for byte, and
+the expanded app passed `codesign --verify --deep --strict`. The installer
+itself was unsigned. A dry-run check simulated the distribution credentials
+and exercised actual package creation, expansion and payload verification
+with no notarization call. Developer ID signing and notarization require the
+release signing identities and the matching FSKit distribution profile.
+
+## External USB container check
+
+On the physical Mac, the volume reader opened a disposable copy of the
+VeraCrypt AES/SHA-512 fixture directly from a USB drive formatted as exFAT.
+The encrypted file was written and synced, both encrypted checksums matched
+the source, and the decrypted FAT payload matched the known checksum. The
+test removed the copy. This check exercises a file-backed volume on external
+storage without mounting the encrypted filesystem or accessing the raw disk.
+
+## Remaining migration gates
+
+1. Prototype the explicit kernel FAT route for writable FAT12, FAT16 and
+   FAT32 containers. Preserve exact backing-image and media identity from
+   attach through mount and cleanup. Verify default and explicit mount
+   directories, read-only and attach-only options, and behavior when
+   filesystem identification or mounting fails. Test native Finder eject
+   and menu dismount, busy retry, payload integrity and worker exit on the
+   signed Tahoe guest before making the route available through regular
+   mounts. Include HFS+ and exFAT controls for routing.
+2. On a Mac that already has the matching MacFUSE driver enabled, perform
+   the same HFS+ workload and verify rollback by opening a disposable
+   VeraCrypt-format container after the FSKit app closes. Record the
+   driver and workload with the results.
+3. Use the release credentials from the integrator checklist to verify
+   the Developer ID installer locally. For the distribution trial, install
+   the notarized package in a clean Tahoe guest and repeat extension
+   enablement, Finder eject and standard volume discovery.

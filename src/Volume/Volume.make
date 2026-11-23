@@ -41,7 +41,7 @@ endif
 
 ifeq "$(ENABLE_WOLFCRYPT)" "0"
 ifeq "$(PLATFORM)" "MacOSX"
-ifeq "$(LOCAL_DEVELOPMENT_BUILD):$(CPU_ARCH)" "true:arm64"
+ifeq "$(VC_OSX_NATIVE_BUILD):$(CPU_ARCH)" "true:arm64"
 	OBJARMV8CRYPTO += ../Crypto/Aes_hw_armv8.oarmv8crypto
 	OBJS += ../Crypto/Aescrypt.o
 	OBJARMV8CRYPTO += ../Crypto/sha256_armv8.oarmv8crypto
