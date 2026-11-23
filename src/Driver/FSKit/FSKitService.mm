@@ -141,10 +141,13 @@ namespace VeraCrypt
 				return result == KERN_SUCCESS && identity != 0;
 			}
 
-			void SendMediaIdentity (int channel, uint64 identity)
+			// Zero requests a lookup after the attach command has returned.
+			constexpr uint64 PendingDiskImageAttachment = UINT64_MAX;
+
+			bool SendMediaIdentity (int channel, uint64 identity)
 			{
 				if (channel < 0)
-					return;
+					return false;
 				const uint8 *bytes = reinterpret_cast <const uint8 *> (&identity);
 				for (size_t sent = 0; sent < sizeof (identity); )
 				{
@@ -152,9 +155,10 @@ namespace VeraCrypt
 					if (count < 0 && errno == EINTR)
 						continue;
 					if (count <= 0)
-						return;
+						return false;
 					sent += static_cast <size_t> (count);
 				}
+				return true;
 			}
 
 			bool TryLockFile (int fd, int mode)
@@ -306,6 +310,8 @@ namespace VeraCrypt
 				bool committed = false;
 				bool observeLateMedia = false;
 				bool checkingImageAbsence = false;
+				bool attachmentRequested = false;
+				bool attachmentPending = false;
 				while (true)
 				{
 					bool auxiliaryGone = false;
@@ -319,13 +325,17 @@ namespace VeraCrypt
 					}
 					else if (observeMount)
 					{
-						// Keep serving a late mount until a usable inventory can confirm
-						// its absence after the publication deadline.
+						// A successful mount command can start attaching an image before
+						// the worker observes an auxiliary mount in the kernel table.
 						try
 						{
 							committed = MountTableEntry (mountPoint, identity);
-							if (!committed && Clock::now() >= publicationDeadline)
-								break;
+							if (!committed && descriptors[1].fd < 0 && Clock::now() >= publicationDeadline)
+							{
+								if (!attachmentRequested)
+									break;
+								auxiliaryGone = true;
+							}
 						}
 						catch (const SystemException &) { }
 					}
@@ -340,8 +350,13 @@ namespace VeraCrypt
 							if (checkingImageAbsence)
 							{
 								checkingImageAbsence = false;
-								if (auxiliaryGone && finished > 0 && WIFEXITED (status) && WEXITSTATUS (status) == 0)
-									break;
+								if (auxiliaryGone && finished > 0 && WIFEXITED (status))
+								{
+									if (WEXITSTATUS (status) == 0 && !attachmentPending)
+										break;
+									if (WEXITSTATUS (status) == 1)
+										attachmentPending = false;
+								}
 							}
 							if (mediaReport >= 0)
 							{
@@ -351,11 +366,15 @@ namespace VeraCrypt
 									ssize_t received;
 									do { received = read (mediaReport, &reported, sizeof (reported)); }
 									while (received < 0 && errno == EINTR);
-									if (received == sizeof (reported))
+									if (received == sizeof (reported) && reported != 0)
+									{
 										media = reported;
+										attachmentPending = false;
+									}
 								}
 								close (mediaReport);
 								mediaReport = -1;
+								observeLateMedia = attachmentPending;
 							}
 						}
 					}
@@ -373,14 +392,15 @@ namespace VeraCrypt
 							{
 								closeWorkerDescriptors();
 								try { _exit (IsDiskImageAbsentAfterAuxiliaryUnmount (mountPoint) ? 0 : 1); }
-								catch (...) { _exit (1); }
+								catch (...) { _exit (2); }
 							}
 							checkingImageAbsence = helper > 0;
 						}
 					}
-					else if (committed && observeLateMedia && helper < 0)
+					else if (committed && observeLateMedia && helper < 0 && Clock::now() >= nextMediaCheck)
 					{
-						observeLateMedia = false;
+						observeLateMedia = attachmentPending;
+						nextMediaCheck = Clock::now() + std::chrono::seconds (5);
 						int report[2];
 						if (pipe (report) == 0)
 						{
@@ -451,20 +471,29 @@ namespace VeraCrypt
 						}
 						else
 						{
-							// A zero identity requests bounded observation of a late
-							// attachment. An incomplete message carries no request.
+							// EOF without a completion report leaves a submitted
+							// attachment pending, even with an empty inventory.
 							uint8 *bytes = reinterpret_cast <uint8 *> (&incomingMedia);
 							do { received = read (commit, bytes + mediaBytes, sizeof (incomingMedia) - mediaBytes); }
 							while (received < 0 && errno == EINTR);
 							if (received > 0)
 								mediaBytes += static_cast <size_t> (received);
+							if (mediaBytes == sizeof (incomingMedia) && incomingMedia == PendingDiskImageAttachment)
+							{
+								attachmentRequested = attachmentPending = true;
+								mediaBytes = 0;
+								continue;
+							}
 							if (received <= 0 || mediaBytes == sizeof (incomingMedia))
 							{
 								if (mediaBytes == sizeof (incomingMedia))
 								{
 									media = incomingMedia;
+									attachmentPending = false;
 									observeLateMedia = media == 0;
 								}
+								else
+									observeLateMedia = attachmentPending;
 								close (commit);
 								descriptors[1].fd = -1;
 							}
@@ -687,6 +716,12 @@ namespace VeraCrypt
 				return 0;
 			uint64 identity;
 			return LookupMedia (IOBSDNameMatching (kIOMainPortDefault, 0, path.c_str() + 5), identity) ? identity : 0;
+		}
+
+		void BeginDiskImageAttachment (int activationChannel)
+		{
+			if (!SendMediaIdentity (activationChannel, PendingDiskImageAttachment))
+				throw MountServiceCleanupFailed (SRC_POS, L"Could not hand off Disk Images attachment to the FSKit worker.");
 		}
 
 		void ObserveAttachedMedia (int activationChannel, const DevicePath &device)

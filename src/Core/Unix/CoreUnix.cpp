@@ -1635,6 +1635,7 @@ namespace VeraCrypt
 				catch (NotApplicable&)
 				{
 #ifdef VC_MACOSX_FSKIT
+					FSKit::BeginDiskImageAttachment (activationChannel);
 					needsMediaObservation = true;
 #endif
 					mountedVirtualDevice = MountAuxVolumeImage (fuseMountPoint, options, volume.get(), useDefaultMountPoint);
@@ -1753,7 +1754,9 @@ namespace VeraCrypt
 #ifdef VC_MACOSX_FSKIT
 		catch (const MountServiceCleanupFailed &)
 		{
-			// Disk Images may still publish the attachment after this timeout.
+			// Disk Images may still publish the attachment. Closing an armed
+			// channel without a completion report keeps the worker available.
+			needsMediaObservation = false;
 			throw;
 		}
 #endif

@@ -16,6 +16,7 @@ namespace VeraCrypt
 		int TryReserveSlot (VolumeSlotNumber slot);
 		uint64 Mount (const shared_ptr <Volume> &volume, VolumeSlotNumber slot, const string &mountPoint,
 			int slotReservation, int &activationChannel);
+		void BeginDiskImageAttachment (int activationChannel);
 		void ObserveAttachedMedia (int activationChannel, const DevicePath &device);
 		void ObserveLateAttachedMedia (int activationChannel);
 		DevicePath GetAttachedDiskImageDevice (const DirectoryPath &mountPoint);

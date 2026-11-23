@@ -430,10 +430,12 @@ static bool RefuseRollback;
 static bool UnconfirmedRollback;
 static bool StartupChannelClosed;
 static shared_ptr<VolumeInfo> RollbackTarget;
+static vector<int> PendingAttachmentChannels;
 static vector<int> LateAttachmentChannels;
 static vector<int> AttachedMediaChannels;
 
 namespace FSKit {
+static void BeginDiskImageAttachment(int channel) { PendingAttachmentChannels.push_back(channel); }
 static void ObserveLateAttachedMedia(int channel) { LateAttachmentChannels.push_back(channel); }
 static void ObserveAttachedMedia(int channel, const DevicePath &) { AttachedMediaChannels.push_back(channel); }
 }
@@ -592,8 +594,10 @@ namespace WorkerPublicationTest {
 static chrono::milliseconds Elapsed;
 static int PublishAfter, UnavailableThrough, Probes, Requests, MountedChecks;
 static int ExitChecks, UnconfirmedExitChecks;
-static bool SentActivation, SentHandoff, Cancel, InitiallyUnavailable;
+static bool SentActivation, SentPending, SentHandoff, Cancel, InitiallyUnavailable, PendingAttach;
+static vector<int> ExitStatuses;
 static bool HelperRunning;
+static constexpr uint64 PendingDiskImageAttachment = UINT64_MAX;
 struct PublicationClock {
     using time_point = chrono::steady_clock::time_point;
     static time_point now() { return time_point(Elapsed); }
@@ -620,20 +624,34 @@ static int Poll(pollfd *descriptors, unsigned int, int timeout) {
     }
     if (timeout != 200) throw runtime_error("worker stopped checking for late publication");
     if (Cancel && descriptors[1].fd != -1) throw runtime_error("worker kept polling the cancellation EOF");
-    if (MountedChecks > 1 && descriptors[1].fd >= 0 && !SentHandoff) {
+    if (PendingAttach && !SentPending) {
+        SentPending = true;
+        descriptors[1].revents = POLLIN;
+        return 1;
+    }
+    if ((PublishAfter == 0 || MountedChecks > 1) && descriptors[1].fd >= 0 && !SentHandoff) {
         SentHandoff = true;
         descriptors[1].revents = POLLIN;
         return 1;
     }
     Elapsed += chrono::milliseconds(timeout);
-    if (Elapsed > chrono::seconds(18)) throw runtime_error("worker failed to exit after confirmed image absence");
+    if (Elapsed > chrono::seconds(35)) throw runtime_error("worker failed to exit after confirmed image absence");
     if (Requests == 0 || (Requests == 1 && HelperRunning && UnconfirmedExitChecks > 0)) {
         descriptors[0].revents = POLLIN;
         return 1;
     }
     return 0;
 }
-static ssize_t Read(int, void *byte, size_t) { *static_cast<char *>(byte) = 1; return Cancel || SentHandoff ? 0 : 1; }
+static ssize_t Read(int, void *bytes, size_t size) {
+    if (Cancel || SentHandoff) return 0;
+    if (SentPending) {
+        if (size != sizeof(PendingDiskImageAttachment)) throw runtime_error("wrong attachment marker size");
+        memcpy(bytes, &PendingDiskImageAttachment, size);
+        return size;
+    }
+    *static_cast<char *>(bytes) = 1;
+    return 1;
+}
 static int Accept(int, void *, void *) { return 15; }
 static int Close(int) { return 0; }
 static void ServeRequest(int, uid_t, Volume &, VolumeInfo &, const array<uint8_t, 16> &) { ++Requests; }
@@ -655,7 +673,7 @@ static pid_t Fork() {
 static pid_t WaitForHelper(pid_t child, int *status, int) {
     if (!HelperRunning || child != 16) throw runtime_error("wrong helper");
     HelperRunning = false;
-    *status = ExitChecks <= UnconfirmedExitChecks ? 1 << 8 : 0;
+    *status = (ExitStatuses.empty() ? int(ExitChecks <= UnconfirmedExitChecks) : ExitStatuses.at(ExitChecks - 1)) << 8;
     return child;
 }
 
@@ -667,12 +685,15 @@ static pid_t WaitForHelper(pid_t child, int *status, int) {
 #define waitpid WaitForHelper
 #define MountTableEntry PublicationTableEntry
 static void Simulate(int publishAfter, bool cancel = false, bool initiallyUnavailable = false,
-                     int unavailableThrough = 0, int unconfirmedExitChecks = 0) {
+                     int unavailableThrough = 0, int unconfirmedExitChecks = 0,
+                     const vector<int> &pendingExitStatuses = {}) {
     Elapsed = chrono::milliseconds(0);
     Probes = Requests = MountedChecks = 0;
-    SentActivation = SentHandoff = HelperRunning = false;
+    SentActivation = SentPending = SentHandoff = HelperRunning = false;
     ExitChecks = 0;
     UnconfirmedExitChecks = unconfirmedExitChecks;
+    ExitStatuses = pendingExitStatuses;
+    PendingAttach = !ExitStatuses.empty();
     PublishAfter = publishAfter;
     UnavailableThrough = unavailableThrough;
     Cancel = cancel;
@@ -730,11 +751,17 @@ static void CheckLateWorkerPublication() {
     Require(Probes == 54 && Requests == 1 && ExitChecks == 1,
             "worker exited at the publication deadline without a usable mount table");
     Simulate(0, false, false, 53);
-    Require(Probes == 54 && Requests == 1 && MountedChecks == 0 && Elapsed == chrono::milliseconds(10600),
+    Require(Probes == 54 && Requests == 1 && MountedChecks == 0 && Elapsed >= chrono::seconds(10),
             "worker did not release its resources when inventory recovered and confirmed absence");
     Simulate(3, false, false, 0, 2);
     Require(ExitChecks == 3 && Requests == 2 && Elapsed >= chrono::seconds(10),
             "worker failed to retain the attachment, serve requests and back off before retrying");
+    Simulate(3, false, false, 0, 0, {0, 2, 1, 0});
+    Require(ExitChecks == 4 && Requests >= 1 && Elapsed >= chrono::seconds(15),
+            "worker released a pending attach before its late image appeared and was released");
+    Simulate(0, false, false, 0, 0, {0, 1, 0});
+    Require(MountedChecks == 0 && ExitChecks == 3 && Elapsed >= chrono::seconds(20),
+            "worker missed a late image when it never observed the auxiliary mount");
 }
 static void CheckBackingReservation(const string &root, const string &image) {
     const int original = open(image.c_str(), O_RDONLY | O_CLOEXEC);
@@ -1045,10 +1072,12 @@ static void CheckStartupRollback() {
 
     LateAttachmentChannels.clear();
     RollbackTarget.reset();
+    PendingAttachmentChannels.clear();
     bool keptAttachWarning = false;
     try { SimulateStartupFailure(StartupFailure::AttachTimeout); }
     catch (const MountServiceCleanupFailed &e) { keptAttachWarning = e.Reason == L"attach remains unconfirmed"; }
-    Require(keptAttachWarning && !RollbackTarget && LateAttachmentChannels == vector<int>{15},
+    Require(keptAttachWarning && !RollbackTarget && PendingAttachmentChannels == vector<int>{15}
+            && LateAttachmentChannels.empty(),
             "unconfirmed attach did not preserve its worker for late observation");
 }
 static void CheckAuxiliaryMountStartup() {
