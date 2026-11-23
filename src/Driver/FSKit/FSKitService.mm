@@ -1,4 +1,5 @@
 #import <Foundation/Foundation.h>
+#import <FSKit/FSClient.h>
 #undef ERR_SUCCESS
 #include "FSKitService.h"
 #include "VolumeProtocol.h"
@@ -9,6 +10,7 @@
 #include <cerrno>
 #include <chrono>
 #include <fcntl.h>
+#include <future>
 #include <IOKit/IOBSD.h>
 #include <IOKit/IOKitLib.h>
 #include <poll.h>
@@ -26,6 +28,59 @@ namespace VeraCrypt
 	{
 		namespace
 		{
+			void RequireEnabledModule ()
+			{
+				@autoreleasepool
+				{
+					NSURL *extensionURL = [[[NSBundle mainBundle] bundleURL]
+						URLByAppendingPathComponent:@"Contents/Extensions/LambCryptFSKit.appex" isDirectory:YES];
+					NSBundle *extension = [NSBundle bundleWithURL:extensionURL];
+					NSString *identifier = [extension bundleIdentifier];
+					if (![identifier isEqualToString:@"io.github.e3742526.LambCrypt.fskit.module"])
+						throw ExternalException (SRC_POS, L"Start LambCrypt FSKit from its provisioned app bundle.");
+
+					NSString *expectedPath = [[extensionURL path] stringByResolvingSymlinksInPath];
+					auto result = make_shared <std::promise <wstring>> ();
+					auto response = result->get_future();
+					[[FSClient sharedInstance] fetchInstalledExtensionsWithCompletionHandler:
+						^(NSArray <FSModuleIdentity *> *modules, NSError *error) {
+							if (!modules || error)
+							{
+								result->set_value (L"macOS could not query the installed FSKit modules.");
+								return;
+							}
+							bool found = false;
+							bool enabled = true;
+							for (FSModuleIdentity *module in modules)
+							{
+								if (![module.bundleIdentifier isEqualToString:identifier])
+									continue;
+								if (![[[module.url path] stringByResolvingSymlinksInPath] isEqualToString:expectedPath])
+								{
+									result->set_value (L"macOS registered a different copy of LambCrypt FSKit. "
+										L"Open the intended signed LambCrypt FSKit app and check File System Extensions in System Settings.");
+									return;
+								}
+								found = true;
+								enabled = enabled && module.isEnabled;
+							}
+							if (!found)
+								result->set_value (L"macOS did not list the LambCrypt FSKit module. Open the signed app once, "
+									L"then check File System Extensions in System Settings.");
+							else if (!enabled)
+								result->set_value (L"The LambCrypt FSKit module is disabled. In System Settings, open General, "
+									L"Login Items & Extensions, choose By Category, then enable LambCrypt FSKit under File System Extensions.");
+							else
+								result->set_value (wstring());
+						}];
+					if (response.wait_for (std::chrono::seconds (5)) != std::future_status::ready)
+						throw ExternalException (SRC_POS, L"macOS did not respond to the FSKit module query.");
+					const wstring message = response.get();
+					if (!message.empty())
+						throw ExternalException (SRC_POS, message);
+				}
+			}
+
 			string ResourcePath (const string &mountPoint)
 			{
 				return mountPoint.substr (0, mountPoint.rfind ('/'));
@@ -495,6 +550,7 @@ namespace VeraCrypt
 		uint64 Mount (const shared_ptr <Volume> &volume, VolumeSlotNumber slot, const string &mountPoint,
 			int slotReservation, int &activationChannel)
 		{
+			RequireEnabledModule ();
 			const string mountDirectory = ResourcePath (mountPoint);
 			const int directory = open (mountDirectory.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
 			throw_sys_sub_if (directory < 0, mountDirectory);
