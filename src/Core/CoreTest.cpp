@@ -1,3 +1,4 @@
+/* Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. */
 /*
  Copyright (c) 2026 AM Crypto. All rights reserved.
 

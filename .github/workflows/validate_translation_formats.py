@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 """Validate translation text and format contracts without platform-specific libraries.
 
 Run with: python3 .github/workflows/validate_translation_formats.py --english-only [repo-root]

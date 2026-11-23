@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 """Exercise the XML validator and the English-only CI policy with Python 3."""
 
 from pathlib import Path

@@ -1,4 +1,5 @@
 #!/bin/sh
+# Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 # mount.lambcrypt <device> <mountpoint> [-sfnv] [-o options] [-t type]
 #
 # Options (comma-separated, as in fstab): ro/rw, fs=, keyfiles=, password=,

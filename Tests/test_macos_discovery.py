@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 """Unit checks for macOS discovery and FSKit attach and teardown without mounts.
 
 Compiles the production plist helpers and batch-refresh methods with a fake

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 """Check Unix file inheritance and process execution without root or mounts.
 
 Links the real Platform.a from a completed Linux build. Run with

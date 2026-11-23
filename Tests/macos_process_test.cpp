@@ -1,3 +1,4 @@
+/* Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. */
 // Read-only subprocess tests. Every child is this test executable; no mounts,
 // privilege changes, or installed VeraCrypt services are involved.
 #include "Platform/Platform.h"

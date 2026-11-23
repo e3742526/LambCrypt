@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 """Check that the UI's core-service pipes do not survive exec.
 
 Run against a built GUI or console binary with --veracrypt. No root or mounted

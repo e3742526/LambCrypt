@@ -1,3 +1,4 @@
+@REM Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 ::------------------------------------
 ::Define search paths here for Wix ToolSet and SDK (and SignTool optionnally)
 ::------------------------------------

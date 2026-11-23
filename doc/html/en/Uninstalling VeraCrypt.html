@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. -->
 <html lang="en">
 <head>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
@@ -34,11 +35,20 @@
 <div class="wikidoc">
 <div>
 <h1>Uninstalling LambCrypt</h1>
+<h2>macOS</h2>
+<p>Dismount all volumes and quit LambCrypt. Delete <code>/Applications/LambCrypt.app</code>, then run
+<code>sudo rm /usr/local/bin/lambcrypt</code> in Terminal.</p>
+<p>For the FSKit build, turn off <strong>LambCrypt FSKit</strong> in <em>System Settings &gt; General &gt;
+Login Items &amp; Extensions &gt; By Category &gt; File System Extensions</em>, then delete
+<code>/Applications/LambCrypt-FSKit.app</code>.</p>
+<p>Preferences are in <code>~/Library/Application Support/LambCrypt</code>. Delete that folder to
+remove them.</p>
 <h2>Linux</h2>
 <p>If you installed LambCrypt with a package manager, use it to remove the package.
 If you used the standalone installer, run <code>sudo lambcrypt-uninstall.sh</code> in Terminal.</p>
 <p>Uninstalling LambCrypt leaves your encrypted volumes on disk. You can mount them again with a compatible version.</p>
 <h2>Windows VeraCrypt reference</h2>
+<p>LambCrypt has no Windows release. These steps remove VeraCrypt.</p>
 <p>To uninstall VeraCrypt on Windows XP, select <em>Start</em> menu &gt; <em>Settings</em> &gt;
 <em>Control Panel</em> &gt; <em>Add or Remove Programs</em>&gt; <em>VeraCrypt</em> &gt;
 <em>Change/Remove</em>.</p>

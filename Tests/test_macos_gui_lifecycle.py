@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 """Disposable macOS container and background GUI lifecycle; no sudo required.
 
 Requires a logged-in macOS desktop and no other LambCrypt or VeraCrypt processes or mounts.

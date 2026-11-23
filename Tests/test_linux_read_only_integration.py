@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 """Verify Linux read-only device protection in a dedicated disposable VM.
 
 Requires the same tools as test_linux_loop_identity.py, plus blockdev and

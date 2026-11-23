@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 LambCrypt contributors
+# Governed by the Apache License 2.0, the full text of which is contained in
+# the file License.txt included in LambCrypt binary and source code
+# distribution packages.
 """Run the production FSKit worker with real Disk Images and an injected mount observation.
 
 The disposable raw images are backed by APFS. This trial needs a matching

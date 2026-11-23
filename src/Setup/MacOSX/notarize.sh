@@ -1,4 +1,5 @@
 #!/bin/bash
+# Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 
 # Never continue to an upload after a failed build or signing command.
 set -euo pipefail

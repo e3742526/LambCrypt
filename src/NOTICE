@@ -1,3 +1,23 @@
+Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
+LambCrypt
+Copyright (c) 2026 LambCrypt contributors
+
+LambCrypt is a modified version of VeraCrypt. It is not VeraCrypt, and it is
+not affiliated with or endorsed by IDRIX, AM Crypto, the VeraCrypt project or
+the TrueCrypt Developers Association.
+
+Based on TrueCrypt, freely available at http://www.truecrypt.org/
+
+Modifications and additions made for LambCrypt are licensed under the Apache
+License, Version 2.0. Portions derived from TrueCrypt remain governed by the
+TrueCrypt License 3.0, and the third-party components below keep their own
+licenses. The full texts are in License.txt. MODIFICATIONS.md in the source
+code identifies the files changed from VeraCrypt.
+
+The complete source code of LambCrypt is available free of charge at
+https://github.com/e3742526/LambCrypt
+____________________________________________________________
+
 Copyright 2026 AM Crypto
 
 Licensed under the Apache License, Version 2.0 (the "License");

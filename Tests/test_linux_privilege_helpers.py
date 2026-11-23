@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 """Exercise production helper lookup and the Linux elevation restriction check.
 
 Uses a fake filesystem to test trusted paths without changing system files.

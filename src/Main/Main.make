@@ -1,3 +1,4 @@
+# Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 #
 # Derived from source code of TrueCrypt 7.1a, which is
 # Copyright (c) 2008-2012 TrueCrypt Developers Association and which is governed
@@ -264,6 +265,7 @@ endif
 	cp $(BASE_DIR)/Resources/Icons/LambCrypt.icns $(APPNAME).app/Contents/Resources
 	cp $(BASE_DIR)/Resources/Icons/LambCrypt_Volume.icns $(APPNAME).app/Contents/Resources
 	cp -R $(BASE_DIR)/../doc/html/en $(APPNAME).app/Contents/Resources/doc/HTML
+	cp $(BASE_DIR)/License.txt $(BASE_DIR)/NOTICE $(APPNAME).app/Contents/Resources/
 
 	echo -n APPLTRUE >$(APPNAME).app/Contents/PkgInfo
 ifdef VC_LEGACY_BUILD
@@ -481,6 +483,7 @@ endif
 ifneq "$(INSTALL_LICENSE)" "0"
 	mkdir -p "$(BASE_DIR)/Setup/Linux/usr/$(INSTALL_LICENSE_DIR)"
 	cp "$(BASE_DIR)/License.txt" "$(BASE_DIR)/Setup/Linux/usr/$(INSTALL_LICENSE_DIR)/License.txt"
+	cp "$(BASE_DIR)/NOTICE" "$(BASE_DIR)/Setup/Linux/usr/$(INSTALL_LICENSE_DIR)/NOTICE"
 endif
 ifneq "$(INSTALL_DOCS)" "0"
 	mkdir -p $(BASE_DIR)/Setup/Linux/usr/share/doc/$(APPNAME)/HTML
@@ -804,6 +807,7 @@ prepare: $(APPNAME)
 	cp $(BASE_DIR)/Setup/FreeBSD/$(APPNAME)-uninstall.sh $(BASE_DIR)/Setup/FreeBSD/usr/bin/$(APPNAME)-uninstall.sh
 	chmod +x $(BASE_DIR)/Setup/FreeBSD/usr/bin/$(APPNAME)-uninstall.sh
 	cp $(BASE_DIR)/License.txt $(BASE_DIR)/Setup/FreeBSD/usr/share/doc/$(APPNAME)/License.txt
+	cp $(BASE_DIR)/NOTICE $(BASE_DIR)/Setup/FreeBSD/usr/share/doc/$(APPNAME)/NOTICE
 	cp -R $(BASE_DIR)/../doc/html/en "$(BASE_DIR)/Setup/FreeBSD/usr/share/doc/$(APPNAME)/HTML"
 
 ifndef TC_NO_GUI

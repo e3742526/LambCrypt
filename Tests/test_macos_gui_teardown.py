@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 """Automatic GUI unmounts while a volume's service is slow; no sudo required.
 
 Requires a logged-in macOS desktop, clang, an unsigned local build, and no other

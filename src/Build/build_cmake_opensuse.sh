@@ -1,4 +1,5 @@
 #!/bin/sh
+# Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 #
 # Copyright (c) 2013-2026 AM Crypto
 # Governed by the Apache License 2.0 the full text of which is contained

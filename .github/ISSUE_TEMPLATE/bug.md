@@ -4,6 +4,7 @@ about: Found a bug? Let us know! 🐛
 labels: bug, unreviewed
 
 ---
+<!-- Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. -->
 
 <!-- Please provide a general summary of the issue in the title above. -->
 

@@ -4,6 +4,7 @@ about: Change or extend functionality that already exists.
 labels: change, unreviewed
 
 ---
+<!-- Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. -->
 
 <!-- Please provide a general summary of your change in the title above. -->
 

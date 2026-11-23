@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<title>Installing LambCrypt – LambCrypt Documentation</title>
+<meta name="description" content="How to build and install LambCrypt on macOS and Linux, and how to move from VeraCrypt."/>
+<meta name="keywords" content="encryption, security, install, macOS, Linux"/>
+<link href="styles.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+
+<div>
+<a href="Documentation.html"><img src="LambCrypt128x128.png" alt="LambCrypt" width="128" height="128"/></a>
+</div>
+
+<div id="menu">
+  <ul>
+    <li><a href="https://github.com/e3742526/LambCrypt">Project</a></li>
+    <li><a href="Documentation.html">Documentation</a></li>
+    <li><a href="https://github.com/e3742526/LambCrypt/releases">Releases</a></li>
+    <li><a href="https://github.com/e3742526/LambCrypt/issues">Issues</a></li>
+  </ul>
+</div>
+
+<div>
+<p>
+<a href="Documentation.html">Documentation</a>
+<img src="arrow_right.gif" alt=">>" style="margin-top: 5px">
+<a href="Installing%20LambCrypt.html">Installing LambCrypt</a>
+</p></div>
+
+<div class="wikidoc">
+<h1>Installing LambCrypt</h1>
+<p>LambCrypt has no binary releases yet. Build it from source as described below. The project
+README has the full build reference.</p>
+
+<h2>macOS</h2>
+<p>You need an Apple silicon Mac running macOS 26 or later.</p>
+<ol>
+<li>Install the Xcode Command Line Tools and <a href="https://brew.sh">Homebrew</a>, then the build
+dependencies:
+<pre>xcode-select --install
+brew install pkg-config yasm wxwidgets</pre></li>
+<li>Install one FUSE backend:
+<ul>
+<li><strong>macFUSE</strong> (default): <code>brew install --cask macfuse</code>, then follow
+macFUSE's prompts to allow its system extension in System Settings.</li>
+<li><strong>FUSE-T</strong>: install it from <a href="https://www.fuse-t.org/">fuse-t.org</a>.</li>
+</ul>
+The experimental FSKit build needs neither.</li>
+<li>Build the app:
+<pre>git clone https://github.com/e3742526/LambCrypt.git
+cd LambCrypt
+./src/Build/build_lambcrypt_macosx.sh -b      # macFUSE
+./src/Build/build_lambcrypt_macosx.sh -b -f   # or FUSE-T</pre>
+The app is written to <code>src/Main/LambCrypt.app</code>. A <code>-b</code> build uses Homebrew's
+wxWidgets, so keep that package installed.</li>
+<li>Install the app and the <code>lambcrypt</code> command:
+<pre>cp -R src/Main/LambCrypt.app /Applications/
+chmod -R go-w /Applications/LambCrypt.app
+sudo mkdir -p /usr/local/bin
+sudo ln -s /Applications/LambCrypt.app/Contents/MacOS/LambCrypt /usr/local/bin/lambcrypt</pre></li>
+<li>Check the build with <code>lambcrypt --text --test</code>, which runs the built-in algorithm
+self-tests.</li>
+</ol>
+
+<h3>The FSKit build</h3>
+<p>The FSKit build needs a paid Apple Developer Program membership and a provisioning profile with
+the FSKit Module capability. Follow the integrator checklist in the project's FSKIT-MIGRATION.md to
+sign it. Then copy <code>LambCrypt-FSKit.app</code> to <code>/Applications</code>, open
+<em>System Settings &gt; General &gt; Login Items &amp; Extensions &gt; By Category &gt; File System
+Extensions</em> and turn on <strong>LambCrypt FSKit</strong>. LambCrypt-FSKit.app and LambCrypt.app
+can be installed side by side.</p>
+
+<h2>Linux</h2>
+<p>Install the dependencies listed in the <a href="CompilingGuidelineLinux.html">Linux build
+guide</a>, then run:</p>
+<pre>git clone https://github.com/e3742526/LambCrypt.git
+cd LambCrypt/src
+make                 # or: make NOGUI=1 for a console-only build
+sudo make install</pre>
+<p>This installs <code>/usr/bin/lambcrypt</code> and the mount helper
+<code>/usr/sbin/mount.lambcrypt</code>. The source tree also has scripts that build
+<code>lambcrypt</code> and <code>lambcrypt-console</code> packages in <code>.deb</code> and
+<code>.rpm</code> format, and an Arch Linux package build.</p>
+<p>FreeBSD 14 and later and OpenBSD 7.8 and later build the same way, with <code>gmake</code> instead
+of <code>make</code>.</p>
+
+<h2>Windows</h2>
+<p>LambCrypt has no Windows release. Its Windows source keeps VeraCrypt's driver and boot loader
+identities and would collide with an installed VeraCrypt. Use VeraCrypt on Windows; volumes are
+compatible either way.</p>
+
+<h2 id="moving">Moving from VeraCrypt</h2>
+<p>LambCrypt and VeraCrypt can be installed on the same system. They use different command names,
+app names and preferences folders.</p>
+<ol>
+<li>Dismount all volumes in VeraCrypt before mounting them in LambCrypt. Don't mount the same
+volume in both programs at once.</li>
+<li>Optional: to keep your settings, quit both programs and copy the XML files, such as
+<code>Configuration.xml</code>, <code>Favorite Volumes.xml</code> and <code>Default Keyfiles.xml</code>,
+from VeraCrypt's folder to LambCrypt's:
+<ul>
+<li>macOS: from <code>~/Library/Application Support/VeraCrypt</code> to
+<code>~/Library/Application Support/LambCrypt</code></li>
+<li>Linux and BSD: from <code>~/.config/VeraCrypt</code> to <code>~/.config/LambCrypt</code></li>
+</ul></li>
+<li>Update scripts and <code>fstab</code> entries that call <code>veracrypt</code> or
+<code>mount.veracrypt</code> to use <code>lambcrypt</code> and <code>mount.lambcrypt</code>.</li>
+</ol>
+<p>Your volumes stay as they are, and VeraCrypt can still open them. See
+<a href="LambCrypt%20and%20VeraCrypt.html">LambCrypt and VeraCrypt</a> for compatibility details and
+<a href="Uninstalling%20VeraCrypt.html">Uninstalling LambCrypt</a> to remove it.</p>
+</div>
+<div class="ClearBoth"></div></body></html>

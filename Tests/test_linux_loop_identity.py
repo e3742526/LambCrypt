@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 """Check that Linux dismounts, and rollbacks of failed mounts, act only on the volume's own devices.
 
 Usage:

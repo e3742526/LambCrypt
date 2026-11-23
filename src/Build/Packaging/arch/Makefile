@@ -1,3 +1,4 @@
+# Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 VERSION_FILE := ../../../Common/Tcdefs.h
 PKGBUILD_RELEASE := PKGBUILD.release
 PKGBUILD_RELEASE_TEMPLATE := PKGBUILD.release.in

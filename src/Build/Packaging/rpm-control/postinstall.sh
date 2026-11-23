@@ -1,4 +1,5 @@
 #!/bin/sh
+# Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 
 rm -f \
 	/usr/share/doc/lambcrypt/HTML/en/Donation_Bank.html \

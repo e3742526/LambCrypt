@@ -1,3 +1,4 @@
+/* Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. */
 // Decrypt the data area of a volume through the volume layer, without
 // mounting. Usage:
 //   volume_read_test VOLUME PASSWORD KDF OUTPUT [--require-thread-pool]

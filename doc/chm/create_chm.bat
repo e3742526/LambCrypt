@@ -1,3 +1,4 @@
+@REM Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 PATH=%PATH%;C:\Program Files (x86)\HTML Help Workshop
 
 set CHMBUILDPATH=%~dp0

@@ -4,6 +4,7 @@ about: Add new functionality or suggest an idea to the project.
 labels: feature, unreviewed
 
 ---
+<!-- Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. -->
 
 <!-- Please provide a general summary of your feature in the title above. -->
 

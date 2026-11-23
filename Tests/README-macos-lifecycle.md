@@ -1,3 +1,4 @@
+<!-- Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. -->
 # macOS lifecycle regression checks
 
 Run these checks on macOS with Xcode Command Line Tools and Python 3. They do not

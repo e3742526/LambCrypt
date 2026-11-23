@@ -1,3 +1,4 @@
+/* Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. */
 #include "EMVCard.h"
 #include "TLVParser.h"
 #include "SCardReader.h"

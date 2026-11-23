@@ -1,3 +1,4 @@
+/* Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. */
 /*
  Derived from source code of TrueCrypt 7.1a, which is
  Copyright (c) 2008-2012 TrueCrypt Developers Association and which is governed
@@ -79,11 +80,12 @@ namespace VeraCrypt
 			L"Copyright \xA9 2013-2019 Stephan Mueller <smueller@chronox.de>\n"
 			L"Copyright \xA9 1999-2023 Igor Pavlov\n\n"
 
-			L"\nThis software as a whole:\n"
-			L"Copyright \xA9 2026 AM Crypto. All rights reserved.\n\n"
+			L"\nLambCrypt modifications and additions:\n"
+			L"Copyright \xA9 2026 LambCrypt contributors.\n"
+			L"LambCrypt is not affiliated with or endorsed by IDRIX, AM Crypto or the VeraCrypt project.\n\n"
 
 			L"This software uses wxWidgets library, which is copyright \xA9 1998-2011 Julian Smart, Robert Roebling et al.\n\n"
 
-			L"Upstream attribution: VeraCrypt and TrueCrypt");
+			L"Upstream attribution: VeraCrypt and TrueCrypt. Source code: https://github.com/e3742526/LambCrypt");
 	}
 }

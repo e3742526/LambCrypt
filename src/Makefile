@@ -1,3 +1,4 @@
+# Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 #
 # Derived from source code of TrueCrypt 7.1a, which is
 # Copyright (c) 2008-2012 TrueCrypt Developers Association and which is governed

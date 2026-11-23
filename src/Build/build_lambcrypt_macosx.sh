@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 
 #
 # Copyright (c) 2013-2026 AM Crypto

@@ -1,3 +1,4 @@
+/* Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. */
 #ifndef TC_HEADER_Common_TLVPARSER
 #define TC_HEADER_Common_TLVPARSER
 

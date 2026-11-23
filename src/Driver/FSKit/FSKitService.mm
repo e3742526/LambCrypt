@@ -1,3 +1,10 @@
+/*
+ Copyright (c) 2026 LambCrypt contributors
+ Governed by the Apache License 2.0, the full text of which is contained in
+ the file License.txt included in LambCrypt binary and source code
+ distribution packages.
+*/
+
 #import <Foundation/Foundation.h>
 #import <FSKit/FSClient.h>
 #undef ERR_SUCCESS

@@ -1,3 +1,4 @@
+/* Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. */
 // Exercise the linked Linux backend with command execution intercepted. No mounts are made.
 #include "Core/Unix/Linux/CoreLinux.h"
 #include "Platform/Unix/Process.h"

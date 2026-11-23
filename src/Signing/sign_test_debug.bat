@@ -1,3 +1,4 @@
+@REM Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 PATH=%PATH%;%WSDK81%\bin\x86
 set VC_VERSION=1.27.0
 set VC_VERSION_NBRE=1.27.0

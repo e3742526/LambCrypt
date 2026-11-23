@@ -1,3 +1,4 @@
+<!-- Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. -->
 # OpenWrt packaging
 
 This directory contains the canonical OpenWrt package template and local test

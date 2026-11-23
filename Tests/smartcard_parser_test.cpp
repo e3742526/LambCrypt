@@ -1,3 +1,10 @@
+/*
+ Copyright (c) 2026 LambCrypt contributors
+ Governed by the Apache License 2.0, the full text of which is contained in
+ the file License.txt included in LambCrypt binary and source code
+ distribution packages.
+*/
+
 // Standalone checks for smart card data parsing with synthetic input; no card is required.
 // c++ -std=c++11 -O2 -Isrc Tests/smartcard_parser_test.cpp \
 //     src/Common/CommandAPDU.cpp src/Common/TLVParser.cpp -o /tmp/smartcard_parser_test

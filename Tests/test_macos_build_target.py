@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 LambCrypt contributors
+# Governed by the Apache License 2.0, the full text of which is contained in
+# the file License.txt included in LambCrypt binary and source code
+# distribution packages.
 """Check the macOS build wrapper and FSKit bundle metadata without compiling."""
 
 import os
@@ -80,7 +84,7 @@ class MacOSBuildTargetTests(unittest.TestCase):
         main = src / "Main"
         main.mkdir()
         files = ("Main/Main.make", "Build/Resources/MacOSX/Info.plist.xml",
-                 "Common/Tcdefs.h", "Driver/FSKit/Info.plist")
+                 "Common/Tcdefs.h", "Driver/FSKit/Info.plist", "License.txt", "NOTICE")
         for name in files:
             path = src / name
             path.parent.mkdir(parents=True, exist_ok=True)

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<title>LambCrypt and VeraCrypt – LambCrypt Documentation</title>
+<meta name="description" content="How LambCrypt relates to VeraCrypt: the license-driven rename, volume compatibility and the main differences."/>
+<meta name="keywords" content="encryption, security, VeraCrypt, compatibility, FSKit"/>
+<link href="styles.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+
+<div>
+<a href="Documentation.html"><img src="LambCrypt128x128.png" alt="LambCrypt" width="128" height="128"/></a>
+</div>
+
+<div id="menu">
+  <ul>
+    <li><a href="https://github.com/e3742526/LambCrypt">Project</a></li>
+    <li><a href="Documentation.html">Documentation</a></li>
+    <li><a href="https://github.com/e3742526/LambCrypt/releases">Releases</a></li>
+    <li><a href="https://github.com/e3742526/LambCrypt/issues">Issues</a></li>
+  </ul>
+</div>
+
+<div>
+<p>
+<a href="Documentation.html">Documentation</a>
+<img src="arrow_right.gif" alt=">>" style="margin-top: 5px">
+<a href="LambCrypt%20and%20VeraCrypt.html">LambCrypt and VeraCrypt</a>
+</p></div>
+
+<div class="wikidoc">
+<h1>LambCrypt and VeraCrypt</h1>
+<p><strong>LambCrypt is not VeraCrypt.</strong> It is an independently maintained derivative of
+<a href="https://github.com/veracrypt/VeraCrypt">VeraCrypt</a>. It is not affiliated with or endorsed by
+IDRIX, AM Crypto or the VeraCrypt project. Report LambCrypt problems to the
+<a href="https://github.com/e3742526/LambCrypt/issues">LambCrypt issue tracker</a>, not to VeraCrypt.</p>
+<p>Many chapters of this guide come from the VeraCrypt documentation. Where they mention VeraCrypt,
+the description applies to LambCrypt too unless a page says otherwise.</p>
+
+<h2>Why the name changed</h2>
+<p>LambCrypt was renamed to comply with the licenses it inherits from VeraCrypt (see
+<a href="VeraCrypt%20License.html">License</a>):</p>
+<ul>
+<li>The VeraCrypt License grants no right to use the VeraCrypt name, logo or trademarks, or any
+confusingly similar name.</li>
+<li>The TrueCrypt License 3.0 forbids a modified version from containing the name TrueCrypt.</li>
+<li>Neither license allows the original authors' names to be used to endorse a derived product.</li>
+</ul>
+<p>A modified version therefore cannot be distributed as &quot;VeraCrypt&quot;. The rename changes
+product names, icons, links and bundle identities only. It does not change the volume format, the
+encryption or the on-disk layout.</p>
+
+<h2>Compatibility with VeraCrypt volumes</h2>
+<p>Backward compatibility with VeraCrypt volumes is a fixed requirement of LambCrypt.</p>
+<ul>
+<li><strong>Volumes:</strong> LambCrypt uses the VeraCrypt volume format and the <code>.hc</code>
+extension. It opens file containers, partitions and devices created by VeraCrypt, including hidden
+volumes, with the same password, PIM, keyfiles and security tokens. It never converts or upgrades a
+volume.</li>
+<li><strong>Both directions:</strong> volumes created by LambCrypt open in VeraCrypt. A volume that
+uses Argon2id needs VeraCrypt 1.26.29 or later.</li>
+<li><strong>Algorithms:</strong> LambCrypt offers the same ciphers, cascades, hash algorithms and key
+derivation functions as VeraCrypt.</li>
+<li><strong>Header backups:</strong> header backup files are interchangeable between the two
+programs.</li>
+<li><strong>Existing mounts:</strong> on Linux, BSD and macOS, LambCrypt keeps VeraCrypt's
+mount-tracking and lock identifiers, the default mount directories and the
+<code>VERACRYPT_MOUNT_PREFIX</code> variable.</li>
+<li><strong>File association:</strong> on macOS, LambCrypt claims <code>.hc</code> files under
+VeraCrypt's type identifier <code>org.idrix.veracrypt.hc</code>.</li>
+</ul>
+<p>Preferences and favorites are not shared. See <a href="Installing%20LambCrypt.html#moving">Moving
+from VeraCrypt</a>.</p>
+
+<h2>Main differences</h2>
+<table border="1" cellspacing="0" cellpadding="4">
+<tr><th>Area</th><th>VeraCrypt</th><th>LambCrypt</th></tr>
+<tr><td>Primary platform</td><td>Windows, Linux, macOS and BSD</td>
+<td>Apple silicon Macs on macOS 26 (Tahoe) and later. Linux and BSD build from source.</td></tr>
+<tr><td>macOS mount backends</td><td>macFUSE or FUSE-T</td>
+<td>macFUSE (default) or FUSE-T, plus an experimental FSKit build that needs no third-party file
+system driver</td></tr>
+<tr><td>Languages</td><td>Many translations</td><td>English only</td></tr>
+<tr><td>Names</td><td><code>veracrypt</code>, VeraCrypt.app, <code>mount.veracrypt</code></td>
+<td><code>lambcrypt</code>, LambCrypt.app, <code>mount.lambcrypt</code>, and LambCrypt-FSKit.app
+for the FSKit build</td></tr>
+<tr><td>Preferences folder</td><td>VeraCrypt</td><td>LambCrypt</td></tr>
+<tr><td>Windows</td><td>Maintained and released</td><td>Inherited source only. No Windows
+release.</td></tr>
+<tr><td>Fixes</td><td>VeraCrypt releases</td><td>VeraCrypt's code from November 2026 (after
+1.26.31), plus additional durability and security fixes</td></tr>
+</table>
+
+<h3>FSKit</h3>
+<p>FSKit is Apple's framework for file systems that run as app extensions in user space. The FSKit
+build of LambCrypt decrypts the volume in a worker process and serves the decrypted image through a
+sandboxed FSKit module, so macOS mounts it without macFUSE or FUSE-T. Unpartitioned FAT volumes use
+Apple's own <code>msdos</code> driver. The FSKit build is a separate app, LambCrypt-FSKit.app, and is
+experimental: use it with disposable volumes and keep backups.</p>
+
+<h3>Additional fixes</h3>
+<ul>
+<li>Volume headers are flushed to stable storage before the backup header is written.</li>
+<li>Exporting a header backup never truncates an existing backup file first.</li>
+<li>A failure while expanding a volume no longer leaves its size and headers disagreeing.</li>
+<li>The Unix elevated service, AppImage elevation and FUSE-T auxiliary mounts have stricter
+checks.</li>
+<li>An out-of-range PIM is rejected instead of overflowing, and a cancelled key derivation is
+reported as cancelled.</li>
+</ul>
+<p>The project's BUGLOG.md lists every fix with its regression check.</p>
+
+<h2>Windows</h2>
+<p>LambCrypt has no Windows release. The Windows chapters of this guide describe VeraCrypt for
+Windows and are kept for reference. On Windows, use <a href="https://veracrypt.io/">VeraCrypt</a>;
+volumes are compatible either way. Windows binaries built from the LambCrypt source still carry the
+VeraCrypt name, so they must not be distributed.</p>
+</div>
+<div class="ClearBoth"></div></body></html>

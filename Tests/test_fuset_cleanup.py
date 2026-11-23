@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md.
 """Test production cleanup state transitions with an in-memory FUSE service.
 
 --build-dir is the src directory of a matching macOS build. All mount, process
