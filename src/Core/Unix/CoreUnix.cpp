@@ -1417,6 +1417,7 @@ namespace VeraCrypt
 
 	shared_ptr <VolumeInfo> CoreUnix::MountVolume (MountOptions &options)
 	{
+		const bool useDefaultMountPoint = !options.MountPoint || options.MountPoint->IsEmpty();
 #if defined(TC_LINUX) || defined(VC_MACOSX_FSKIT)
 		const int slotLock = ReserveMountSlot (options);
 		finally_do_arg (int, slotLock, { close (finally_arg); });
@@ -1636,7 +1637,7 @@ namespace VeraCrypt
 #ifdef VC_MACOSX_FSKIT
 					needsMediaObservation = true;
 #endif
-					mountedVirtualDevice = MountAuxVolumeImage (fuseMountPoint, options);
+					mountedVirtualDevice = MountAuxVolumeImage (fuseMountPoint, options, volume.get(), useDefaultMountPoint);
 				}
 			}
 			catch (...)
@@ -1800,7 +1801,8 @@ namespace VeraCrypt
 		}
 	}
 
-	DevicePath CoreUnix::MountAuxVolumeImage (const DirectoryPath &auxMountPoint, const MountOptions &options) const
+	DevicePath CoreUnix::MountAuxVolumeImage (const DirectoryPath &auxMountPoint, const MountOptions &options,
+		Volume *, bool) const
 	{
 #ifdef VC_MACOSX_FSKIT
 		// CoreMacOSX attaches the image via Disk Images.

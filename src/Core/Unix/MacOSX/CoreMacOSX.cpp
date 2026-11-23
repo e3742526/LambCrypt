@@ -29,6 +29,7 @@
 #include "CoreMacOSX.h"
 #include "Driver/Fuse/FuseService.h"
 #ifdef VC_MACOSX_FSKIT
+#include "FatBootSector.h"
 #include "Driver/FSKit/FSKitService.h"
 #endif
 #include "Core/Unix/CoreServiceProxy.h"
@@ -162,7 +163,8 @@ namespace VeraCrypt
 	}
 
 	// Parse "hdiutil attach -plist" output (top-level dict with "system-entities").
-	static bool ExtractDiskImageDeviceAndMountPoint (const string &attachXml, DevicePath &device, DirectoryPath &mountPoint)
+	static bool ExtractDiskImageDeviceAndMountPoint (const string &attachXml, DevicePath &device, DirectoryPath &mountPoint,
+		bool requireSingleEntity = false)
 	{
 		CFHolder plist (ParsePropertyList (attachXml));
 		if (!plist.Get() || CFGetTypeID (plist.Get()) != CFDictionaryGetTypeID())
@@ -170,6 +172,8 @@ namespace VeraCrypt
 
 		CFTypeRef entities = CFDictionaryGetValue ((CFDictionaryRef) plist.Get(), CFSTR ("system-entities"));	// borrowed
 		if (!entities || CFGetTypeID (entities) != CFArrayGetTypeID())
+			return false;
+		if (requireSingleEntity && CFArrayGetCount ((CFArrayRef) entities) != 1)
 			return false;
 
 		return ExtractDeviceAndMountPointFromEntities ((CFArrayRef) entities, device, mountPoint);
@@ -283,6 +287,20 @@ namespace VeraCrypt
 			string (mountPoint) + FuseService::GetVolumeImagePath(), device, innerMount);
 		return device;
 	}
+
+	static void ConfirmDiskImageMedia (const DirectoryPath &auxiliary, const DevicePath &device, uint64 expectedMedia)
+	{
+		try
+		{
+			if (expectedMedia != 0 && FSKit::GetAttachedDiskImageDevice (auxiliary) == device
+				&& FSKit::GetMediaIdentity (device) == expectedMedia)
+				return;
+		}
+		catch (const exception &error) { SystemLog::WriteException (error); }
+
+		throw MountServiceCleanupFailed (SRC_POS, L"macOS could not confirm the identity of the attached disk image: "
+			+ wstring (auxiliary));
+	}
 #endif
 
 	shared_ptr <VolumeInfo> CoreMacOSX::ValidateMountedVolume (shared_ptr <VolumeInfo> volume) const
@@ -329,6 +347,10 @@ namespace VeraCrypt
 		{
 #endif
 		UpdateMountedVolumeInfo (mountedVolume);
+#ifdef VC_MACOSX_FSKIT
+		const uint64 attachedMedia = fskitMount && !mountedVolume->VirtualDevice.IsEmpty()
+			? FSKit::GetMediaIdentity (mountedVolume->VirtualDevice) : 0;
+#endif
 #ifndef VC_MACOSX_FUSET
 		ValidateMountedVolume (mountedVolume);
 #endif
@@ -359,7 +381,15 @@ namespace VeraCrypt
 			{
 #ifdef VC_MACOSX_FSKIT
 				if (fskitMount)
+				{
+					try { ConfirmDiskImageMedia (mountedVolume->AuxMountPoint, mountedVolume->VirtualDevice, attachedMedia); }
+					catch (const MountServiceCleanupFailed &)
+					{
+						throw DismountServiceCleanupFailed (SRC_POS, L"macOS could not confirm the identity of the disk image to detach: "
+							+ wstring (mountedVolume->AuxMountPoint));
+					}
 					Process::ExecuteBounded ("/usr/bin/hdiutil", args, 30000);
+				}
 				else
 #endif
 				Process::Execute ("/usr/bin/hdiutil", args);
@@ -408,21 +438,26 @@ namespace VeraCrypt
 #endif
 		}
 
-		if (syncVolumeInfo || mountedVolume->Protection == VolumeProtection::HiddenVolumeReadOnly)
-		{
+		const bool refreshVolume = syncVolumeInfo || mountedVolume->Protection == VolumeProtection::HiddenVolumeReadOnly;
 #ifdef VC_MACOSX_FSKIT
-			if (fskitMount)
+		if (fskitMount && (refreshVolume || mountedVolume->Protection != VolumeProtection::ReadOnly))
+		{
+			// Disk Images has released its writer. Verify that the encrypted
+			// file is synced before removing its worker.
+			try { FSKit::FlushVolume (*mountedVolume); }
+			catch (const exception &error)
 			{
-				try { FSKit::FlushVolume (*mountedVolume); }
-				catch (const exception &error)
-				{
-					throw DismountServiceCleanupFailed (SRC_POS, L"Could not flush the FSKit volume: "
-						+ StringConverter::ToExceptionString (error));
-				}
+				throw DismountServiceCleanupFailed (SRC_POS, L"Could not flush the FSKit volume: "
+					+ StringConverter::ToExceptionString (error));
 			}
-			else
+		}
+		else
 #endif
-				sync();
+		if (refreshVolume)
+			sync();
+
+		if (refreshVolume)
+		{
 			// Refresh only the captured service. Other users' auxiliary mounts
 			// must not interrupt teardown after the disk image has been detached.
 			mountedVolume = ValidateMountedVolume (mountedVolume);
@@ -833,7 +868,8 @@ exit "$status"
 	}
 #endif
 
-	DevicePath CoreMacOSX::MountAuxVolumeImage (const DirectoryPath &auxMountPoint, const MountOptions &options) const
+	DevicePath CoreMacOSX::MountAuxVolumeImage (const DirectoryPath &auxMountPoint, const MountOptions &options,
+		Volume *volume, bool useDefaultMountPoint) const
 	{
 #if !defined(VC_MACOSX_FUSET) && !defined(VC_MACOSX_FSKIT)
 		// Check FUSE version
@@ -882,7 +918,42 @@ exit "$status"
 		args.push_back ("-imagekey");
 		args.push_back ("diskimage-class=CRawDiskImage");
 
-		if (!options.NoFilesystem && options.MountPoint && !options.MountPoint->IsEmpty())
+		bool kernelFat = false;
+#ifdef VC_MACOSX_FSKIT
+		if (!options.NoFilesystem && volume)
+		{
+			SecureBuffer bootSector (volume->GetSectorSize());
+			volume->ReadSectors (bootSector, 0);
+			kernelFat = GetFatBootSectorType (bootSector.Ptr(), bootSector.Size(), volume->GetSize()) != 0;
+		}
+
+		// Default FAT directories need to be writable by the unprivileged
+		// mounting user. Use a sibling of the auxiliary mount in its private
+		// parent. The worker removes it after confirmed teardown.
+		DirectoryPath kernelMountPoint;
+		const int mountLock = kernelFat ? FSKit::AcquireUnmountLock (auxMountPoint) : -1;
+		finally_do_arg (int, mountLock, { if (finally_arg >= 0) close (finally_arg); });
+		if (kernelFat)
+		{
+			if (useDefaultMountPoint)
+			{
+				const string path = FSKit::GetKernelFatMountPoint (auxMountPoint);
+				throw_sys_sub_if (mkdir (path.c_str(), 0700) != 0, path);
+				kernelMountPoint = path;
+			}
+			else
+			{
+				if (!options.MountPoint || options.MountPoint->IsEmpty())
+					throw ParameterIncorrect (SRC_POS);
+				kernelMountPoint = CanonicalizeDiskImagePath (*options.MountPoint);
+				ValidateMountPoint (kernelMountPoint);
+				if (!GetMountedFilesystems (DevicePath(), kernelMountPoint).empty())
+					throw MountedVolumeInUse (SRC_POS);
+			}
+		}
+#endif
+
+		if (!kernelFat && !options.NoFilesystem && options.MountPoint && !options.MountPoint->IsEmpty())
 		{
 			args.push_back ("-mount");
 			args.push_back ("required");
@@ -936,10 +1007,46 @@ exit "$status"
 
 		DevicePath virtualDev;
 		DirectoryPath mountPoint;
-		if (!ExtractDiskImageDeviceAndMountPoint (xml, virtualDev, mountPoint)
+		if (!ExtractDiskImageDeviceAndMountPoint (xml, virtualDev, mountPoint, kernelFat)
 			|| virtualDev.IsEmpty())
 			throw ParameterIncorrect (SRC_POS);
-		(void) mountPoint;
+
+#ifdef VC_MACOSX_FSKIT
+		if (kernelFat)
+		{
+			const string device = virtualDev;
+			if (!mountPoint.IsEmpty() || !IsPlainDiskDevicePath (device) || device.compare (0, 9, "/dev/disk") != 0
+				|| device.find ('s', 9) != string::npos || !virtualDev.IsBlockDevice())
+				throw ParameterIncorrect (SRC_POS);
+
+			const uint64 media = FSKit::GetMediaIdentity (virtualDev);
+			ConfirmDiskImageMedia (auxMountPoint, virtualDev, media);
+			const bool readOnly = options.Protection == VolumeProtection::ReadOnly;
+			try
+			{
+				Process::ExecuteBounded ("/sbin/mount_msdos",
+					{"-o", readOnly ? "ro,nosuid,nodev" : "nosuid,nodev", virtualDev, kernelMountPoint}, 15000);
+			}
+			catch (const TimeOut &)
+			{
+				throw MountServiceCleanupFailed (SRC_POS, L"macOS did not confirm the kernel FAT mount: " + wstring (kernelMountPoint));
+			}
+			catch (const ExecutedProcessFailed &)
+			{
+				// Rollback may detach only if the failed command still refers
+				// to this attachment.
+				ConfirmDiskImageMedia (auxMountPoint, virtualDev, media);
+				throw;
+			}
+
+			ConfirmDiskImageMedia (auxMountPoint, virtualDev, media);
+			const MountedFilesystemList mounts = GetMountedFilesystems (virtualDev, kernelMountPoint);
+			if (mounts.size() != 1 || mounts.front()->Type != "msdos"
+				|| (mounts.front()->ExtendedFlags & MNT_EXT_FSKIT)
+				|| bool (mounts.front()->Flags & MNT_RDONLY) != readOnly)
+				throw ExternalException (SRC_POS, L"macOS did not report the expected kernel FAT mount and access mode.");
+		}
+#endif
 
 #ifndef VC_MACOSX_FSKIT
 		try

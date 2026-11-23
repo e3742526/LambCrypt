@@ -86,15 +86,6 @@ namespace VeraCrypt
 				return result == KERN_SUCCESS && identity != 0;
 			}
 
-			uint64 GetMediaIdentity (const DevicePath &device)
-			{
-				const string path = device;
-				if (path.compare (0, 9, "/dev/disk") != 0)
-					return 0;
-				uint64 identity;
-				return LookupMedia (IOBSDNameMatching (kIOMainPortDefault, 0, path.c_str() + 5), identity) ? identity : 0;
-			}
-
 			void SendMediaIdentity (int channel, uint64 identity)
 			{
 				if (channel < 0)
@@ -198,7 +189,12 @@ namespace VeraCrypt
 					return;
 				fsid_t current;
 				if (MountTableEntry (mountPoint, current) && current.val[0] == identity.val[0] && current.val[1] == identity.val[1])
+				{
+					const auto volume = ReadVolumeInfo (mountPoint);
+					if (volume->Protection != VolumeProtection::ReadOnly)
+						FlushVolume (*volume);
 					UnmountAuxiliary (mountPoint, false);
+				}
 			}
 
 			uint64 FindLateMedia (const string &mountPoint, const fsid_t &identity)
@@ -457,7 +453,13 @@ namespace VeraCrypt
 		void RemoveEmptyMountDirectory (const string &mountPoint)
 		{
 			rmdir (mountPoint.c_str());
+			rmdir (GetKernelFatMountPoint (mountPoint).c_str());
 			rmdir (ResourcePath (mountPoint).c_str());
+		}
+
+		string GetKernelFatMountPoint (const string &mountPoint)
+		{
+			return ResourcePath (mountPoint) + "/volume";
 		}
 
 		int TryReserveSlot (VolumeSlotNumber slot)
@@ -595,6 +597,15 @@ namespace VeraCrypt
 					unlink (endpoint.c_str());
 				throw;
 			}
+		}
+
+		uint64 GetMediaIdentity (const DevicePath &device)
+		{
+			const string path = device;
+			if (path.compare (0, 9, "/dev/disk") != 0)
+				return 0;
+			uint64 identity;
+			return LookupMedia (IOBSDNameMatching (kIOMainPortDefault, 0, path.c_str() + 5), identity) ? identity : 0;
 		}
 
 		void ObserveAttachedMedia (int activationChannel, const DevicePath &device)

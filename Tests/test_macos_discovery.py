@@ -8,6 +8,7 @@ inventory provider, so tests can supply incomplete inventories safely. Optional
 import argparse
 from pathlib import Path
 import plistlib
+import struct
 import subprocess
 import tempfile
 
@@ -54,6 +55,24 @@ def main():
         for name, contents in cases.items():
             (work / name).write_bytes(plistlib.dumps(contents))
         (work / "attach").write_bytes(plistlib.dumps({"system-entities": exact["system-entities"]}))
+        entities = [{"dev-entry": "/dev/disk42"}]
+        (work / "attach-raw").write_bytes(plistlib.dumps({"system-entities": entities}))
+        (work / "raw-inventory").write_bytes(plistlib.dumps({"images": [dict(exact, **{"system-entities": entities})]}))
+        entities = entities + [{"dev-entry": "/dev/disk42s1"}]
+        (work / "attach-partitioned").write_bytes(plistlib.dumps({"system-entities": entities}))
+        for variant, sectors, cluster, fat_sectors in ((12, 2048, 1, 6), (16, 65536, 2, 128), (32, 196608, 1, 1536)):
+            boot = bytearray(512)
+            boot[:3] = b"\xeb\x3c\x90"
+            boot[510:] = b"\x55\xaa"
+            struct.pack_into("<HBHBHHBH", boot, 11, 512, cluster, 32 if variant == 32 else 1,
+                             2, 0 if variant == 32 else 512, sectors if sectors < 65536 else 0, 0xf8,
+                             0 if variant == 32 else fat_sectors)
+            if sectors >= 65536:
+                struct.pack_into("<I", boot, 32, sectors)
+            if variant == 32:
+                struct.pack_into("<IHHI", boot, 36, fat_sectors, 0, 0, 2)
+            (work / f"fat{variant}").write_bytes(boot)
+        (work / "custom-mount").mkdir()
         (work / "broken").write_text("invalid plist")
         (work / "linked-container").hardlink_to(image)
 
@@ -66,6 +85,8 @@ def main():
         refresh = source[source.index("\tstatic void ClearDiskImageInfo"):source.index("\t// Strict /dev/diskN")]
         attach = source[source.index("\tDevicePath CoreMacOSX::MountAuxVolumeImage"):
                         source.index("\tunique_ptr <CoreBase> Core (")]
+        device_name_check = source[source.index("\tstatic bool IsPlainDiskDevicePath"):
+                                   source.index("\tstatic int64_t GetDiskMediaRegistryId")]
         unix_source = (ROOT / "src/Core/Unix/CoreUnix.cpp").read_text()
         attachment_start = unix_source.index("\t\tDevicePath mountedVirtualDevice;")
         attachment_setup = unix_source[attachment_start:unix_source.index("\n\t\ttry", attachment_start)]
@@ -123,6 +144,7 @@ def main():
         prelude = r'''
 #include "Platform/Finally.h"
 #include "Main/VolumeSnapshot.h"
+#include "Core/Unix/MacOSX/FatBootSector.h"
 #include <CoreFoundation/CoreFoundation.h>
 #include <fstream>
 #include <iostream>
@@ -144,6 +166,7 @@ def main():
 #include <vector>
 #define throw_sys_sub_if(condition, subject) do { if (condition) throw std::runtime_error(subject); } while(false)
 using namespace std;
+using VeraCrypt::GetFatBootSectorType;
 #undef SRC_POS
 #define SRC_POS "test source"
 #define VERSION_NUM 1
@@ -213,11 +236,17 @@ static int AuxiliaryUnmountFailures;
 static int MountValidations, RefuseValidation;
 static string DismountMountPoint;
 static bool FlushFailure;
+static bool EjectedReadOnly;
 static int GlobalSyncCalls;
 static string AuxiliaryFailure;
 static vector<list<string>> AttachCommands;
 static string AttachReply;
 static int AttachOptionFailures;
+static list<uint64> MediaReads;
+static string KernelMountFailure;
+static list<string> KernelMountArguments;
+static string KernelMountDevice;
+static bool ReportKernelMount, KernelMountReadOnly, KernelMountIsFSKit;
 
 static int OpenMountParent(const string &mountPoint) {
     const auto parent = mountPoint.substr(0, mountPoint.rfind('/'));
@@ -248,6 +277,12 @@ struct Process {
         Commands.emplace_back(path, deadline);
         if (path == "/sbin/umount" && deadline != 0) RequireUnmountLock(arguments.back());
         if (arguments.front() == "detach" && deadline != 0) RequireUnmountLock(DismountMountPoint);
+        if (path == "/sbin/mount_msdos") {
+            RequireUnmountLock(DismountMountPoint);
+            KernelMountArguments = arguments;
+            KernelMountDevice = *prev(arguments.end(), 2);
+            if (!KernelMountFailure.empty()) throw ExecutedProcessFailed(KernelMountFailure);
+        }
         if (arguments.front() == "detach" || path == "/sbin/umount")
             DismountArguments.push_back(arguments);
         if (path == TimeoutCommand) throw TimeOut{};
@@ -284,6 +319,13 @@ namespace FSKit {
     int AcquireUnmountLock(const DirectoryPath &);
     void UnmountAuxiliary(const DirectoryPath &, bool);
     DevicePath GetAttachedDiskImageDevice(const DirectoryPath &);
+    static uint64 GetMediaIdentity(const DevicePath &) {
+        if (MediaReads.empty()) return 42;
+        const uint64 media = MediaReads.front();
+        MediaReads.pop_front();
+        return media;
+    }
+    static string GetKernelFatMountPoint(const string &aux) { return aux.substr(0, aux.rfind('/')) + "/volume"; }
     static void WaitForServiceExit(const DirectoryPath &mountPoint) {
         const int observer = OpenMountParent(mountPoint);
         finally_do_arg(int, observer, { close(finally_arg); });
@@ -304,7 +346,20 @@ struct SystemLog { static void WriteException(const std::exception &) {} };
 #define foreach(declaration, collection) for (declaration : collection)
 struct Volume {
     string Path;
+    array<uint8_t, 512> Boot{};
+    bool ReadFailed = false;
+    size_t GetSectorSize() const { return Boot.size(); }
+    uint64_t GetSize() const { return 96ULL << 20; }
+    void ReadSectors(std::vector<uint8_t> &buffer, uint64) {
+        if (ReadFailed) throw runtime_error("boot sector read failed");
+        copy(Boot.begin(), Boot.end(), buffer.begin());
+    }
     int GetProtectionType() const { return VolumeProtection::ReadOnly; }
+};
+struct SecureBuffer : std::vector<uint8_t> {
+    using vector::vector;
+    size_t Size() const { return size(); }
+    uint8_t *Ptr() { return data(); }
 };
 struct VolumeInfo {
     enum DiscoveryState { DiscoveryUnknown, ImageAttached, ImageAbsent, ControlUnavailable };
@@ -321,6 +376,12 @@ struct VolumeInfo {
 ''' + mount_identity + r'''
 };
 namespace FSKit {
+    static shared_ptr<VolumeInfo> ReadVolumeInfo(const DirectoryPath &mountPoint) {
+        auto result = make_shared<VolumeInfo>();
+        result->AuxMountPoint = mountPoint;
+        result->Protection = EjectedReadOnly ? VolumeProtection::ReadOnly : VolumeProtection::None;
+        return result;
+    }
     static void FlushVolume(const VolumeInfo &volume) {
         RequireUnmountLock(volume.AuxMountPoint);
         Commands.emplace_back("flush", 0);
@@ -329,7 +390,7 @@ namespace FSKit {
 }
 static void CountGlobalSync() { ++GlobalSyncCalls; }
 using VolumeInfoList = std::list<std::shared_ptr<VolumeInfo>>;
-struct MountedFilesystem { DirectoryPath MountPoint; };
+struct MountedFilesystem { DirectoryPath MountPoint; string Type; uint32_t Flags, ExtendedFlags; };
 using MountedFilesystemList = std::list<std::shared_ptr<MountedFilesystem>>;
 class CoreMacOSX {
 public:
@@ -341,9 +402,18 @@ public:
     void UpdateMountedVolumesInfo(VolumeInfoList &) const;
     void UpdateMountedVolumeInfo(std::shared_ptr<VolumeInfo>) const;
     void UpdateMountedVolumeInfo(std::shared_ptr<VolumeInfo>, const std::string &) const;
-    MountedFilesystemList GetMountedFilesystems(const DevicePath &) const { return {}; }
+    MountedFilesystemList GetMountedFilesystems(const DevicePath &dev, const DirectoryPath &path = {}) const {
+        if (!ReportKernelMount || dev.IsEmpty() || dev != KernelMountDevice) return {};
+        auto mount = make_shared<MountedFilesystem>();
+        mount->MountPoint = path;
+        mount->Type = "msdos";
+        mount->Flags = KernelMountReadOnly ? MNT_RDONLY : 0;
+        mount->ExtendedFlags = KernelMountIsFSKit ? MNT_EXT_FSKIT : 0;
+        return {mount};
+    }
+    void ValidateMountPoint(const DirectoryPath &) const {}
     string GetDefaultMountPointPrefix() const { return "/Volumes/Untitled"; }
-    DevicePath MountAuxVolumeImage(const DirectoryPath &, const MountOptions &) const;
+    DevicePath MountAuxVolumeImage(const DirectoryPath &, const MountOptions &, Volume * = nullptr, bool = false) const;
 };
 '''
         # Production path types expose IsEmpty(); keep that interface in the mock.
@@ -389,7 +459,8 @@ static void SimulateStartupFailure(StartupFailure failure) {
     volume->Path = StartupContainer;
     MountOptions options;
     options.Path = make_shared<DirectoryPath>(StartupContainer);
-    auto MountAuxVolumeImage = [failure](const DirectoryPath &, const MountOptions &) -> DevicePath {
+    const bool useDefaultMountPoint = false;
+    auto MountAuxVolumeImage = [failure](const DirectoryPath &, const MountOptions &, Volume *, bool) -> DevicePath {
         if (failure == StartupFailure::AttachTimeout)
             throw MountServiceCleanupFailed(SRC_POS, L"attach remains unconfirmed");
         return "/dev/disk42";
@@ -714,10 +785,23 @@ static void CheckExternalEjectCleanup(const string &root, const string &image) {
         catch (const MountedVolumeInUse &) { busy = true; }
         Require(busy && Commands.empty(), "eject cleanup raced an explicit dismount");
     }
-    FSKit::CleanupEjectedMount(mountPoint, original);
-    Require(Commands == vector<pair<string, int>>{{"/sbin/umount", 10000}},
-            "confirmed external eject did not use bounded auxiliary unmount");
-    Require(DismountArguments.back() == list<string>{"--", mountPoint}, "automatic cleanup forced an unmount");
+    FlushFailure = true;
+    bool flushFailed = false;
+    try { FSKit::CleanupEjectedMount(mountPoint, original); }
+    catch (const runtime_error &error) { flushFailed = string(error.what()) == "worker flush failed"; }
+    Require(flushFailed && Commands == vector<pair<string, int>>{{"flush", 0}},
+            "failed external-eject flush unmounted the writable worker");
+    FlushFailure = false;
+    for (const bool readOnly : {false, true}) {
+        EjectedReadOnly = readOnly;
+        Commands.clear();
+        FSKit::CleanupEjectedMount(mountPoint, original);
+        vector<pair<string, int>> expected;
+        if (!readOnly) expected.emplace_back("flush", 0);
+        expected.emplace_back("/sbin/umount", 10000);
+        Require(Commands == expected, "external eject did not sync a writable image before auxiliary unmount");
+        Require(DismountArguments.back() == list<string>{"--", mountPoint}, "automatic cleanup forced an unmount");
+    }
     AuxiliaryMounted = false;
 }
 static void CheckAttach(CoreMacOSX &core, const DirectoryPath &auxiliary) {
@@ -756,6 +840,123 @@ static void CheckAttach(CoreMacOSX &core, const DirectoryPath &auxiliary) {
     try { core.MountAuxVolumeImage(auxiliary, options); }
     catch (const ExecutedProcessFailed &) { failed = true; }
     Require(failed && AttachCommands.size() == 2, "repeated option error retried an attach again");
+}
+static void CheckKernelFat(CoreMacOSX &core, const DirectoryPath &auxiliary, const string &root) {
+    Volume volume;
+    MountOptions options;
+    options.MountPoint = make_shared<DirectoryPath>(root + "/custom-mount");
+    const auto load = [&](int type) {
+        const auto boot = Read(root + "/fat" + to_string(type));
+        copy(boot.begin(), boot.end(), volume.Boot.begin());
+        Require(GetFatBootSectorType(volume.Boot.data(), volume.Boot.size(), volume.GetSize()) == type,
+                "wrong FAT width from BIOS parameter block");
+        Require(GetFatBootSectorType(volume.Boot.data(), 511, volume.GetSize()) == 0
+                && GetFatBootSectorType(volume.Boot.data(), volume.Boot.size(), 512) == 0,
+                "invalid FAT geometry selected the kernel driver");
+    };
+    const auto reset = [&] {
+        Commands.clear();
+        AttachCommands.clear();
+        MediaReads.clear();
+        TimeoutCommand.clear();
+        KernelMountFailure.clear();
+        KernelMountArguments.clear();
+        ReportKernelMount = true;
+        KernelMountIsFSKit = false;
+        KernelMountReadOnly = options.Protection == VolumeProtection::ReadOnly;
+        Inventory = Read(root + "/raw-inventory");
+        AttachReply = Read(root + "/attach-raw");
+    };
+    DismountMountPoint = auxiliary;
+    for (const int type : {12, 16, 32}) {
+        load(type);
+        for (const bool readOnly : {false, true}) {
+            options.Protection = readOnly ? VolumeProtection::ReadOnly : VolumeProtection::None;
+            reset();
+            Require(core.MountAuxVolumeImage(auxiliary, options, &volume, false) == "/dev/disk42",
+                    "kernel mount lost its device");
+            Require(Commands == vector<pair<string, int>>{{"/usr/bin/hdiutil", 30000}, {"/sbin/mount_msdos", 15000}}
+                    && AttachCommands.front().end() != find(AttachCommands.front().begin(), AttachCommands.front().end(), "-nomount")
+                    && KernelMountArguments == list<string>{"-o", readOnly ? "ro,nosuid,nodev" : "nosuid,nodev",
+                        "/dev/disk42", *options.MountPoint}, "kernel FAT route lost its access or identity");
+        }
+    }
+    reset();
+    const auto defaultPath = FSKit::GetKernelFatMountPoint(auxiliary);
+    core.MountAuxVolumeImage(auxiliary, options, &volume, true);
+    Require(KernelMountArguments.back() == defaultPath && rmdir(defaultPath.c_str()) == 0,
+            "default FAT mount was not placed in an owned mount directory");
+
+    reset();
+    options.NoFilesystem = true;
+    volume.ReadFailed = true;
+    core.MountAuxVolumeImage(auxiliary, options, &volume, false);
+    Require(KernelMountArguments.empty(), "attach-only attempted a filesystem mount");
+    options.NoFilesystem = false;
+
+    reset();
+    bool probeFailed = false;
+    try { core.MountAuxVolumeImage(auxiliary, options, &volume, false); }
+    catch (const runtime_error &error) { probeFailed = string(error.what()) == "boot sector read failed"; }
+    Require(probeFailed && Commands.empty(), "a failed filesystem probe attached an image");
+    volume.ReadFailed = false;
+
+    DismountMountPoint.clear();
+    for (const auto *signature : {"EXFAT   ", "HFSPLUS ", "UNKNOWN "}) {
+        volume.Boot.fill(0);
+        copy_n(signature, 8, volume.Boot.begin() + 3);
+        reset();
+        AttachReply = Read(root + "/attach");
+        core.MountAuxVolumeImage(auxiliary, options, &volume, false);
+        Require(KernelMountArguments.empty() && AttachCommands.front().end() !=
+                find(AttachCommands.front().begin(), AttachCommands.front().end(), "required"),
+                "non-FAT did not use system filesystem selection");
+    }
+    load(16);
+    DismountMountPoint = auxiliary;
+    reset();
+    AttachReply = Read(root + "/attach-partitioned");
+    bool partitioned = false;
+    try { core.MountAuxVolumeImage(auxiliary, options, &volume, false); }
+    catch (const ParameterIncorrect &) { partitioned = true; }
+    Require(partitioned && KernelMountArguments.empty(), "ambiguous raw attachment reached the kernel driver");
+
+    const auto unconfirmed = [&](bool ranKernel) {
+        bool keptWorker = false;
+        try { core.MountAuxVolumeImage(auxiliary, options, &volume, false); }
+        catch (const MountServiceCleanupFailed &) { keptWorker = true; }
+        Require(keptWorker && (!KernelMountArguments.empty() == ranKernel),
+                "unconfirmed mount did not preserve its worker or attempted the wrong command");
+    };
+    reset();
+    MediaReads = {42, 43};
+    unconfirmed(false);
+    reset();
+    Inventory = Read(root + "/absent");
+    unconfirmed(false);
+    reset();
+    TimeoutCommand = "/sbin/mount_msdos";
+    unconfirmed(true);
+    reset();
+    MediaReads = {42, 42, 43};
+    unconfirmed(true);
+    reset();
+    KernelMountFailure = "mount rejected";
+    bool rejected = false;
+    try { core.MountAuxVolumeImage(auxiliary, options, &volume, false); }
+    catch (const ExecutedProcessFailed &) { rejected = true; }
+    Require(rejected, "ordinary mount rejection did not request startup rollback");
+    for (const bool wrongDriver : {false, true}) {
+        reset();
+        KernelMountReadOnly = wrongDriver;
+        KernelMountIsFSKit = wrongDriver;
+        bool wrongMount = false;
+        try { core.MountAuxVolumeImage(auxiliary, options, &volume, false); }
+        catch (const ExternalException &) { wrongMount = true; }
+        Require(wrongMount, "unexpected driver or access mode was treated as mounted");
+    }
+    reset();
+    DismountMountPoint.clear();
 }
 static void CheckStartupRollback() {
     for (const auto failure : {StartupFailure::BeforeAttach, StartupFailure::AfterAttach}) {
@@ -871,6 +1072,7 @@ static void CheckAuxiliaryMountStartup() {
 static void CheckDismount(CoreMacOSX &core, const string &image, const string &root) {
     auto mounted = make_shared<VolumeInfo>();
     mounted->AuxMountPoint = image.substr(0, image.rfind('/'));
+    mounted->Protection = VolumeProtection::ReadOnly;
     DismountMountPoint = mounted->AuxMountPoint;
     const string exactInventory = Inventory;
     InventoryAfterDetach = Read(root + "/absent");
@@ -900,7 +1102,7 @@ static void CheckDismount(CoreMacOSX &core, const string &image, const string &r
             catch (const DismountServiceCleanupFailed &error) {
                 unconfirmed = error.Reason.find(L"disk image detach") != wstring::npos;
             }
-            Require(unconfirmed && Queries == queries + 2
+            Require(unconfirmed && Queries == queries + 3
                     && Commands == vector<pair<string, int>>{{"/usr/bin/hdiutil", 30000}},
                     "successful detach with an attached or unknown image reached backing cleanup");
         }
@@ -919,6 +1121,12 @@ static void CheckDismount(CoreMacOSX &core, const string &image, const string &r
     requireUnconfirmedDevice(false);
     requireUnconfirmedDevice(true);
     Inventory = exactInventory;
+    MediaReads = {42, 43};
+    Commands.clear();
+    bool reused = false;
+    try { core.DismountVolume(mounted, false, false); }
+    catch (const DismountServiceCleanupFailed &error) { reused = error.Reason.find(L"identity") != wstring::npos; }
+    Require(reused && Commands.empty(), "disk-number reuse reached detach");
     UnavailableBlockDevice = "/dev/disk42";
     requireUnconfirmedDevice(false);
     requireUnconfirmedDevice(true);
@@ -980,7 +1188,7 @@ static void CheckDismount(CoreMacOSX &core, const string &image, const string &r
     InventoryAfterDetach = Read(root + "/unrelated");
     const int queriesBeforeSuccess = Queries;
     core.DismountVolume(mounted, false, false);
-    Require(Queries == queriesBeforeSuccess + 2 && Commands.size() == 3 && Commands.back().first == "wait",
+    Require(Queries == queriesBeforeSuccess + 3 && Commands.size() == 3 && Commands.back().first == "wait",
             "confirmed exact-image absence did not permit worker cleanup after disk-number reuse");
     Require(DismountArguments == vector<list<string>>{{"detach", "/dev/disk42"}, {"--", mounted->AuxMountPoint}},
             "ordinary FSKit teardown forced an unmount");
@@ -1020,16 +1228,22 @@ static void CheckDismount(CoreMacOSX &core, const string &image, const string &r
     Require(Commands == vector<pair<string, int>>{{"/usr/bin/hdiutil", 30000}, {"flush", 0},
                 {"/sbin/umount", 10000}, {"wait", 0}} && GlobalSyncCalls == 0,
             "FSKit refresh did not flush only the captured image after detach");
-    mounted->Protection = VolumeProtection::HiddenVolumeReadOnly;
-    FlushFailure = true;
-    Commands.clear();
-    bool flushUnconfirmed = false;
-    try { core.DismountVolume(mounted, false, false); }
-    catch (const DismountServiceCleanupFailed &e) { flushUnconfirmed = e.Reason.find(L"flush") != wstring::npos; }
-    Require(flushUnconfirmed && Commands == vector<pair<string, int>>{{"/usr/bin/hdiutil", 30000}, {"flush", 0}},
-            "failed flush for a protected volume did not preserve the backing worker");
-    FlushFailure = false;
-    core.DismountVolume(mounted, false, false);
+    for (const auto protection : {VolumeProtection::None, VolumeProtection::HiddenVolumeReadOnly}) {
+        mounted->Protection = protection;
+        FlushFailure = true;
+        Commands.clear();
+        bool flushUnconfirmed = false;
+        try { core.DismountVolume(mounted, false, false); }
+        catch (const DismountServiceCleanupFailed &e) { flushUnconfirmed = e.Reason.find(L"flush") != wstring::npos; }
+        Require(flushUnconfirmed && Commands == vector<pair<string, int>>{{"/usr/bin/hdiutil", 30000}, {"flush", 0}},
+                "failed flush for a writable volume did not preserve the backing worker");
+        FlushFailure = false;
+        Commands.clear();
+        core.DismountVolume(mounted, false, false);
+        Require(Commands == vector<pair<string, int>>{{"/usr/bin/hdiutil", 30000}, {"flush", 0},
+                    {"/sbin/umount", 10000}, {"wait", 0}},
+                "successful writable dismount skipped the encrypted-file sync");
+    }
     mounted->Protection = VolumeProtection::None;
 
     DismountMountPoint.clear();
@@ -1088,6 +1302,8 @@ int main(int argc, char **argv) {
         std::cout << "PASS: FSKit deadlines, busy preservation, ambiguous attachments, cleanup ordering, identity and force\n";
         AttachReply = Read(root + "/attach");
         CheckAttach(core, image.substr(0, image.rfind('/')));
+        CheckKernelFat(core, image.substr(0, image.rfind('/')), root);
+        cout << "PASS: kernel FAT12/16/32 selection, mount directories, access modes, timeouts, and fail-closed identity checks\n";
         std::cout << "PASS: FSKit attach deadline, read-only and attach-only flags, and one compatibility retry\n";
         CheckStartupRollback();
         std::cout << "PASS: startup rollback preserves identity, cleanup warnings, and the eject observer handoff\n";
@@ -1359,7 +1575,7 @@ static void CheckOpenSelectedVolume() {
 '''
         unit = work / "discovery.cpp"
         unit.write_text(prelude + slot_view_fixture + helpers + attached_device + "\n#define sync CountGlobalSync\n" + dismount + "\n#undef sync\n"
-                        + refresh + attach + rollback_fixture + observation_fixture + auxiliary_fixture
+                        + refresh + device_name_check + attach + rollback_fixture + observation_fixture + auxiliary_fixture
                         + mount_guard_fixture + publication_fixture + tests)
         command = ["clang++", "-std=c++11", "-DVC_MACOSX_FSKIT", "-I" + str(ROOT / "src"), str(unit), "-framework", "CoreFoundation", "-o", str(work / "discovery")]
         subprocess.run(command, check=True)
