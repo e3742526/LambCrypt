@@ -2,6 +2,7 @@
 // privilege changes, or installed VeraCrypt services are involved.
 #include "Platform/Platform.h"
 #include "Platform/Unix/Process.h"
+#include <cerrno>
 #include <chrono>
 #include <fcntl.h>
 #include <iostream>
@@ -65,6 +66,30 @@ int main (int argc, char **argv)
 		std::cout << "process: failure" << std::endl;
 		try { Process::ExecuteBounded (argv[0], { "failure" }, 1000); throw std::runtime_error ("missing child error"); }
 		catch (ExecutedProcessFailed &e) { Require (e.GetExitCode() == 7 && e.GetErrorOutput() == "expected", "child error details"); }
+		std::cout << "process: closed parent standard descriptors" << std::endl;
+		const pid_t detached = fork();
+		Require (detached >= 0, "could not start descriptor test");
+		if (detached == 0)
+		{
+			close (STDIN_FILENO);
+			close (STDOUT_FILENO);
+			close (STDERR_FILENO);
+			try
+			{
+				if (Process::ExecuteBounded (argv[0], { "success" }, 1000) != "complete")
+					_exit (1);
+				Process::ExecuteBounded (argv[0], { "failure" }, 1000);
+			}
+			catch (ExecutedProcessFailed &e) { _exit (e.GetExitCode() == 7 && e.GetErrorOutput() == "expected" ? 0 : 1); }
+			catch (...) { _exit (1); }
+			_exit (1);
+		}
+		int detachedStatus;
+		pid_t reaped;
+		do { reaped = waitpid (detached, &detachedStatus, 0); }
+		while (reaped < 0 && errno == EINTR);
+		Require (reaped == detached && WIFEXITED (detachedStatus) && WEXITSTATUS (detachedStatus) == 0,
+			"bounded child lost output with standard descriptors closed in the parent");
 		for (const auto &mode : { "silent", "closed", "stream" })
 		{
 			std::cout << "process: " << mode << std::endl;

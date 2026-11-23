@@ -114,8 +114,20 @@ namespace VeraCrypt
 		finally_do_arg (int *, descriptors, { for (int i = 0; i < 4; ++i) if (finally_arg[i] != -1) close (finally_arg[i]); });
 		throw_sys_if (pipe (descriptors) != 0);
 		throw_sys_if (pipe (descriptors + 2) != 0);
-		for (int i = 0; i < 4; ++i)
-			throw_sys_if (fcntl (descriptors[i], F_SETFD, FD_CLOEXEC) == -1);
+		for (int &descriptor : descriptors)
+		{
+			// Detached workers close their standard descriptors. Keep the
+			// pipes clear of the spawn actions' stdin, stdout and stderr targets.
+			if (descriptor <= STDERR_FILENO)
+			{
+				const int copy = fcntl (descriptor, F_DUPFD_CLOEXEC, STDERR_FILENO + 1);
+				throw_sys_if (copy == -1);
+				close (descriptor);
+				descriptor = copy;
+			}
+			else
+				throw_sys_if (fcntl (descriptor, F_SETFD, FD_CLOEXEC) == -1);
+		}
 		for (int i = 0; i < 4; i += 2)
 			throw_sys_if (fcntl (descriptors[i], F_SETFL, O_NONBLOCK) == -1);
 
