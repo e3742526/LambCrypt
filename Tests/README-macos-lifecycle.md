@@ -108,6 +108,8 @@ records the exact image paths, media identifiers and worker generations.
 One worker sees the auxiliary mount disappear with its image already
 attached. The other sees an authoritative empty inventory before its image
 appears. Both must continue serving reads with their reservations held.
+The late-publication fixture also checks the private `attachment-pending`
+indicator and verifies its removal when teardown finishes.
 The test detaches each verified fixture by its current device identity
 and checks that only its worker, socket and reservations are released.
 
@@ -136,7 +138,9 @@ reproduce all packaged-app behavior. The lifecycle check verifies
 write/fsync/remount integrity, background startup with a mounted
 volume, refresh after a CLI dismount, and automatic GUI exit. It checks service
 exit, closed backing-file handles, and removal of the auxiliary mount and
-shutdown endpoint. The default lifecycle check uses FUSE-T and a FAT fixture.
+shutdown endpoint. It also checks the backing-file reservation through a
+hard-link alias before and after writable dismount. The default lifecycle
+check uses FUSE-T and a FAT fixture.
 With Python 3.11 or later and the signed FSKit scratch bundle, select
 `--fskit-external-eject` to use HFS+. This path verifies the exact Disk Images
 attachment and mount mode, busy refusal with the original worker intact,

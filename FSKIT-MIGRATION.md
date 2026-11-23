@@ -996,6 +996,36 @@ CPU time and RSS cover only the process that held the encrypted backing
 file. Whole-backend resource usage, cold-cache runs and the live macFUSE
 comparison remain unmeasured.
 
+### November 23 audit follow-up
+
+The worker keeps its backing file and reservations through polling errors.
+It checks attachment ownership on the ordinary teardown path and retries
+inconclusive media lookups at five-second intervals. Detach requires an
+inventory that resolves ownership of the exact image. An incomplete
+inventory can still supply a positive result for the volume list.
+
+When an attach times out and its publication remains unresolved, the
+worker records `attachment-pending` in the private parent of the
+auxiliary mount and reports the exact image path. Use
+`hdiutil info -plist` to look up that path. Leave the worker and
+reservations in place while ownership is uncertain. The marker clears
+after the worker observes the matching attachment. A timed-out request
+that never publishes can leave its worker retained because an empty
+inventory cannot establish cancellation.
+
+The FSKit, FUSE-T and macFUSE builds now share a backing-file reservation
+for local regular-file containers. It also covers read-only opens and
+hard-link aliases. Remote files, raw devices and already-running older
+binaries fall outside this shared reservation.
+
+On macOS 26.6.2 (25G83), the injected discovery and native two-attachment
+drills passed. The native drill used real Disk Images attachments with
+injected auxiliary disappearance. The production FUSE-T service held
+the reservation across mount and released it on dismount. Its FAT
+write, sync and read-only remount passed. The three builds passed crypto
+self-tests. The FSKit development bundle passed offline verification.
+The native signed-module integration and release gates below remain open.
+
 ## Remaining migration gates
 
 1. On a physical Mac that already has the matching macFUSE kernel
