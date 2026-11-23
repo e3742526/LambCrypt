@@ -101,16 +101,50 @@ write/fsync/remount integrity, background startup with a mounted
 volume, refresh after a CLI dismount, and automatic GUI exit. It checks service
 exit, closed backing-file handles, and removal of the auxiliary mount and
 shutdown endpoint. The default lifecycle check uses FUSE-T and a FAT fixture.
-For the signed FSKit scratch bundle, select `--fskit-external-eject` to use
-HFS+. This path verifies the exact Disk Images attachment and mount mode,
-checks binary extended attributes and POSIX advisory locks across processes,
-and verifies the attributes after a read-only remount. It then uses `diskutil`
-to eject the image and checks worker cleanup and background exit.
+With Python 3.11 or later and the signed FSKit scratch bundle, select
+`--fskit-external-eject` to use HFS+. This path verifies the exact Disk Images
+attachment and mount mode, busy refusal with the original worker intact,
+binary extended attributes, and POSIX advisory locks across processes.
+It verifies content and attributes after a read-only remount and checks
+that the read-only pass preserves the encrypted checksum. It uses `diskutil`
+to eject the image and checks worker cleanup and background exit. Add
+`--cli-only` to check the filesystem and worker lifecycle without launching
+the GUI. In the GUI trial, `--finder-eject` tests writable Finder eject after
+the read-only verification pass.
 
 ```sh
 python3 Tests/test_macos_gui_lifecycle.py --fskit-external-eject --keep-artifacts \
   --binary "$VC_FSKIT_BUILD_SRC/Main/LambCrypt-FSKit.app/Contents/MacOS/LambCrypt-FSKit"
 ```
+
+### Signed FSKit GUI preflight
+
+Launch and close a freshly registered signed scratch app before mounting
+anything for the GUI trial. Use empty, isolated preferences so the app
+cannot mount saved favorites or devices during this check. Leave `TMPDIR`
+at its ordinary session value. The background app should exit on its own
+with these preferences when there are no mounted volumes.
+
+```sh
+VC_FSKIT_CLI="$VC_FSKIT_BUILD_SRC/Main/LambCrypt-FSKit.app/Contents/MacOS/LambCrypt-FSKit"
+VC_GUI_PREFS="$(mktemp -d)"
+mkdir "$VC_GUI_PREFS/LambCrypt"
+cat >"$VC_GUI_PREFS/LambCrypt/Configuration.xml" <<'EOF'
+<VeraCrypt><configuration>
+<config key="BackgroundTaskEnabled">1</config>
+<config key="CloseBackgroundTaskOnNoVolumes">1</config>
+</configuration></VeraCrypt>
+EOF
+XDG_CONFIG_HOME="$VC_GUI_PREFS" "$VC_FSKIT_CLI" --background-task
+```
+
+On macOS 26.6.2 (25G83), one initial GUI registration coincided with
+termination of the scratch extension and left the disposable read-only
+HFS+ image attached. The empty launch let later GUI trials pass. If the
+runner reports a retained image, preserve its logs and identify it in
+`hdiutil info -plist` before attempting ordinary cleanup. The HFS+ and FAT
+preflights stop before creating a fixture when a prior diagnostic image is
+still attached or the inventory is incomplete.
 
 ### Isolated production kernel FAT trial
 
@@ -161,13 +195,13 @@ backup-header mount while the first volume stays busy. The HFS+ trial
 checks extended attributes and POSIX locks. FAT extended attributes and
 locks are outside this test's assertions.
 
-Add `--fat-finder-eject` to each routed FAT run to exercise writable
-eject from the Finder UI. After the read-only pass the test remounts
-writable and prints the exact directory. Eject that volume from Finder
-within 90 seconds. The runner checks for the disappearance of the
-inner mount, backing image and worker. A timeout or failed assertion
-preserves the scratch artifacts for diagnosis. Use `--keep-artifacts`
-to retain the logs and container after a successful run.
+Add `--finder-eject` to each routed FAT run to exercise writable eject
+from Finder. The existing `--fat-finder-eject` spelling is also accepted.
+After the read-only pass the test remounts writable and prints the exact
+directory. Eject that volume from Finder within 90 seconds. The runner
+checks for the disappearance of the inner mount, backing image and worker.
+A timeout or failed assertion preserves the scratch artifacts for diagnosis.
+Use `--keep-artifacts` to keep the logs and container after a successful run.
 
 The inactivity check takes about two minutes. It attaches two
 disposable HFS+ containers read-only and verifies independent idle timers. Use
