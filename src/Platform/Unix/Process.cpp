@@ -91,6 +91,14 @@ namespace VeraCrypt
 
 	string Process::ExecuteBounded (const string &processName, const list <string> &arguments, int timeOut, size_t outputLimit)
 	{
+		bool completionUnconfirmed;
+		return ExecuteBounded (processName, arguments, timeOut, completionUnconfirmed, outputLimit);
+	}
+
+	string Process::ExecuteBounded (const string &processName, const list <string> &arguments, int timeOut,
+		bool &completionUnconfirmed, size_t outputLimit)
+	{
+		completionUnconfirmed = false;
 		if (processName.empty() || processName[0] != '/' || timeOut <= 0 || outputLimit == 0)
 			throw ParameterIncorrect (SRC_POS);
 
@@ -155,6 +163,7 @@ namespace VeraCrypt
 		pid_t child;
 		error = posix_spawn (&child, processName.c_str(), &actions, &attributes, &args[0], *_NSGetEnviron());
 		if (error) throw SystemException (SRC_POS, error);
+		completionUnconfirmed = true;
 		finally_do_arg (pid_t *, &child, {
 			if (*finally_arg > 0)
 			{
@@ -225,7 +234,8 @@ namespace VeraCrypt
 				else if (errno != EINTR && errno != EAGAIN) throw SystemException (SRC_POS);
 			}
 		}
-		int exitCode = WIFEXITED (status) ? WEXITSTATUS (status) : 1;
+		completionUnconfirmed = !WIFEXITED (status);
+		int exitCode = completionUnconfirmed ? 1 : WEXITSTATUS (status);
 		if (exitCode != 0)
 			throw ExecutedProcessFailed (SRC_POS, processName, exitCode, output[1]);
 		return output[0];

@@ -47,6 +47,9 @@ namespace VeraCrypt
 		static bool IsProcessRunning (pid_t processId, uint64 expectedStartTime = 0);
 		// A deadline aborts the child. An operation it requested from the OS may remain pending.
 		static string ExecuteBounded (const string &processName, const list <string> &arguments, int timeOut, size_t outputLimit = 16 * 1024 * 1024);
+		// Reports whether the child started without a confirmed normal exit and complete output.
+		static string ExecuteBounded (const string &processName, const list <string> &arguments, int timeOut,
+			bool &completionUnconfirmed, size_t outputLimit = 16 * 1024 * 1024);
 #endif
 #if defined(TC_LINUX)
 		static bool IsRunningUnderAppImage (const string &executablePath);

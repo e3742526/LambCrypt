@@ -236,6 +236,9 @@ static int Queries;
 static vector<pair<string, int>> Commands;
 static vector<list<string>> DismountArguments;
 static string TimeoutCommand;
+static bool AttachTimedOutBeforeLaunch;
+static bool AttachLostOutput;
+static bool AttachInterrupted;
 static int ImageDetachStatus;
 static string ImageDetachError;
 static int AuxiliaryUnmountFailures;
@@ -269,6 +272,21 @@ static void RequireUnmountLock(const string &mountPoint) {
 }
 
 struct Process {
+    static string ExecuteBounded(const string &path, const list<string> &arguments, int deadline,
+                                 bool &completionUnconfirmed) {
+        completionUnconfirmed = false;
+        if (AttachTimedOutBeforeLaunch) throw TimeOut{};
+        try {
+            string output = ExecuteBounded(path, arguments, deadline);
+            if (AttachLostOutput) throw SystemException{};
+            if (AttachInterrupted) throw ExecutedProcessFailed("interrupted with -noautofsck");
+            return output;
+        }
+        catch (...) {
+            completionUnconfirmed = path == TimeoutCommand || AttachLostOutput || AttachInterrupted;
+            throw;
+        }
+    }
     static string ExecuteBounded(const string &path, const list<string> &arguments, int deadline) {
         if (arguments.front() == "info") {
             if (deadline != 2000) throw runtime_error("discovery deadline");
@@ -970,15 +988,28 @@ static void CheckAttach(CoreMacOSX &core, const DirectoryPath &auxiliary) {
     Require(hasOption(AttachCommands.front(), "-nomount") && hasOption(AttachCommands.front(), "-readonly"),
             "attach lost read-only or attach-only flags");
 
-    reset();
-    TimeoutCommand = "/usr/bin/hdiutil";
-    bool unconfirmed = false;
-    try { core.MountAuxVolumeImage(auxiliary, options); }
-    catch (const MountServiceCleanupFailed &e) {
-        unconfirmed = e.Reason.find(L"macOS did not confirm disk image attach: " + wstring(auxiliary) + L"/volume.dmg") == 0;
+    for (const string failure : {"timeout", "output", "interrupted"}) {
+        reset();
+        TimeoutCommand = failure == "timeout" ? "/usr/bin/hdiutil" : "";
+        AttachLostOutput = failure == "output";
+        AttachInterrupted = failure == "interrupted";
+        bool unconfirmed = false;
+        try { core.MountAuxVolumeImage(auxiliary, options); }
+        catch (const MountServiceCleanupFailed &e) {
+            unconfirmed = e.Reason.find(L"macOS did not confirm disk image attach: " + wstring(auxiliary) + L"/volume.dmg") == 0;
+        }
+        Require(unconfirmed && Commands.size() == 1, "unconfirmed attach lost its cleanup state or retried");
     }
     TimeoutCommand.clear();
-    Require(unconfirmed && Commands.size() == 1, "attach timeout lost its cleanup state or attempted another command");
+    AttachLostOutput = AttachInterrupted = false;
+
+    reset();
+    AttachTimedOutBeforeLaunch = true;
+    bool notLaunched = false;
+    try { core.MountAuxVolumeImage(auxiliary, options); }
+    catch (const TimeOut &) { notLaunched = true; }
+    AttachTimedOutBeforeLaunch = false;
+    Require(notLaunched && Commands.empty(), "an attach that never started was treated as pending");
 
     reset();
     AttachOptionFailures = 1;

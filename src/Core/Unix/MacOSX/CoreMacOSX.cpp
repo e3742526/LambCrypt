@@ -984,13 +984,16 @@ exit "$status"
 			args.push_back ("-readonly");
 
 		string xml;
+#ifdef VC_MACOSX_FSKIT
+		bool completionUnconfirmed = false;
+#endif
 
 		while (true)
 		{
 			try
 			{
 #ifdef VC_MACOSX_FSKIT
-				xml = Process::ExecuteBounded ("/usr/bin/hdiutil", args, 30000);
+				xml = Process::ExecuteBounded ("/usr/bin/hdiutil", args, 30000, completionUnconfirmed);
 #else
 				xml = Process::Execute ("/usr/bin/hdiutil", args);
 #endif
@@ -998,6 +1001,10 @@ exit "$status"
 			}
 			catch (ExecutedProcessFailed &e)
 			{
+#ifdef VC_MACOSX_FSKIT
+				if (completionUnconfirmed)
+					break;
+#endif
 				auto option = std::find (args.begin(), args.end(), "-noautofsck");
 				if (option != args.end() && e.GetErrorOutput().find ("noautofsck") != string::npos)
 				{
@@ -1008,16 +1015,24 @@ exit "$status"
 				throw;
 			}
 #ifdef VC_MACOSX_FSKIT
-			catch (const TimeOut &)
+			catch (...)
 			{
-				// Disk Images may still be attaching the disk after we time out.
-				throw MountServiceCleanupFailed (SRC_POS,
-					L"macOS did not confirm disk image attach: " + wstring (auxMountPoint) + L"/volume.dmg"
-					L"\nThe worker retains this image until its attachment status can be confirmed."
-					L"\nCheck Disk Images inventory for this exact path before retrying.");
+				if (!completionUnconfirmed)
+					throw;
+				break;
 			}
 #endif
 		}
+#ifdef VC_MACOSX_FSKIT
+		if (completionUnconfirmed)
+		{
+			// Disk Images can still publish after the child stops reporting.
+			throw MountServiceCleanupFailed (SRC_POS,
+				L"macOS did not confirm disk image attach: " + wstring (auxMountPoint) + L"/volume.dmg"
+				L"\nThe worker retains this image until its attachment status can be confirmed."
+				L"\nCheck Disk Images inventory for this exact path before retrying.");
+		}
+#endif
 
 		DevicePath virtualDev;
 		DirectoryPath mountPoint;
