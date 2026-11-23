@@ -61,7 +61,10 @@ It also simulates macOS dropping an auxiliary mount while its disk image
 is still attached. The worker must retain its endpoint through a retained
 or incomplete Disk Images inventory and exit once the exact image is gone.
 The startup rollback regression verifies the mounting caller hands over
-attachment observation before waiting for worker exit.
+attachment observation before waiting for worker exit. It also drives the
+production worker loop through an attach timeout, empty and unavailable
+inventories, late publication, and final release. One case never publishes
+the auxiliary mount. These are simulated macOS events.
 The runner also runs `macos_process_test.cpp`
 against the real platform archive, checking subprocess deadlines, output limits,
 descriptor isolation, error reporting, and child reaping with its own helper
@@ -124,6 +127,36 @@ python3 Tests/test_macos_gui_lifecycle.py --fskit-external-eject --keep-artifact
 
 ### Signed FSKit GUI preflight
 
+Query FSKit directly from the login account before the first native test.
+Sign the small probe with the test app's Apple Development identity. On
+the physical Tahoe test host that signature exposed the LambCrypt module
+to the probe. The ad hoc probe returned only system modules. Keep the
+signed probe and the test bundle outside the checkout.
+
+```sh
+VC_FSKIT_APP="$VC_FSKIT_BUILD_SRC/Main/LambCrypt-FSKit.app"
+VC_PROBE_DIR="$(mktemp -d)"
+xcrun swiftc Tests/check_fskit_activation.swift -o "$VC_PROBE_DIR/check_fskit_activation"
+codesign --force --sign "$VC_APP_SIGN_IDENTITY" "$VC_PROBE_DIR/check_fskit_activation"
+date
+pluginkit -m -A -D -v -i io.github.e3742526.LambCrypt.fskit.module
+"$VC_PROBE_DIR/check_fskit_activation" "$VC_FSKIT_APP"
+```
+
+The probe returns 0 for the intended enabled module, 1 for the intended
+disabled module, 2 for a missing module, 3 for a different registered copy,
+and 4 for an unavailable FSKit query. PlugInKit's `+` records a user election.
+FSKit supplies the effective state for its own module lookup. An enablement
+change belongs in System Settings under General → Login Items & Extensions
+→ By Category → File System Extensions. Open the intended signed app on an
+empty session, then recheck the exact module URL. If the module remains
+disabled, record both results with the time and stop the native trial.
+
+After the probe returns 0, use the ordinary routed FAT12 trial below for a
+disposable write, sync, dismount and read-only remount. Its two mounts
+exercise the actual extension. Confirm the final mount table, Disk Images
+inventory and worker cleanup before running the rest of the matrix.
+
 Launch and close a freshly registered signed scratch app before mounting
 anything for the GUI trial. Use empty, isolated preferences so the app
 cannot mount saved favorites or devices during this check. Leave `TMPDIR`
@@ -159,6 +192,25 @@ lifecycle. Confirm the inner mount, image, auxiliary mount, and worker
 are gone before replacing the app at the same location. Launch the newer
 bundle before repeating the FAT and HFS+ checks. Keep the previous
 bundle outside the app's registration path during the replacement.
+
+### Default macFUSE rollback check
+
+For macFUSE rollback validation, use a separate physical Mac with the
+matching macFUSE driver already loaded. Dismount the FSKit fixture and
+confirm its image and worker are gone. Keep the original disposable
+container and use a copy for the rollback test. Verify the prior macFUSE
+binary links macFUSE, then run this lifecycle smoke test.
+
+```sh
+otool -L "$VC_MACFUSE_CLI"
+python3 -B Tests/test_macos_gui_lifecycle.py --cli-only --binary "$VC_MACFUSE_CLI"
+```
+
+Then mount the rollback copy read-only, verify the expected hash,
+dismount, and confirm the Disk Images and mount inventories are clear
+of the fixture. Use a second disposable copy to repeat the busy
+dismount refusal with a file open and the successful retry after close.
+Record the loaded driver version and both attachment inventories.
 
 ### Isolated production kernel FAT trial
 

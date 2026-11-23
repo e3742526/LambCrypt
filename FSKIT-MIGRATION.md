@@ -851,6 +851,82 @@ registration were checked after the attempt. The earlier signed matrix
 remains evidence for the filesystem routes. Live teardown after auxiliary
 loss still requires a signed runtime trial on the updated build.
 
+### Physical Tahoe activation and attachment handoff, November 23, 2026
+
+The physical Apple Silicon host ran macOS 26.6.2 (25G83). At 02:50 EST,
+PlugInKit listed the `io.github.e3742526.LambCrypt.fskit.module` extension
+with a `+` user election, and a development-signed FSClient probe reported
+the same older scratch path disabled. At 02:52 EST, a host-provisioned
+`1.28.13` build was the path returned by FSClient. The isolated GUI
+launch exited 0. An ordinary disposable HFS+ trial exited 1 during
+formatting when `mount -F` reported the module disabled. Disk Images
+never attached the decrypted image. The nominally correct registration
+therefore reproduced the disabled state. The earlier path mismatch was
+also real and could select a different bundle independently of enablement.
+
+The signed app and extension used the bundle IDs
+`io.github.e3742526.LambCrypt.fskit` and
+`io.github.e3742526.LambCrypt.fskit.module`. Both passed strict signature
+verification. The signing teams and App Groups matched, the embedded
+development profile authorized the exact host provisioning identifier and
+FSKit Module entitlement, and the module declared `lambcryptfs` path URL
+resources. The short filtered unified log window provided no matching
+FSKit launch or provisioning diagnostic for the failed mount. The
+effective disabled state is confirmed. The reason for the disagreement
+with PlugInKit remains open. The test left File System Extensions policy
+as found. See the [signed probe and native reproduction](Tests/README-macos-lifecycle.md#signed-fskit-gui-preflight).
+
+The mount service now uses a five-second FSClient query before opening
+the worker endpoint. It checks the signed bundle's exact module path and
+reports missing, conflicting and disabled registrations separately. The
+signed `1.28.14` CLI rejected the older registered path. At 03:03 EST
+the same build's empty GUI launch exited 0 and FSClient returned the
+intended path disabled. The native CLI exited 1 with the disabled
+diagnostic on a newly generated FAT12 container. Both attempts stopped
+before worker startup or image attachment. The test registration was
+removed afterward, leaving the original PlugInKit record. The final
+census found no test mounts, images, processes or newly created sockets.
+Four socket nodes from earlier trials remained. Their creation dates
+preceded this session, and none had a live socket owner or corresponding
+auxiliary directory. They were preserved. The development bundle
+preparation verifies the signed team against the embedded profile and
+checks the full signature after signing both bundles.
+
+The attachment review found a second startup window. Disk Images can
+still publish an attachment after the attach command times out, and the
+worker can lose the auxiliary mount before that image reaches the
+inventory. The mounting caller now marks the request pending before it
+can start the attach. If it exits without a completion report, an empty
+inventory preserves the worker. When the worker observes the exact
+attachment, it resumes normal cleanup once absence is confirmed.
+Production-loop simulations exercised empty and unavailable inventory,
+late publication, and final release with and without an auxiliary mount
+observed. Explicit and concurrent teardown still use the per-auxiliary
+lock and refresh the disk and worker identifiers before detach. Finder
+and Disk Arbitration eject rely on I/O Registry media disappearance and
+an exact Disk Images check before auxiliary unmount. The worker's
+separate session can outlive the background app. An unresolved attach
+that never appears can leave its worker, keys and reservations held.
+If the auxiliary mount disappears, the
+ordinary mounted-volume list may also lose the entry. Preserve that
+state for exact-image diagnosis instead of starting a different backend.
+
+The `1.28.14` development build linked for arm64 and macOS 26.0. Its
+crypto self-tests, five offline VeraCrypt fixture hashes, focused
+discovery, protocol, preflight, credential retry and build metadata
+checks passed. The default macFUSE arm64 bundle linked against isolated
+copies of the vendor libraries, had no FSKit framework dependency, and
+passed crypto self-tests. The host had no loaded macFUSE driver.
+A native FUSE-T 1.2.9 FAT trial passed write, sync, read-only remount,
+hash verification and cleanup. The development installer expanded to a
+byte-matching app and extension with valid signatures and the embedded
+profile. Developer ID Application and Installer identities and an FSKit
+distribution profile were unavailable for signing a release; notarization,
+clean release installation, upgrade and rollback remain unverified.
+Native FSKit worker retention, busy and multi-volume teardown, Finder
+eject, filesystem integrity and performance remain unverified on the
+updated revision.
+
 ### Warm-cache HFS+ comparison on the MVP revision
 
 On the same physical Tahoe host, FSKit and FUSE-T 1.2.9 each tested a copy
@@ -892,6 +968,14 @@ comparison remain unmeasured.
    enablement, Finder eject and standard volume discovery. Confirm that
    clean install and upgrade resolve the physical-host registration
    discrepancy before promoting the backend.
+3. With the signed FSKit bundle enabled, run the two-mount FAT12 smoke
+   trial and the physical Finder matrix. Run an isolated auxiliary-loss
+   drill with a test build that can inject the observer's missing-mount
+   result without forcibly unmounting the backing filesystem. Record the
+   exact image path, media identity, worker generation, socket and
+   reservations through retained attachment and ordinary detach. Also
+   test a timed-out attachment that publishes after startup reports
+   incomplete cleanup.
 
 The current build selects a backend at compile time. An automatic retry
 across backends could attach a container twice while the first backend
