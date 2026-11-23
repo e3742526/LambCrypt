@@ -22,6 +22,9 @@
 #include <fcntl.h>
 #include <membership.h>
 #include <sys/acl.h>
+#endif
+#ifdef TC_MACOSX
+#include <sys/file.h>
 #include <sys/mount.h>
 #endif
 #ifdef TC_LINUX
@@ -1415,6 +1418,30 @@ namespace VeraCrypt
 	}
 #endif
 
+#ifdef TC_MACOSX
+	static void ReserveLocalMacVolume (int fd)
+	{
+		struct stat identity;
+		throw_sys_if (fstat (fd, &identity) != 0);
+		if (!S_ISREG (identity.st_mode))
+			return;
+
+		struct statfs filesystem;
+		throw_sys_if (fstatfs (fd, &filesystem) != 0);
+		if ((filesystem.f_flags & MNT_LOCAL) == 0)
+			return;
+
+		// All macOS backends inherit the opened file into their service.
+		// Lock that inode so aliases and concurrent backend startup contend.
+		int result;
+		do { result = flock (fd, LOCK_EX | LOCK_NB); }
+		while (result == -1 && errno == EINTR);
+		if (result == -1 && errno == EWOULDBLOCK)
+			throw VolumeAlreadyMounted (SRC_POS);
+		throw_sys_if (result == -1);
+	}
+#endif
+
 	shared_ptr <VolumeInfo> CoreUnix::MountVolume (MountOptions &options)
 	{
 		const bool useDefaultMountPoint = !options.MountPoint || options.MountPoint->IsEmpty();
@@ -1489,6 +1516,9 @@ namespace VeraCrypt
 #ifdef TC_LINUX
 		int volumeLock = ReserveMountVolume (*volume->GetFile(), options.Protection == VolumeProtection::ReadOnly);
 		finally_do_arg (int, volumeLock, { close (finally_arg); });
+#elif defined(TC_MACOSX)
+		volume->GetFile()->SetCloseOnExec();
+		ReserveLocalMacVolume (volume->GetFile()->GetSystemHandle());
 #endif
 
 		if (options.Path->IsDevice())

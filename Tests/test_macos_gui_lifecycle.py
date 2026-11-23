@@ -393,6 +393,15 @@ with open(sys.argv[1], 'r+b') as stream:
         with volume.open("rb") as encrypted:
             return hashlib.file_digest(encrypted, "sha256").hexdigest()
 
+    def check_backing_reservation(alias, mounted):
+        with alias.open("rb") as backing:
+            try:
+                fcntl.flock(backing, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                assert mounted, "Backing reservation remains after dismount"
+            else:
+                assert not mounted, "Mounted service lost the backing reservation"
+
     filesystem = "HFS+" if args.fskit_external_eject else "FAT"
     file_size = {12: 4 << 20, 16: 32 << 20, 32: 96 << 20}.get(args.fskit_routed_fat, 32 << 20)
     try:
@@ -401,7 +410,10 @@ with open(sys.argv[1], 'r+b') as stream:
            "--pim=1", "--keyfiles=", "--random-source=/dev/urandom", client=release)
         if fskit:
             initial_encrypted = encrypted_checksum()
+        alias = root / "ordinary-alias.hc"
+        alias.hardlink_to(volume)
         mount()
+        check_backing_reservation(alias, mounted=True)
         if fskit:
             marker = mountpoint / "before.bin"
             marker.write_bytes(b"LambCrypt lifecycle test")
@@ -449,6 +461,7 @@ with open(sys.argv[1], 'r+b') as stream:
                 assert stream.read() == payload
         vc("unmount-write", "--unmount", volume)
         confirm_closed(mounts, root, volume, active, fskit)
+        check_backing_reservation(alias, mounted=False)
         if fskit:
             final_encrypted = encrypted_checksum()
             assert initial_encrypted != final_encrypted, "The write trial did not change the encrypted data"

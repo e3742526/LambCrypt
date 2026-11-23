@@ -91,6 +91,8 @@ def main():
         device_name_check = source[source.index("\tstatic bool IsPlainDiskDevicePath"):
                                    source.index("\tstatic int64_t GetDiskMediaRegistryId")]
         unix_source = (ROOT / "src/Core/Unix/CoreUnix.cpp").read_text()
+        reservation_start = unix_source.index("\tstatic void ReserveLocalMacVolume")
+        mac_reservation = unix_source[reservation_start:unix_source.index("\n#endif", reservation_start)]
         attachment_start = unix_source.index("\t\tDevicePath mountedVirtualDevice;")
         attachment_setup = unix_source[attachment_start:unix_source.index("\n\t\ttry", attachment_start)]
         attachment_attempt_start = unix_source.index("\t\t\t\tcatch (NotApplicable&)", attachment_start)
@@ -165,6 +167,7 @@ def main():
 #include <sys/mount.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
 #define throw_sys_sub_if(condition, subject) do { if (condition) throw std::runtime_error(subject); } while(false)
@@ -580,6 +583,7 @@ static string ReservationDirectory;
 static string ApplicationGroupDirectory() { return ReservationDirectory; }
 ''' + resource_path + mount_lifetime + slot_lock + unmount_lock + r'''
 }
+''' + mac_reservation + r'''
 #undef throw_sys_if
 class CoreUnix {
 public:
@@ -809,6 +813,35 @@ static void CheckLateWorkerPublication() {
     Simulate(3, false, false, 0, 0, {}, false, true);
     Require(MediaChecks == 2 && ExitChecks == 1,
             "inconclusive late media lookup stopped observation permanently");
+}
+static void CheckLocalMacReservation(const string &root, const string &image) {
+    const int first = open(image.c_str(), O_RDONLY);
+    const int second = open((root + "/linked-container").c_str(), O_RDWR);
+    Require(first >= 0 && second >= 0, "could not open reservation fixtures");
+    ReserveLocalMacVolume(first);
+    int release[2];
+    Require(pipe(release) == 0, "could not create reservation handoff pipe");
+    const pid_t service = fork();
+    Require(service >= 0, "could not fork reservation fixture");
+    if (service == 0) {
+        close(release[1]);
+        char byte;
+        while (read(release[0], &byte, 1) < 0 && errno == EINTR) {}
+        _exit(0);
+    }
+    close(release[0]);
+    close(first);
+    bool refused = false;
+    try { ReserveLocalMacVolume(second); }
+    catch (const VolumeAlreadyMounted &) { refused = true; }
+    close(release[1]);
+    int status;
+    pid_t reaped;
+    do { reaped = waitpid(service, &status, 0); } while (reaped < 0 && errno == EINTR);
+    Require(reaped == service && WIFEXITED(status) && refused,
+            "service handoff dropped the read-only volume reservation or a hard link bypassed it");
+    ReserveLocalMacVolume(second);
+    close(second);
 }
 static void CheckBackingReservation(const string &root, const string &image) {
     const int original = open(image.c_str(), O_RDONLY | O_CLOEXEC);
@@ -1394,6 +1427,7 @@ static void CheckDismount(CoreMacOSX &core, const string &image, const string &r
 int main(int argc, char **argv) {
     try {
         std::string root=argv[1], image=argv[2];
+        CheckLocalMacReservation(root, image);
         for (const auto &name : {"exact", "alias", "exact_after_unknown", "exact_before_unknown", "same_attachment"}) {
             DevicePath device; DirectoryPath mount;
             Require(FindDiskImageInfoByImagePath(Read(root+"/"+name),image,device,mount), "positive match lost");
