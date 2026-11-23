@@ -66,6 +66,13 @@ class MacOSBuildTargetTests(unittest.TestCase):
         for settings in self.build_settings("-b", "-t", "26.4"):
             self.assertEqual(settings, ["26.4", "27.2", "0"])
 
+    @unittest.skipUnless(sys.platform == "darwin", "FSKit requires macOS")
+    def test_fskit_and_fuse_t_cannot_be_selected_together(self):
+        result = subprocess.run(["/usr/bin/make", "-C", BUILD.parent, "-n", "WITHFSKIT=1", "WITHFUSET=1"],
+                                capture_output=True, text=True, timeout=10)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("WITHFSKIT and WITHFUSET select different backends", result.stderr)
+
     @unittest.skipUnless(sys.platform == "darwin", "requires the macOS plutil command")
     def test_fskit_bundle_metadata_keeps_the_standard_app_preferred(self):
         build = self.script.parent

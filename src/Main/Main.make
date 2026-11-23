@@ -331,7 +331,13 @@ ifeq "$(VC_OSX_FSKIT)" "1"
 	codesign --force --sign "$$VC_APP_SIGN_IDENTITY" $(FSKIT_SIGN_OPTIONS) \
 		--entitlements "$$signing_dir/entitlements.plist" "$(FSKIT_EXTENSION)"; \
 	codesign --force --sign "$$VC_APP_SIGN_IDENTITY" $(FSKIT_SIGN_OPTIONS) \
-		--entitlements "$$signing_dir/app-entitlements.plist" "$(APPNAME).app"
+		--entitlements "$$signing_dir/app-entitlements.plist" "$(APPNAME).app"; \
+	for bundle in "$(APPNAME).app" "$(FSKIT_EXTENSION)"; do \
+		if ! codesign --display --verbose=4 "$$bundle" 2>&1 | grep -Fxq "TeamIdentifier=$$team_id"; then \
+			echo "The app and FSKit extension must be signed by the provisioning profile's team." >&2; exit 1; \
+		fi; \
+	done; \
+	codesign --verify --deep --strict "$(APPNAME).app"
 else ifneq ("$(LOCAL_DEVELOPMENT_BUILD)","true")
 	@test -n "$$VC_APP_SIGN_IDENTITY" || { echo "Set VC_APP_SIGN_IDENTITY for a signed build."; exit 1; }
 	codesign -s "$$VC_APP_SIGN_IDENTITY" --timestamp $(APPNAME).app
