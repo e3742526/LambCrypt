@@ -128,3 +128,53 @@ diff <(pluginkit -mDAvv | grep -A9 e3742526) <(grep -A9 e3742526 $SNAP/pluginkit
 4. Migration notes should record fskitd enablement state (not PlugInKit
    elections) as the gate metric — today's notes tracked the wrong store for
    three sessions.
+
+## ADDENDUM (2026-11-23 17:25) — authoritative store located and verified
+
+Cross-checking an external disassembly-based theory against this OS build
+(25G83) located the authoritative enablement store verified in the dyld
+shared cache and on disk:
+
+`~/Library/Group Containers/group.com.apple.fskit.settings/enabledModules.plist`
+
+Contents right now: apfs, exfat, msdos, ntafs, ftp — **Apple IDs only**.
+`io.github.e3742526.LambCrypt.fskit.module` is absent, and so is
+`org.fuset.fskit-srv.module`. Neighbor `probeOrder.plist` DOES contain the
+LambCrypt ID (index 0), proving fskit_agent detected the module — discovery
+worked, enablement never persisted.
+
+### Phase 3 additions (supersedes log-line-only verification)
+3.6. Immediately before flipping the category-sheet toggle:
+```bash
+plutil -p ~/Library/Group\ Containers/group.com.apple.fskit.settings/enabledModules.plist
+```
+3.7. Flip the toggle, wait 5s, re-run 3.6. SUCCESS = the LambCrypt bundle ID
+now appears in the array. This is the single most direct verification signal
+on the machine — stronger than any log line, and it needs no log privileges.
+3.8. If it does NOT appear, the dual-predicate stream (Branch B above, which
+already watches fskitd OR fskit_agent OR FSKitModuleManagement) carries the
+refusal reason.
+
+### Two implications for interpretation, honestly stated
+- `enabledModules.plist` was **born 2026-11-22 23:29:53** (birth == mod, whole
+  store recreated that second). Any enablement record that ever existed
+  before 23:29:53 was destroyed at that moment — consistent with the
+  FSModuleHost "strip replaced/unregistered instances from the enabled list"
+  theory, and equally consistent with the record never having been written.
+  The 30h-log "zero setEnabledState events" evidence is therefore
+  *supportive, not conclusive*: logging must include fskit_agent (the
+  delegation hop), which Branch B already does.
+- The FUSE-T anomaly: its module is absent from enabledModules.plist on this
+  machine too. After the reboot, one discriminator check settles whether
+  this list gates third-party mounting at all: if a FUSE-T FSKit mount works
+  while absent from the list (FUSE-T's primary path is NFS-based), then
+  `enabledModules.plist` may not be the gate for LambCrypt either, and the
+  ExtensionKit adoption layer (`~/Library/Application Scripts/`, where
+  LambCrypt is uniquely missing) is the operative blocker. Both branches
+  still start with the same Phase 1–3, so this only affects interpretation.
+
+### Policy this locks in (regardless of which theory is right)
+Never again run pluginkit unregister/remove against this bundle ID, and never
+reinstall the same-or-lower version over it. Every unregister or
+equal-ID-different-instance replacement is an opportunity for the provider
+list diff to strip the enabled entry (if it ever exists). Forward-only.

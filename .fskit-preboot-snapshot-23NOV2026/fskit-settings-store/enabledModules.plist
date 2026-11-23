@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<string>com.apple.fskit.apfs</string>
+	<string>com.apple.fskit.exfat</string>
+	<string>com.apple.fskit.msdos</string>
+	<string>com.apple.filesystems.util.ntfs</string>
+	<string>com.apple.fskit.ftp</string>
+</array>
+</plist>
