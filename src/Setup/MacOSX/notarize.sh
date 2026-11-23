@@ -68,7 +68,11 @@ FSKIT_PROFILE="$FSKIT_EXTENSION/Contents/embedded.provisionprofile"
 
 verify_app() {
     local bundle="$1"
-    codesign --verify --deep --strict --verbose=2 "$bundle"
+    if [[ "$VARIANT" == LambCrypt-FSKit ]]; then
+        /bin/bash "$SCRIPT_DIR/verify_fskit_bundle.sh" --distribution "$bundle"
+    else
+        codesign --verify --deep --strict --verbose=2 "$bundle"
+    fi
     verify_signature "$bundle" "$VARIANT"
     if [[ "$VARIANT" == LambCrypt-FSKit ]]; then
         verify_signature "$bundle/$FSKIT_EXTENSION" LambCryptFSKit
@@ -86,10 +90,6 @@ if [[ "$VARIANT" == LambCrypt-FSKit ]]; then
     # The FSKit build signs the extension and app with different entitlements.
     # Preserve those signatures when packaging.
     verify_app "$BUNDLE_PATH"
-    if [ "$(security cms -D -i "$BUNDLE_PATH/$FSKIT_PROFILE" |
-            plutil -extract ProvisionsAllDevices raw -o - -)" != true ]; then
-        fail "Prepare the FSKit app with a Developer ID distribution profile."
-    fi
     DMG_LABEL="LambCrypt-FSKit_${VC_VERSION}.dmg"
 else
     DEPENDENCY_OUTPUT=$(otool -L "$VC_BINARY")
@@ -152,8 +152,10 @@ pkgutil --expand-full "$PKG_PATH" "$WORK_DIR/expanded"
 if [[ "$VARIANT" == LambCrypt-FSKit ]]; then
     BUNDLE_ID=$(plutil -extract CFBundleIdentifier raw -o - "$BUNDLE_PATH/Contents/Info.plist")
     PACKAGED_BUNDLE="$WORK_DIR/expanded/$BUNDLE_ID.pkg/Payload/$VARIANT.app"
-    cmp "$BUNDLE_PATH/$FSKIT_PROFILE" "$PACKAGED_BUNDLE/$FSKIT_PROFILE" ||
-        fail "The packaged FSKit profile differs from the signed extension."
+    for file in "$FSKIT_PROFILE" "$FSKIT_EXTENSION/Contents/Info.plist" "$FSKIT_EXTENSION/Contents/MacOS/LambCryptFSKit"; do
+        cmp "$BUNDLE_PATH/$file" "$PACKAGED_BUNDLE/$file" ||
+            fail "The packaged FSKit extension differs from the signed extension at $file."
+    done
 else
     PACKAGED_BUNDLE="$WORK_DIR/expanded/lambcrypt.pkg/Payload/Applications/LambCrypt.app"
 fi
