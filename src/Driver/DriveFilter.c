@@ -1719,6 +1719,7 @@ void ReopenBootVolumeHeader (PIRP irp)
 {
 	LARGE_INTEGER offset;
 	unsigned char *header;
+	PCRYPTO_INFO newHeaderCryptoInfo;
 	ReopenBootVolumeHeaderRequest *request = (ReopenBootVolumeHeaderRequest *) irp->AssociatedIrp.SystemBuffer;
 
 	irp->IoStatus.Information = 0;
@@ -1769,36 +1770,45 @@ void ReopenBootVolumeHeader (PIRP irp)
 		goto ret;
 	}
 
-	if (IsRamEncryptionEnabled())
+	// Decrypt into a separate context, so a failed reopen keeps the context that the
+	// mounted drive, its status and later header updates still depend on.
+	newHeaderCryptoInfo = crypto_open ();
+	if (!newHeaderCryptoInfo)
 	{
-		VcUnprotectKeys (BootDriveFilterExtension->HeaderCryptoInfo, VcGetEncryptionID (BootDriveFilterExtension->HeaderCryptoInfo));
+		irp->IoStatus.Status = STATUS_INSUFFICIENT_RESOURCES;
+		goto ret;
 	}
 
-	if (ReadVolumeHeader (!BootDriveFilterExtension->HiddenSystem, header, &request->VolumePassword, request->pkcs5_prf, request->pim, NULL, BootDriveFilterExtension->HeaderCryptoInfo) == 0)
+	if (ReadVolumeHeader (!BootDriveFilterExtension->HiddenSystem, header, &request->VolumePassword, request->pkcs5_prf, request->pim, NULL, newHeaderCryptoInfo) == 0)
 	{
+		PCRYPTO_INFO headerCryptoInfo = BootDriveFilterExtension->HeaderCryptoInfo;
+
 		Dump ("Header reopened\n");
+
+		// Replace the contents in place: concurrent status queries keep a valid pointer,
+		// and protected keys are bound to the address of their context.
+		memcpy (headerCryptoInfo, newHeaderCryptoInfo, sizeof (*headerCryptoInfo));
 
 		if (IsRamEncryptionEnabled())
 		{
-			VcProtectKeys (BootDriveFilterExtension->HeaderCryptoInfo, VcGetEncryptionID(BootDriveFilterExtension->HeaderCryptoInfo));
+			VcProtectKeys (headerCryptoInfo, VcGetEncryptionID (headerCryptoInfo));
 		}
 
 		ComputeBootLoaderFingerprint (BootDriveFilterExtension->LowerDeviceObject, header);
 
-		BootDriveFilterExtension->Queue.CryptoInfo->pkcs5 = BootDriveFilterExtension->HeaderCryptoInfo->pkcs5;
-		BootDriveFilterExtension->Queue.CryptoInfo->noIterations = BootDriveFilterExtension->HeaderCryptoInfo->noIterations;
-		BootDriveFilterExtension->Queue.CryptoInfo->volumePim = BootDriveFilterExtension->HeaderCryptoInfo->volumePim;
+		BootDriveFilterExtension->Queue.CryptoInfo->pkcs5 = headerCryptoInfo->pkcs5;
+		BootDriveFilterExtension->Queue.CryptoInfo->noIterations = headerCryptoInfo->noIterations;
+		BootDriveFilterExtension->Queue.CryptoInfo->volumePim = headerCryptoInfo->volumePim;
 
 		irp->IoStatus.Status = STATUS_SUCCESS;
 	}
 	else
 	{
-		crypto_close (BootDriveFilterExtension->HeaderCryptoInfo);
-		BootDriveFilterExtension->HeaderCryptoInfo = NULL;
-
 		Dump ("Header not reopened\n");
 		irp->IoStatus.Status = STATUS_INVALID_PARAMETER;
 	}
+
+	crypto_close (newHeaderCryptoInfo);
 
 ret:
 	TCfree (header);
@@ -2547,7 +2557,7 @@ void GetBootEncryptionStatus (PIRP irp)
 			bootEncStatus->ConfiguredEncryptedAreaStart = Extension->ConfiguredEncryptedAreaStart;
 			bootEncStatus->ConfiguredEncryptedAreaEnd = Extension->ConfiguredEncryptedAreaEnd;
 			bootEncStatus->EncryptedAreaStart = Extension->Queue.EncryptedAreaStart;
-			bootEncStatus->MasterKeyVulnerable = Extension->HeaderCryptoInfo->bVulnerableMasterKey;
+			bootEncStatus->MasterKeyVulnerable = Extension->HeaderCryptoInfo ? Extension->HeaderCryptoInfo->bVulnerableMasterKey : FALSE;
 
 			if (SetupInProgress)
 			{

@@ -1684,15 +1684,17 @@ namespace VeraCrypt
 					}
 
 #if defined(TC_LINUX)
-					// AppImage specific handling:
-					// If running from an AppImage, use the path to the AppImage file itself for the privilege helper.
-					const char* appImageEnv = getenv("APPIMAGE");
-
-					if (Process::IsRunningUnderAppImage(appPath) && appImageEnv != NULL)
+					// AppImage specific handling: root may not be able to enter the user's FUSE
+					// mount, so the privilege helper runs the AppImage file itself. It is used only
+					// when the running executable (/proc/self/exe) is inside a real AppImage mount
+					// and the file passes ownership, permission and format checks; environment
+					// variables alone cannot select the elevation target.
+					if (Process::IsRunningUnderAppImage (appPath))
 					{
-						// The path to the AppImage file is stored in the APPIMAGE environment variable.
-						// We need to use this path for elevation to work correctly.
-						appPath = appImageEnv;
+						string appImagePath = Process::GetTrustedAppImagePath();
+						if (appImagePath.empty())
+							throw SystemException (SRC_POS, "The AppImage file could not be verified for elevation.");
+						appPath = appImagePath;
 					}
 #endif
 					bool useDoasAuthTerminal = privilegeHelper.IsDoas() && !useCallerDoasTerminal;

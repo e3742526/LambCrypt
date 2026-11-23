@@ -10482,6 +10482,7 @@ void ExtractCommandLine (HWND hwndDlg, wchar_t *lpszCommandLine)
 							AbortProcess ("COMMAND_LINE_ERROR");
 					}
 				}
+				break;
 
 			case OptionDisableDeviceUpdate:
 				{

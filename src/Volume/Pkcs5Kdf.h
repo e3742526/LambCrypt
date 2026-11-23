@@ -42,6 +42,9 @@ namespace VeraCrypt
 		virtual const char *GetPimSmallWarningMessageId () const { return "PIM_SMALL_WARNING"; }
 		virtual const char *GetPimRequireLongPasswordMessageId () const { return "PIM_REQUIRE_LONG_PASSWORD"; }
 		virtual int GetIterationCount (int pim) const = 0;
+		// Largest PIM whose iteration count is representable: MAX_PIM_VALUE for the
+		// 15000 + PIM x 1000 formula, MAX_BOOT_PIM_VALUE for the 16-bit boot loader field.
+		virtual int GetMaxPim () const { return 2147468; }
 		virtual wstring GetName () const = 0;
 		virtual Pkcs5Kdf* Clone () const = 0;
 		virtual bool IsArgon2 () const { return false; }
@@ -70,6 +73,7 @@ namespace VeraCrypt
 		virtual int GetDefaultPim () const { return 98; }
 		virtual int GetIterationCount (int pim) const { return pim <= 0 ? 200000 : (pim * 2048); }
 		virtual wstring GetName () const { return L"HMAC-BLAKE2s-256"; }
+		virtual int GetMaxPim () const { return 65535; }
 		virtual Pkcs5Kdf* Clone () const { return new Pkcs5HmacBlake2s_Boot(); }
 
 	private:
@@ -108,6 +112,7 @@ namespace VeraCrypt
 		virtual int GetDefaultPim () const { return 98; }
 		virtual int GetIterationCount (int pim) const { return pim <= 0 ? 200000 : (pim * 2048); }
 		virtual wstring GetName () const { return L"HMAC-SHA-256"; }
+		virtual int GetMaxPim () const { return 65535; }
 		virtual Pkcs5Kdf* Clone () const { return new Pkcs5HmacSha256_Boot(); }
 
 	private:
@@ -228,6 +233,7 @@ namespace VeraCrypt
 		virtual int GetDefaultPim () const { return 98; }
 		virtual int GetIterationCount (int pim) const { return pim <= 0 ? 200000 : pim * 2048; }
 		virtual wstring GetName () const { return L"HMAC-Streebog"; }
+		virtual int GetMaxPim () const { return 65535; }
 		virtual Pkcs5Kdf* Clone () const { return new Pkcs5HmacStreebog_Boot(); }
 
 	private:

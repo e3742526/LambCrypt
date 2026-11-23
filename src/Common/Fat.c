@@ -453,12 +453,30 @@ FormatFat (void* hwndDlgPtr, unsigned __int64 startSector, fatparams * ft, void 
 		if (IsRamEncryptionEnabled ())
 			VcProtectKeys (cryptoInfo, VcGetEncryptionID (cryptoInfo));
 
-		x = ft->num_sectors - ft->reserved - ft->size_root_dir / ft->sector_size - ft->fat_length * 2;
-		while (x--)
 		{
-			if (WriteSector (dev, sector, write_buf, &write_buf_cnt, &nSecNo, startSector,
-				cryptoInfo, volParams) == FALSE)
+			// Count in 64 bits: the data area can exceed INT_MAX sectors (FAT32 allows
+			// up to 2^32 - 1), which made the former int counter negative and the loop
+			// run past the end of the volume.
+			unsigned __int64 metadataSectors = (unsigned __int64) ft->reserved
+				+ ft->size_root_dir / ft->sector_size
+				+ (unsigned __int64) ft->fat_length * ft->fats;
+			unsigned __int64 dataSectors;
+
+			if (metadataSectors > ft->num_sectors
+				|| nSecNo - startSector + (ft->num_sectors - metadataSectors) > ft->num_sectors)
+			{
+				// Never write beyond the sectors that belong to the filesystem.
+				burn (&tmpCI, sizeof (tmpCI));
+				VirtualUnlock (&tmpCI, sizeof (tmpCI));
 				goto fail;
+			}
+
+			for (dataSectors = ft->num_sectors - metadataSectors; dataSectors > 0; --dataSectors)
+			{
+				if (WriteSector (dev, sector, write_buf, &write_buf_cnt, &nSecNo, startSector,
+					cryptoInfo, volParams) == FALSE)
+					goto fail;
+			}
 		}
 
 		if (volParams->progress_callback)

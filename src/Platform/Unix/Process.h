@@ -53,6 +53,8 @@ namespace VeraCrypt
 #endif
 #if defined(TC_LINUX)
 		static bool IsRunningUnderAppImage (const string &executablePath);
+		// The validated AppImage file that contains the running executable, or empty.
+		static string GetTrustedAppImagePath ();
 #endif
 
 	protected:

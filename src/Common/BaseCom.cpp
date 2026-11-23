@@ -513,18 +513,16 @@ DWORD BaseCom::GetFirmwareWindowsUefiCa2023Support (BOOL *present)
 
 DWORD BaseCom::WriteEfiBootSectorUserConfig (DWORD userConfig, BSTR customUserMessage, int pim, int hashAlg)
 {
-	if (!customUserMessage)
-		return ERROR_INVALID_PARAMETER;
+	// The EFI loader has no custom boot message: its configuration stores only the
+	// PIM and hash settings. The message parameter is kept for interface compatibility
+	// and is never read, so a caller-supplied BSTR cannot reach any pointer arithmetic
+	// in this elevated process.
+	UNREFERENCED_PARAMETER (customUserMessage);
 
 	try
 	{
-		DWORD maxSize = ((DWORD *) ((BYTE *) customUserMessage))[-1];
-		char* msg = (char*) *customUserMessage;
-		if (maxSize > 0)
-			msg [maxSize - 1] = 0;
-		std::string msgStr = maxSize > 0 ? msg : "";
 		BootEncryption bootEnc (NULL);
-		bootEnc.WriteEfiBootSectorUserConfig ((uint8) userConfig,  msgStr, pim, hashAlg);
+		bootEnc.WriteEfiBootSectorUserConfig ((uint8) userConfig, std::string(), pim, hashAlg);
 	}
 	catch (SystemException &)
 	{

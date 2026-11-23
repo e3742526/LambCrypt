@@ -48,6 +48,12 @@ namespace VeraCrypt
 
 	int Pkcs5Kdf::DeriveKey (const BufferPtr &key, const VolumePassword &password, int pim, const ConstBufferPtr &salt, long volatile *pAbortKeyDerivation) const
 	{
+		// A PIM beyond this KDF's range cannot have produced any header (and would overflow
+		// the iteration count). Report it as a failed derivation, like the C code reports a
+		// wrong password, so the remaining KDFs are still tried.
+		if (pim > GetMaxPim())
+			return ERR_PARAMETER_INCORRECT;
+
 		return DeriveKey (key, password, salt, GetIterationCount(pim), pAbortKeyDerivation);
 	}
 
@@ -111,6 +117,18 @@ namespace VeraCrypt
 	}
 
     #ifndef WOLFCRYPT_BACKEND
+	// The C derivation routines stop early on cancellation without reporting it. Never
+	// return a partially derived key as a successful derivation.
+	static int CompleteDerivation (const BufferPtr &key, long volatile *pAbortKeyDerivation)
+	{
+		if (pAbortKeyDerivation && *pAbortKeyDerivation)
+		{
+			key.Erase();
+			return ERR_USER_ABORT;
+		}
+		return 0;
+	}
+
 	int Pkcs5HmacBlake2s_Boot::DeriveKey (const BufferPtr &key, const VolumePassword &password, const ConstBufferPtr &salt, int iterationCount) const
 	{
 		return DeriveKey (key, password, salt, iterationCount, nullptr);
@@ -120,7 +138,7 @@ namespace VeraCrypt
 	{
 		ValidateParameters (key, password, salt, iterationCount);
 		derive_key_blake2s (password.DataPtr(), (int) password.Size(), salt.Get(), (int) salt.Size(), iterationCount, key.Get(), (int) key.Size(), pAbortKeyDerivation);
-		return 0;
+		return CompleteDerivation (key, pAbortKeyDerivation);
 	}
 
 	int Pkcs5HmacBlake2s::DeriveKey (const BufferPtr &key, const VolumePassword &password, const ConstBufferPtr &salt, int iterationCount) const
@@ -132,7 +150,7 @@ namespace VeraCrypt
 	{
 		ValidateParameters (key, password, salt, iterationCount);
 		derive_key_blake2s (password.DataPtr(), (int) password.Size(), salt.Get(), (int) salt.Size(), iterationCount, key.Get(), (int) key.Size(), pAbortKeyDerivation);
-		return 0;
+		return CompleteDerivation (key, pAbortKeyDerivation);
 	}
     #endif
 
@@ -148,7 +166,7 @@ namespace VeraCrypt
 		return derive_key_sha256 (password.DataPtr(), (int) password.Size(), salt.Get(), (int) salt.Size(), iterationCount, key.Get(), (int) key.Size(), pAbortKeyDerivation);
 #else
 		derive_key_sha256 (password.DataPtr(), (int) password.Size(), salt.Get(), (int) salt.Size(), iterationCount, key.Get(), (int) key.Size(), pAbortKeyDerivation);
-		return 0;
+		return CompleteDerivation (key, pAbortKeyDerivation);
 #endif
 	}
 
@@ -164,7 +182,7 @@ namespace VeraCrypt
 		return derive_key_sha256 (password.DataPtr(), (int) password.Size(), salt.Get(), (int) salt.Size(), iterationCount, key.Get(), (int) key.Size(), pAbortKeyDerivation);
 #else
 		derive_key_sha256 (password.DataPtr(), (int) password.Size(), salt.Get(), (int) salt.Size(), iterationCount, key.Get(), (int) key.Size(), pAbortKeyDerivation);
-		return 0;
+		return CompleteDerivation (key, pAbortKeyDerivation);
 #endif
 	}
 
@@ -180,7 +198,7 @@ namespace VeraCrypt
 		return derive_key_sha512 (password.DataPtr(), (int) password.Size(), salt.Get(), (int) salt.Size(), iterationCount, key.Get(), (int) key.Size(), pAbortKeyDerivation);
 #else
 		derive_key_sha512 (password.DataPtr(), (int) password.Size(), salt.Get(), (int) salt.Size(), iterationCount, key.Get(), (int) key.Size(), pAbortKeyDerivation);
-		return 0;
+		return CompleteDerivation (key, pAbortKeyDerivation);
 #endif
 	}
 
@@ -194,7 +212,7 @@ namespace VeraCrypt
 	{
 		ValidateParameters (key, password, salt, iterationCount);
 		derive_key_whirlpool (password.DataPtr(), (int) password.Size(), salt.Get(), (int) salt.Size(), iterationCount, key.Get(), (int) key.Size(), pAbortKeyDerivation);
-		return 0;
+		return CompleteDerivation (key, pAbortKeyDerivation);
 	}
 	
 	int Pkcs5HmacStreebog::DeriveKey (const BufferPtr &key, const VolumePassword &password, const ConstBufferPtr &salt, int iterationCount) const
@@ -206,7 +224,7 @@ namespace VeraCrypt
 	{
 		ValidateParameters (key, password, salt, iterationCount);
 		derive_key_streebog (password.DataPtr(), (int) password.Size(), salt.Get(), (int) salt.Size(), iterationCount, key.Get(), (int) key.Size(), pAbortKeyDerivation);
-		return 0;
+		return CompleteDerivation (key, pAbortKeyDerivation);
 	}
 
 	#ifndef VC_DCS_DISABLE_ARGON2
@@ -263,7 +281,7 @@ namespace VeraCrypt
 	{
 		ValidateParameters (key, password, salt, iterationCount);
 		derive_key_streebog (password.DataPtr(), (int) password.Size(), salt.Get(), (int) salt.Size(), iterationCount, key.Get(), (int) key.Size(), pAbortKeyDerivation);
-		return 0;
+		return CompleteDerivation (key, pAbortKeyDerivation);
 	}
     #endif
 }

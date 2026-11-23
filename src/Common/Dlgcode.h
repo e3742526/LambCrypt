@@ -795,7 +795,6 @@ std::wstring IntToWideString (int val);
 std::wstring ArrayToHexWideString (const unsigned char* pbData, int cbData);
 bool HexWideStringToArray (const wchar_t* hexStr, std::vector<uint8>& arr);
 std::wstring FindDeviceByVolumeID (const BYTE volumeID [VOLUME_ID_SIZE], BOOL bFromService);
-void RegisterDriverInf (bool registerFilter, const std::string& filter, const std::string& filterReg, HWND ParentWindow, HKEY regKey);
 std::wstring GetTempPathString ();
 void CorrectFileName (std::wstring& fileName);
 inline std::wstring AppendSrcPos (const wchar_t* msg, const char* srcPos)

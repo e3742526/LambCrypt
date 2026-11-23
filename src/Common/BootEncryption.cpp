@@ -5782,7 +5782,15 @@ namespace VeraCrypt
 
 			EfiBootConf conf;
 			Buffer propBuf (0);
-			wstring dcsPropFileName = GetTempPathString() + L"_dcsproprescue";
+			// GetTempFileNameW creates a new, uniquely named empty file, so neither a
+			// pre-planted file nor a concurrent rescue disk creation supplies the content
+			// that Save() merges and that is read back below.
+			WCHAR szPropTmpPath[MAX_PATH + 1], szPropFilePath[MAX_PATH + 1];
+			if (!GetTempPathW (MAX_PATH, szPropTmpPath))
+				throw SystemException (SRC_POS);
+			if (!GetTempFileNameW (szPropTmpPath, L"_vdp", 0, szPropFilePath))
+				throw SystemException (SRC_POS);
+			wstring dcsPropFileName = szPropFilePath;
 			finally_do_arg (wstring, dcsPropFileName, { DeleteFileW (finally_arg.c_str()); });
 			if (conf.Save(dcsPropFileName.c_str(), ParentWindow))
 			{
@@ -5790,8 +5798,13 @@ namespace VeraCrypt
 				File propFile (dcsPropFileName, true, false);
 				propFile.CheckOpened (SRC_POS);
 				propFile.GetFileSize(fileSize);
+				// DcsProp is a small XML file; never size a buffer from an unexpected length.
+				if (fileSize == 0 || fileSize > 1024 * 1024)
+					throw ParameterIncorrect (SRC_POS);
 				propBuf.Resize (fileSize);
 				DWORD sizeDcsProp = propFile.Read (propBuf.Ptr (), fileSize);
+				if (sizeDcsProp != fileSize)
+					throw ParameterIncorrect (SRC_POS);
 
 				if (!ZipAdd (z, "EFI/VeraCrypt/DcsProp", propBuf.Ptr (), sizeDcsProp))
 					throw ParameterIncorrect (SRC_POS);
@@ -6599,35 +6612,6 @@ namespace VeraCrypt
 
 #endif // SETUP
 
-	static bool CompareMultiString (const char* str1, const char* str2)
-	{
-		size_t l1, l2;
-		if (!str1 || !str2)
-			return false;
-		while (true)
-		{
-			l1 = strlen (str1);
-			l2 = strlen (str2);
-			if (l1 == l2)
-			{
-				if (l1 == 0)
-					break; // we reached the end
-				if (_stricmp (str1, str2) == 0)
-				{
-					str1 += l1 + 1;
-					str2 += l2 + 1;
-				}
-				else
-					return false;
-			}
-			else
-				return false;
-
-		}
-
-		return true;
-	}
-
 	static void AppendToMultiString (char* mszDest, DWORD dwMaxDesSize, DWORD& dwDestSize, const char* input)
 	{
 		// find the index of the end of the last string
@@ -6652,6 +6636,18 @@ namespace VeraCrypt
 				dwDestSize = index + 1 + dwInputSize + 1;
 			}
 		}
+	}
+
+	// msz is guaranteed to be double zero terminated
+	static bool MultiStringContains (const char* msz, const char* input)
+	{
+		while (msz && *msz)
+		{
+			if (_stricmp (msz, input) == 0)
+				return true;
+			msz += strlen (msz) + 1;
+		}
+		return false;
 	}
 
 	// mszDest is guaranteed to be double zero terminated
@@ -6732,62 +6728,47 @@ namespace VeraCrypt
 			}
 			else
 			{
-				// workaround rare SetupInstallFromInfSection which overwrite value instead of appending new value
-				// read initial value
-				DWORD strSize = (DWORD) filter.size() + 1, expectedSize;
-				Buffer expectedRegKeyBuf(65536), outputRegKeyBuf(65536);
-				uint8* pbExpectedRegKeyBuf = expectedRegKeyBuf.Ptr ();
-				uint8* pbOutputRegKeyBuf = outputRegKeyBuf.Ptr ();
-				DWORD initialSize = (DWORD) (expectedRegKeyBuf.Size() - strSize - 2);				
+				// Append the filter to the value directly. The registry is updated in this
+				// (elevated) process, so no setup file is staged where another process
+				// could replace it.
+				DWORD strSize = (DWORD) filter.size() + 1, valueSize;
+				Buffer regKeyBuf (65536);
+				uint8* pbRegKeyBuf = regKeyBuf.Ptr ();
 
-				if (RegQueryValueExA (regKey, filterReg.c_str(), NULL, NULL, pbExpectedRegKeyBuf, &initialSize) != ERROR_SUCCESS)
+				valueSize = (DWORD) (regKeyBuf.Size() - strSize - 2);
+				LONG queryStatus = RegQueryValueExA (regKey, filterReg.c_str(), NULL, NULL, pbRegKeyBuf, &valueSize);
+				if (queryStatus != ERROR_SUCCESS && queryStatus != ERROR_FILE_NOT_FOUND)
 				{
-					StringCchCopyA ((char *) pbExpectedRegKeyBuf, expectedRegKeyBuf.Size(), filter.c_str());
-					pbExpectedRegKeyBuf [strSize] = 0;
-					expectedSize = strSize + 1;
+					// Never replace a value that could not be read.
+					SetLastError (queryStatus);
+					throw_sys_if (true);
+				}
+
+				if (queryStatus == ERROR_FILE_NOT_FOUND || valueSize <= 2)
+				{
+					StringCchCopyA ((char *) pbRegKeyBuf, regKeyBuf.Size(), filter.c_str());
+					pbRegKeyBuf [strSize] = 0;
+					valueSize = strSize + 1;
 				}
 				else
 				{
-					expectedSize = initialSize;
-					AppendToMultiString ((char *) pbExpectedRegKeyBuf, (DWORD) expectedRegKeyBuf.Size(), expectedSize, filter.c_str());
+					// Guarantee double zero termination
+					pbRegKeyBuf [valueSize] = 0;
+					pbRegKeyBuf [valueSize + 1] = 0;
+
+					if (MultiStringContains ((const char *) pbRegKeyBuf, filter.c_str()))
+						return;
+
+					AppendToMultiString ((char *) pbRegKeyBuf, (DWORD) regKeyBuf.Size(), valueSize, filter.c_str());
 				}
 
-				RegisterDriverInf (registerFilter, filter, filterReg, ParentWindow, regKey);
-
-				// check if operation successful
-				initialSize = (DWORD) outputRegKeyBuf.Size() - 2;
-				if (RegQueryValueExA (regKey, filterReg.c_str(), NULL, NULL, pbOutputRegKeyBuf, &initialSize) != ERROR_SUCCESS)
-				{
-					pbOutputRegKeyBuf [0] = 0;
-					pbOutputRegKeyBuf [1] = 0;
-				}
-				else
-				{
-					// append two \0 at the end if they are missing
-					if (pbOutputRegKeyBuf [initialSize - 1] != 0)
-					{
-						pbOutputRegKeyBuf [initialSize] = 0;
-						pbOutputRegKeyBuf [initialSize + 1] = 0;
-					}
-					else if (pbOutputRegKeyBuf [initialSize - 2] != 0)
-					{
-						pbOutputRegKeyBuf [initialSize] = 0;
-					}
-				}
-
-				if (!CompareMultiString ((char *) pbExpectedRegKeyBuf, (char *) pbOutputRegKeyBuf))
-				{
-					// Set value manually
-					SetLastError (RegSetValueExA (regKey, filterReg.c_str(), 0, REG_MULTI_SZ, pbExpectedRegKeyBuf, expectedSize));
-					throw_sys_if (GetLastError() != ERROR_SUCCESS);
-				}
+				SetLastError (RegSetValueExA (regKey, filterReg.c_str(), 0, REG_MULTI_SZ, pbRegKeyBuf, valueSize));
+				throw_sys_if (GetLastError() != ERROR_SUCCESS);
 			}
 		}
 		else
 		{
-			RegisterDriverInf (registerFilter, filter, filterReg, ParentWindow, regKey);
-
-			// remove value in case it was not done properly
+			// Remove the filter from the value directly (no setup file is staged).
 			Buffer regKeyBuf(65536);
 			uint8* pbRegKeyBuf = regKeyBuf.Ptr ();
 

@@ -16,6 +16,7 @@
 #include <limits.h>
 #include <poll.h>
 #include <stdio.h>
+#include <string.h>
 #include <sstream>
 #include <unistd.h>
 #include <sys/resource.h>
@@ -704,41 +705,89 @@ namespace VeraCrypt
 	}
 
 #if defined(TC_LINUX)
+	// Returns the canonical path of the AppImage mount that contains the running
+	// executable, or an empty string. Environment variables alone cannot satisfy this:
+	// the running image comes from /proc/self/exe, and APPDIR must be a real mount point.
+	static string GetAppImageMountDirectory ()
+	{
+		const char* appImageEnv = getenv ("APPIMAGE");
+		const char* appDirEnv = getenv ("APPDIR");
+		if (!appImageEnv || !appDirEnv || appDirEnv[0] != '/')
+			return string();
+
+		char resolved[PATH_MAX];
+		if (!realpath (appDirEnv, resolved))
+			return string();
+		const string appDir = resolved;
+
+		// AppImage runtimes mount at /tmp/.mount_<first six characters of the file name><random>.
+		const string appImageMountPrefix = "/tmp/.mount_";
+		if (appDir.rfind (appImageMountPrefix, 0) != 0 || appDir.find ('/', appImageMountPrefix.length()) != string::npos)
+			return string();
+
+		const string nameFragment = StringConverter::ToLower (appDir.substr (appImageMountPrefix.length(), 6));
+		if (nameFragment != "lambcr" && nameFragment != "veracr")
+			return string();
+
+		ssize_t length = readlink ("/proc/self/exe", resolved, sizeof (resolved) - 1);
+		if (length <= 0)
+			return string();
+		resolved[length] = 0;
+		if (string (resolved).rfind (appDir + "/", 0) != 0)
+			return string();
+
+		// A directory laid out in /tmp is not enough: APPDIR must be a mounted filesystem.
+		struct stat dirInfo, parentInfo;
+		if (stat (appDir.c_str(), &dirInfo) != 0 || !S_ISDIR (dirInfo.st_mode)
+			|| stat ((appDir + "/..").c_str(), &parentInfo) != 0 || dirInfo.st_dev == parentInfo.st_dev)
+			return string();
+
+		return appDir;
+	}
+
 	bool Process::IsRunningUnderAppImage (const string &executablePath)
 	{
 		if (executablePath.empty())
 			return false;
 
-		// AppImage detection logic:
-		// Check that APPIMAGE and APPDIR environment variables are set
-		// Check that the executable path starts with APPDIR
-		// Check that APPDIR itself starts with the expected AppImage mount prefix
-		const char* appImageEnv = getenv("APPIMAGE");
-		const char* appDirEnv = getenv("APPDIR");
+		const string appDir = GetAppImageMountDirectory();
+		return !appDir.empty() && executablePath.rfind (appDir + "/", 0) == 0;
+	}
 
-		if (appImageEnv && appDirEnv)
-		{
-			string appDirString = appDirEnv;
-			const std::string appImageMountPrefix = "/tmp/.mount_";
-			const std::string appImageMountSuffixPattern = "veracr"; // Lowercase for case-insensitive comparison
+	string Process::GetTrustedAppImagePath ()
+	{
+		if (GetAppImageMountDirectory().empty())
+			return string();
 
-			if (!appDirString.empty() &&
-				executablePath.rfind(appDirString, 0) == 0 &&
-				appDirString.rfind(appImageMountPrefix, 0) == 0)
-			{
-				// Ensure appDirString has enough room for appImageMountPrefix and appImageMountSuffixPattern
-				if (appDirString.length() > appImageMountPrefix.length() + appImageMountSuffixPattern.length())
-				{
-					std::string actualSuffixPart = appDirString.substr(appImageMountPrefix.length(), appImageMountSuffixPattern.length());
-					if (StringConverter::ToLower(actualSuffixPart) == appImageMountSuffixPattern)
-					{
-						// All conditions met, this is the AppImage scenario.
-						return true;
-					}
-				}
-			}
-		}
-		return false;
+		const char* appImageEnv = getenv ("APPIMAGE");
+		if (!appImageEnv || appImageEnv[0] != '/')
+			return string();
+
+		char resolved[PATH_MAX];
+		if (!realpath (appImageEnv, resolved))
+			return string();
+
+		// The privilege helper executes this file, so it must be a regular executable that
+		// only its owner can change, and that owner must be root or the requesting user.
+		struct stat info;
+		const uid_t realUserId = getuid();
+		if (stat (resolved, &info) != 0 || !S_ISREG (info.st_mode)
+			|| (info.st_uid != 0 && info.st_uid != realUserId)
+			|| (info.st_mode & (S_IWGRP | S_IWOTH)) != 0
+			|| (info.st_mode & S_IXUSR) == 0)
+			return string();
+
+		// AppImage type 1 and 2 files carry "AI" plus the type byte at offset 8 of their ELF header.
+		int fd = open (resolved, O_RDONLY | O_CLOEXEC);
+		if (fd == -1)
+			return string();
+		unsigned char header[11];
+		const bool appImageMagic = pread (fd, header, sizeof (header), 0) == (ssize_t) sizeof (header)
+			&& memcmp (header, "\x7f" "ELF", 4) == 0
+			&& header[8] == 'A' && header[9] == 'I' && (header[10] == 1 || header[10] == 2);
+		close (fd);
+
+		return appImageMagic ? string (resolved) : string();
 	}
 #endif
 }

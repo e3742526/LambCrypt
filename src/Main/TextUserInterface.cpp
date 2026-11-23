@@ -175,9 +175,15 @@ namespace VeraCrypt
 				return shared_ptr <VolumePassword>(new VolumePassword ());
 			}
 
-			for (size_t i = 0; i < length && i < VolumePassword::MaxSize; ++i)
+			// Pass on at most one character more than any valid password, so an overlong
+			// input is still rejected as too long, and never read past what was copied.
+			if (length > VolumePassword::MaxSize + 1)
+				length = VolumePassword::MaxSize + 1;
+
+			for (size_t i = 0; i < passwordStr.size(); ++i)
 			{
-				passwordBuf[i] = (wchar_t) passwordStr[i];
+				if (i < length)
+					passwordBuf[i] = (wchar_t) passwordStr[i];
 				const_cast <wchar_t *> (passwordStr.wc_str())[i] = L'X';
 			}
 

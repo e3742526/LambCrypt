@@ -5316,6 +5316,7 @@ error:
 static int DriverLoad ()
 {
 	HANDLE file;
+	HANDLE hDriverFile;
 	WIN32_FIND_DATA find;
 	SC_HANDLE hManager, hService = NULL;
 	wchar_t driverPath[TC_MAX_PATH*2];
@@ -5348,10 +5349,26 @@ static int DriverLoad ()
 
 	FindClose (file);
 
+	// The driver beside a portable executable is often in a user-writable folder. Hold it
+	// open without write or delete sharing, so it cannot be replaced, renamed or moved
+	// between the signature check and the kernel loading it, then verify its signature.
+	hDriverFile = CreateFileW (driverPath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (hDriverFile == INVALID_HANDLE_VALUE)
+		return ERR_OS_ERROR;
+
+	if (!VerifyModuleSignatureAllowingMicrosoftWHQL (driverPath))
+	{
+		CloseHandle (hDriverFile);
+		MessageBoxW (0, GetString ("DIST_PACKAGE_CORRUPTED"), lpszTitle, ICON_HAND);
+		return ERR_DONT_REPORT;
+	}
+
 	hManager = OpenSCManager (NULL, NULL, SC_MANAGER_ALL_ACCESS);
 	if (hManager == NULL)
 	{
-		if (GetLastError () == ERROR_ACCESS_DENIED)
+		DWORD managerError = GetLastError ();
+		CloseHandle (hDriverFile);
+		if (managerError == ERROR_ACCESS_DENIED)
 		{
 			MessageBoxW (0, GetString ("ADMIN_PRIVILEGES_DRIVER"), lpszTitle, ICON_HAND);
 			return ERR_DONT_REPORT;
@@ -5376,6 +5393,7 @@ static int DriverLoad ()
 	if (hService == NULL)
 	{
 		CloseServiceHandle (hManager);
+		CloseHandle (hDriverFile);
 		return ERR_OS_ERROR;
 	}
 
@@ -5384,6 +5402,7 @@ static int DriverLoad ()
 
 	CloseServiceHandle (hManager);
 	CloseServiceHandle (hService);
+	CloseHandle (hDriverFile);
 
 	return !res ? ERR_OS_ERROR : ERROR_SUCCESS;
 }
@@ -13980,50 +13999,50 @@ BOOL RemoveDeviceWriteProtection (HWND hwndDlg, wchar_t *devicePath)
 	int driveNumber;
 	int partitionNumber;
 
-	wchar_t temp[MAX_PATH*2];
-	wchar_t cmdBatch[MAX_PATH*2];
-	wchar_t diskpartScript[MAX_PATH*2];
+	wchar_t systemDir[MAX_PATH];
+	wchar_t cmdPath[MAX_PATH * 2];
+	wchar_t diskpartCommands[256];
+	wchar_t parameters[MAX_PATH * 4];
 
-	if (swscanf (devicePath, L"\\Device\\Harddisk%d\\Partition%d", &driveNumber, &partitionNumber) != 2)
+	if (swscanf (devicePath, L"\\Device\\Harddisk%d\\Partition%d", &driveNumber, &partitionNumber) != 2
+		|| driveNumber < 0 || partitionNumber < 0)
 		return FALSE;
 
-	if (GetTempPath (ARRAYSIZE (temp), temp) == 0)
-		return FALSE;
-
-	StringCbPrintfW (cmdBatch, sizeof (cmdBatch), L"%s\\VeraCrypt_Write_Protection_Removal.cmd", temp);
-	StringCbPrintfW (diskpartScript, sizeof (diskpartScript), L"%s\\VeraCrypt_Write_Protection_Removal.diskpart", temp);
-
-	FILE *f = _wfopen (cmdBatch, L"w");
-	if (!f)
+	// The commands are passed to an elevated system cmd.exe on its command line and piped
+	// into diskpart. Nothing is staged in a user-writable location (such as %TEMP%) that
+	// another process could replace between being written and being run elevated. The
+	// only variable content is the two validated integers.
+	if (!GetSystemDirectoryW (systemDir, ARRAYSIZE (systemDir)))
 	{
 		handleWin32Error (hwndDlg, SRC_POS);
 		return FALSE;
 	}
 
-	fwprintf (f, L"@diskpart /s \"%s\"\n@pause\n@del \"%s\" \"%s\"", diskpartScript, diskpartScript, cmdBatch);
-
-	CheckFileStreamWriteErrors (hwndDlg, f, cmdBatch);
-	fclose (f);
-
-	f = _wfopen (diskpartScript, L"w");
-	if (!f)
-	{
-		handleWin32Error (hwndDlg, SRC_POS);
-		DeleteFile (cmdBatch);
+	if (FAILED (StringCbPrintfW (cmdPath, sizeof (cmdPath), L"%s\\cmd.exe", systemDir)))
 		return FALSE;
-	}
-
-	fwprintf (f, L"select disk %d\nattributes disk clear readonly\n", driveNumber);
 
 	if (partitionNumber != 0)
-		fwprintf (f, L"select partition %d\nattributes volume clear readonly\n", partitionNumber);
+	{
+		if (FAILED (StringCbPrintfW (diskpartCommands, sizeof (diskpartCommands),
+			L"echo select disk %d&echo attributes disk clear readonly&echo select partition %d&echo attributes volume clear readonly&echo exit",
+			driveNumber, partitionNumber)))
+			return FALSE;
+	}
+	else if (FAILED (StringCbPrintfW (diskpartCommands, sizeof (diskpartCommands),
+		L"echo select disk %d&echo attributes disk clear readonly&echo exit", driveNumber)))
+		return FALSE;
 
-	fwprintf (f, L"exit\n");
+	// cmd.exe /c removes the outermost pair of quotes and keeps the inner ones.
+	if (FAILED (StringCbPrintfW (parameters, sizeof (parameters), L"/c \"(%s)|\"%s\\diskpart.exe\"&pause\"", diskpartCommands, systemDir)))
+		return FALSE;
 
-	CheckFileStreamWriteErrors (hwndDlg, f, diskpartScript);
-	fclose (f);
-
-	ShellExecute (NULL, (!IsAdmin() && IsUacSupported()) ? L"runas" : L"open", cmdBatch, NULL, NULL, SW_SHOW);
+	if ((INT_PTR) ShellExecuteW (NULL, (!IsAdmin() && IsUacSupported()) ? L"runas" : L"open", cmdPath, parameters, systemDir, SW_SHOW) <= 32)
+	{
+		// A declined elevation prompt is not an error.
+		if (GetLastError () != ERROR_CANCELLED)
+			handleWin32Error (hwndDlg, SRC_POS);
+		return FALSE;
+	}
 
 	return TRUE;
 }
@@ -14371,28 +14390,6 @@ void HandleShowPasswordFieldAction (HWND hwndDlg, UINT checkBoxId, UINT edit1Id,
 			0);
 		InvalidateRect (GetDlgItem (hwndDlg, edit2Id), NULL, TRUE);
 	}
-}
-
-void RegisterDriverInf (bool registerFilter, const string& filter, const string& filterReg, HWND ParentWindow, HKEY regKey)
-{
-	wstring infFileName = GetTempPathString() + L"\\veracrypt_driver_setup.inf";
-
-	File infFile (infFileName, false, true);
-	finally_do_arg (wstring, infFileName, { DeleteFile (finally_arg.c_str()); });
-
-	string infTxt = "[veracrypt]\r\n"
-					+ string (registerFilter ? "Add" : "Del") + "Reg=veracrypt_reg\r\n\r\n"
-					"[veracrypt_reg]\r\n"
-					"HKR,,\"" + filterReg + "\",0x0001" + string (registerFilter ? "0008" : "8002") + ",\"" + filter + "\"\r\n";
-
-	infFile.Write ((uint8 *) infTxt.c_str(), (DWORD) infTxt.size());
-	infFile.Close();
-
-	HINF hInf = SetupOpenInfFileW (infFileName.c_str(), NULL, INF_STYLE_OLDNT | INF_STYLE_WIN4, NULL);
-	throw_sys_if (hInf == INVALID_HANDLE_VALUE);
-	finally_do_arg (HINF, hInf, { SetupCloseInfFile (finally_arg); });
-
-	throw_sys_if (!SetupInstallFromInfSectionW (ParentWindow, hInf, L"veracrypt", SPINST_REGISTRY, regKey, NULL, 0, NULL, NULL, NULL, NULL));
 }
 
 HKEY OpenDeviceClassRegKey (const GUID *deviceClassGuid)
