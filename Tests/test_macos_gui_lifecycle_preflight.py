@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise the isolated FAT trial preflight with simulated Disk Images inventory."""
+"""Exercise FAT trial preflight and teardown checks with simulated inventories."""
 from pathlib import Path
 import plistlib
 import subprocess
@@ -73,6 +73,42 @@ class FatPreflightTests(unittest.TestCase):
     def test_unrelated_image_allows_trial(self):
         self.exercise({"images": [{"image-path": "/tmp/other/volume.dmg"}]},
                       (AssertionError, "Scratch creation reached"))
+
+
+class FatTeardownTests(unittest.TestCase):
+    root = Path("/private/tmp/vc-gui-lifecycle-test")
+    volume = root / "ordinary.hc"
+    aux = Path("/private/tmp/lambcrypt-fskit.12345678/.veracrypt_aux_mnt")
+    active = (42, aux, None)
+
+    def test_retained_mount_or_image_refused_before_path_probes(self):
+        retained_image = {"images": [{"image-path": str(self.aux / "volume.dmg")}]}
+        for mounts, inventory, error in (
+            (f"/dev/disk9s1 on {self.root / 'mounted'} (msdos, local)", {"images": []},
+             (AssertionError, "Disposable mount remains")),
+            (f"lambcryptfs on {self.aux} (lambcryptfs, local)", {"images": []},
+             (AssertionError, "Auxiliary mount remains")),
+            ("", retained_image, (RuntimeError, "remains attached")),
+            ("", {}, (RuntimeError, "inventory is incomplete")),
+        ):
+            with (self.subTest(mounts=mounts, inventory=inventory),
+                  patch.object(lifecycle.subprocess, "check_output", return_value=plistlib.dumps(inventory)),
+                  patch.object(lifecycle.os, "kill", side_effect=ProcessLookupError),
+                  patch.object(Path, "exists", side_effect=AssertionError("probed a retained mount path")) as probe,
+                  patch.object(lifecycle.subprocess, "run") as lsof):
+                with self.assertRaisesRegex(*error):
+                    lifecycle.confirm_closed(lambda: mounts, self.root, self.volume, self.active, kernel_fat=True)
+                probe.assert_not_called()
+                lsof.assert_not_called()
+
+    def test_clean_inventory_checks_backing_handle_with_deadline(self):
+        with (patch.object(lifecycle.subprocess, "check_output", return_value=plistlib.dumps({"images": []})),
+              patch.object(lifecycle.os, "kill", side_effect=ProcessLookupError),
+              patch.object(Path, "exists", return_value=False),
+              patch.object(lifecycle.subprocess, "run", return_value=SimpleNamespace(returncode=1, stdout="")) as lsof):
+            lifecycle.confirm_closed(lambda: "", self.root, self.volume, self.active, kernel_fat=True)
+        lsof.assert_called_once_with(["/usr/sbin/lsof", "-t", str(self.volume)],
+                                     capture_output=True, text=True, timeout=8)
 
 
 if __name__ == "__main__":

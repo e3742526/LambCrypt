@@ -206,6 +206,7 @@ static vector<pair<string, int>> Commands;
 static vector<list<string>> DismountArguments;
 static string TimeoutCommand;
 static bool BusyImage;
+static int AuxiliaryUnmountFailures;
 static int MountValidations, RefuseValidation;
 static string DismountMountPoint;
 static bool FlushFailure;
@@ -249,6 +250,10 @@ struct Process {
         if (path == TimeoutCommand) throw TimeOut{};
         if (path == "/sbin/mount" && !AuxiliaryFailure.empty()) throw ExecutedProcessFailed(AuxiliaryFailure);
         if (BusyImage && arguments.front() == "detach") throw ExecutedProcessFailed("Resource busy");
+        if (path == "/sbin/umount" && AuxiliaryUnmountFailures > 0) {
+            --AuxiliaryUnmountFailures;
+            throw ExecutedProcessFailed("Resource busy");
+        }
         if (arguments.front() == "detach" && deadline != 0) ReadPostDetachInventory = true;
         if (arguments.front() == "attach") {
             AttachCommands.push_back(arguments);
@@ -498,7 +503,7 @@ public:
         publication_fixture = r'''
 namespace WorkerPublicationTest {
 static chrono::milliseconds Elapsed;
-static int PublishAfter, Probes, Requests, MountedChecks;
+static int PublishAfter, UnavailableThrough, Probes, Requests, MountedChecks;
 static bool SentActivation, Cancel, InitiallyUnavailable;
 struct PublicationClock {
     using time_point = chrono::steady_clock::time_point;
@@ -506,6 +511,7 @@ struct PublicationClock {
 };
 static bool PublicationTableEntry(const string &, fsid_t &identity) {
     ++Probes;
+    if (Probes <= UnavailableThrough) throw SystemException{};
     if (InitiallyUnavailable && Probes == 1) throw SystemException{};
     if (PublishAfter != 0 && Probes == 2) throw SystemException{};
     identity = {{42, 7}};
@@ -547,11 +553,13 @@ static void SendMediaIdentity(int, uint64) { throw runtime_error("unexpected med
 #define accept Accept
 #define close Close
 #define MountTableEntry PublicationTableEntry
-static void Simulate(int publishAfter, bool cancel = false, bool initiallyUnavailable = false) {
+static void Simulate(int publishAfter, bool cancel = false, bool initiallyUnavailable = false,
+                     int unavailableThrough = 0) {
     Elapsed = chrono::milliseconds(0);
     Probes = Requests = MountedChecks = 0;
     SentActivation = false;
     PublishAfter = publishAfter;
+    UnavailableThrough = unavailableThrough;
     Cancel = cancel;
     InitiallyUnavailable = initiallyUnavailable;
     const int listener = 12, commit = 13, directory = 14;
@@ -601,6 +609,12 @@ static void CheckLateWorkerPublication() {
     Simulate(3, true, true);
     Require(Probes == 3 && Requests == 1 && MountedChecks == 1,
             "worker failed to retain a mount published after an inconclusive cancellation");
+    Simulate(54, false, false, 53);
+    Require(Probes == 54 && Requests == 1 && MountedChecks == 1,
+            "worker exited at the publication deadline without a usable mount table");
+    Simulate(0, false, false, 53);
+    Require(Probes == 54 && Requests == 1 && MountedChecks == 0 && Elapsed == chrono::milliseconds(10600),
+            "worker did not release its resources when inventory recovered and confirmed absence");
 }
 static void CheckBackingReservation(const string &root, const string &image) {
     const int original = open(image.c_str(), O_RDONLY | O_CLOEXEC);
@@ -958,14 +972,28 @@ static void CheckDismount(CoreMacOSX &core, const string &image, const string &r
     Require(DismountArguments == vector<list<string>>{{"detach", "/dev/disk42", "-force"}, {"-f", "--", mounted->AuxMountPoint}},
             "explicit force did not reach both FSKit teardown steps");
 
-    MountValidations = 0;
-    RefuseValidation = 3;
-    DismountArguments.clear();
-    bool changed = false;
-    try { core.DismountVolume(mounted, true, false); }
-    catch (const ParameterIncorrect &) { changed = true; }
-    Require(changed && DismountArguments == vector<list<string>>{{"detach", "/dev/disk42", "-force"}},
-            "explicit force tried the auxiliary unmount after identity validation failed");
+    for (bool force : {false, true}) {
+        for (bool retry : {false, true}) {
+            MountValidations = 0;
+            RefuseValidation = retry ? 4 : 3;
+            AuxiliaryUnmountFailures = retry ? 1 : 0;
+            DismountArguments.clear();
+            list<string> detach = {"detach", "/dev/disk42"};
+            list<string> unmount = {"--", mounted->AuxMountPoint};
+            if (force) {
+                detach.push_back("-force");
+                unmount.push_front("-f");
+            }
+            vector<list<string>> expected = {detach};
+            if (retry) expected.push_back(unmount);
+
+            bool changed = false;
+            try { core.DismountVolume(mounted, force, false); }
+            catch (const ParameterIncorrect &) { changed = true; }
+            Require(changed && DismountArguments == expected,
+                    "FSKit teardown tried an auxiliary unmount after identity validation failed");
+        }
+    }
     RefuseValidation = 0;
 
     Commands.clear();
@@ -1008,6 +1036,10 @@ int main(int argc, char **argv) {
             DevicePath device; DirectoryPath mount;
             Require(!FindDiskImageInfoByImagePath(Read(root+"/"+name),image,device,mount), "false match");
         }
+        Inventory = Read(root + "/absent");
+        const DirectoryPath vanishedBacking = root + "/removed-auxiliary";
+        Require(FSKit::GetAttachedDiskImageDevice(vanishedBacking).IsEmpty(),
+                "an empty image inventory depended on the backing path");
         for (const auto &name : {"unknown_alias", "unknown_record", "bad_entities", "broken"}) {
             bool failed=false; DevicePath device; DirectoryPath mount;
             try { FindDiskImageInfoByImagePath(Read(root+"/"+name),image,device,mount); }

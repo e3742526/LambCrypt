@@ -271,7 +271,9 @@ FAT and FSKit configuration. The exact kernel dependency remains unknown.
    immediately. Focused discovery tests verified these startup races offline.
    The dismount tests also verify that a matching image with an unusable
    device record preserves the FSKit backing mount. Verified image absence
-   still permits auxiliary cleanup. After an explicit detach reports success,
+   still permits auxiliary cleanup. A valid empty Disk Images inventory
+   confirms absence without resolving the backing path, which may already
+   have disappeared. After an explicit detach reports success,
    the app rechecks the exact image under its teardown lock. A surviving
    attachment or incomplete inventory leaves the backing mount and worker
    available. The offline check covers ordinary and forced dismount and
@@ -280,6 +282,10 @@ FAT and FSKit configuration. The exact kernel dependency remains unknown.
    must agree on its device and mount point. Conflicts leave discovery
    unconfirmed and stop teardown before invoking detach. The regression
    covers canonical paths, aliases, and conflicts after a successful detach.
+   After detach, ordinary and forced FSKit dismount both recheck the worker
+   identity under the teardown lock before each auxiliary unmount attempt.
+   The offline regression verifies that a changed identity stops the initial
+   attempt or a retry after a busy response.
 
    In a separate socket-only read benchmark against the same worker, the
    deadlines reduced median 16 KiB throughput from 631 to 590 MiB/s after
@@ -353,13 +359,19 @@ FAT and FSKit configuration. The exact kernel dependency remains unknown.
    volume that LambCrypt could unmount. A detach timeout could be retried to
    remove the auxiliary mount. After an auxiliary unmount timeout, the
    backing file was already closed. Each case cleared the test mounts and
-   preserved the encrypted container hash. The worker now keeps serving
-   startup requests for up to 10 seconds while checking for a late mount.
+   preserved the encrypted container hash. The worker keeps serving startup
+   requests while checking for a late mount. After the 10-second deadline,
+   it releases the backing file only when a usable mount table confirms
+   absence. While the table is unavailable, it retains the worker and its
+   reservations until it can confirm the mount or its absence.
    In a separate signed trial, a delayed helper published the mount after the
    CLI reported the timeout. LambCrypt listed it, read the known VeraCrypt
    payload, and dismounted it. When the helper never mounted the image, the
    backing file was released after 10.1 seconds and the next mount succeeded.
-   Recovery from a longer system stall remains unverified.
+   The offline check simulates the inventory failing past the deadline, then
+   verifies that the worker serves a late mount or releases the backing file
+   once absence is confirmed. Recovery from a longer live stall remains
+   unverified.
    A disposable nested VeraCrypt-format container verified that the FSKit
    worker rejects an overlapping write and blocks later writes to the outer
    volume. Discovery reported that damage was prevented and the hidden
@@ -447,8 +459,8 @@ FAT and FSKit configuration. The exact kernel dependency remains unknown.
    both FAT drivers read-only with each Disk Images path. All four trials
    matched the raw VeraCrypt checksum and FAT payload, refused busy eject,
    and released the worker after eject. Writable FAT on the in-kernel Disk
-   Images path remains unverified. The local virtualization inventory
-   contains no configured Tahoe guest.
+   Images path remains unverified. The isolated LambCrypt Tahoe Lab guest
+   runs the same macOS 26.6.2 build (25G83) as the physical Mac.
 
    A separate signed preflight with the diagnostic module passed read-only
    with both FAT drivers on default Disk Images and with kernel FAT on the
@@ -484,11 +496,18 @@ FAT and FSKit configuration. The exact kernel dependency remains unknown.
    clean. The writable image retained its dirty flag in both copies. The
    kernel dependency behind the wait remains unverified. The diagnostic
    allows up to 12 seconds for the two-second process sample.
-   Run the missing APFS control with automatic FAT and in-kernel Disk Images
-   first on the isolated host. The runner saves a bounded kernel and Disk
-   Arbitration trace for completed detaches after checking the mount and
-   image inventories. Use the same read-only fixture and compare kernel
-   and FAT deactivation events before repeating the stalled case.
+   On November 22, 2026 the isolated Tahoe guest passed the APFS-backed,
+   read-only FAT16 control with in-kernel Disk Images and automatic FAT.
+   The runner verified the fixture checksum and FAT root, confirmed Apple's
+   FSKit FAT driver, and verified the image and mount were gone after detach.
+   `hdiutil detach` took 10.47 s end to end. Disk Arbitration spent about
+   10.39 s between the unmount request and the start of unmount. The kernel
+   logged `lifs_unmount` start at 20:40:42.587 UTC and completion at
+   20:40:42.590 UTC, then Disk Arbitration reported the eject. The 27 runner
+   checks also passed in the guest. The matched FSKit-backed test remains
+   pending guest provisioning.
+   Repeat it with the same read-only fixture and mount sequence to compare
+   kernel and FAT deactivation events on the same VM.
    The runner holds a per-user lock and checks macOS's mount table and Disk
    Images inventory before preparing each new fixture. It refused to start
    another case while the affected auxiliary mount remained present.
@@ -504,5 +523,79 @@ FAT and FSKit configuration. The exact kernel dependency remains unknown.
    comparing FAT12 with FAT16. FAT12 exercises unmount without the forced
    flag rewrite. Vary the mount sequence in a separate comparison with a
    fixed fixture. Run the matching APFS control before each FSKit case.
-   The new controls passed offline checks and await isolated Tahoe
-   verification.
+   Both APFS-backed controls passed in the Tahoe guest. The VeraCrypt FAT12
+   fixture mounted during attachment, and FAT16 mounted separately after
+   attachment. Both used in-kernel Disk Images and Apple's automatic FSKit
+   FAT driver. The runner verified the image checksums and both ejects.
+   The kernel logged `lifs_unmount` completion in both cases, and the final
+   inventory found neither image nor mount. The matched FSKit-backed trials
+   are pending.
+
+   The first FAT12 run stopped at fixture verification because macOS
+   exposed `Dummy.txt` and the runner expected the uppercase FAT alias.
+   The corrected runner compares the name case-insensitively and verifies
+   the file's five bytes. Its offline regression covers both FAT spellings,
+   lowercase, and invalid payloads. The corrected run verified and ejected
+   the retained guest image before using fresh copies for the two controls.
+
+   An additional read-only control placed the same FAT16 image on a FAT16
+   volume mounted by Apple's own FSKit driver in the guest. The inner image
+   rejected a writable open, matched the original checksum, and mounted via
+   in-kernel Disk Images and Apple's automatic FAT driver during attach.
+   The inner and outer detaches each took 40 ms end to end. The kernel
+   reported `lifs_unmount` completion for both, and the final mount and
+   image inventories were clear. The prior stall did not reproduce with
+   Apple's FAT driver serving the backing file. The matched test using the
+   LambCrypt diagnostic extension is needed to compare those backing paths
+   on the same VM.
+
+   The writable comparison used the same FAT16 fixture, in-kernel Disk
+   Images attachment and automatic FAT driver on the same VM. On APFS it
+   wrote and synced the payload, detached, and matched the payload checksum
+   after a read-only remount. With Apple's writable FSKit FAT volume serving
+   the backing file, write, sync and read-back passed, then inner detach hit
+   the 30-second deadline. Disk Arbitration reported unmount in progress and
+   the kernel logged `lifs_unmount` start without a matching completion in
+   the capture. The inner mount entry disappeared while the outer FAT mount
+   remained. The trial stopped before remounting or detaching the outer image.
+
+   The guest sample and earlier writable LambCrypt sample have the same FAT
+   binary UUID and frames at the same binary offsets down to
+   `FSBlockDeviceResource metadataWriteFrom` and its synchronous IOKit call.
+   This reproduces the writable symptom using Apple's filesystem and image
+   layers alone. The read-only stall with LambCrypt backing remains a
+   separate comparison. The retained guest images and trace are available for
+   investigation. A later inventory confirmed that both disk images still
+   had I/O Registry media objects and only the outer image still appeared
+   in the mount table. A single ordinary `diskutil eject` on the verified
+   inner image timed out after 15 seconds. Both images remained attached.
+   Production writable FAT and the kernel FAT workaround still need
+   verification before the stage gate can pass.
+
+   The guest also passed the writable APFS-backed FAT16 control with
+   in-kernel Disk Images and Apple's kernel FAT driver. The runner
+   confirmed both selections on the writable and read-only attachments.
+   It wrote and synced the payload, matched its SHA-256 after a read-only
+   remount, confirmed both ejects, and found no residual diagnostic mount.
+   This establishes the direct control for the writable kernel FAT pair.
+   A guest-only launcher now pairs that control with the same inner mount
+   route on an Apple FSKit FAT backing. Archive and command routing checks
+   passed offline. The nested comparison can run without LambCrypt signing
+   once a clean guest is available. The comparison tests the explicit kernel
+   mount route, which also changes mounting from during attach to after
+   attach. The nested comparison and production writable trial remain pending.
+
+   The diagnostic bundle for the guest builds from the reproducer's recorded
+   revision with Xcode 27.2, targeting macOS 26.0 on arm64. The wxWidgets
+   dependency's PCRE2 library was linked statically for this separate lab
+   build. The executable and extension link only macOS libraries. The crypto
+   self-test and raw backing I/O test passed. The guest reports a provisioning
+   UDID, and the current development profile lists only the physical Mac.
+
+   A separate production FAT trial bundle was rebuilt from the current
+   worktree with the same static PCRE2 selection. Its app and extension are
+   arm64, target macOS 26.0, and link only macOS dynamic libraries. The
+   launcher carries the production lifecycle test and refuses to start on a
+   physical Mac or with an unprovisioned bundle. The signing step uses the
+   private environment and verifies that the development profile covers the
+   guest before embedding it. Live signing and mounting remain pending.

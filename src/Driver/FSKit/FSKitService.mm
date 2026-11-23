@@ -267,11 +267,15 @@ namespace VeraCrypt
 					}
 					else if (observeMount)
 					{
-						// After a helper timeout the mount may still be published by macOS.
-						try { committed = MountTableEntry (mountPoint, identity); }
+						// Keep serving a late mount until a usable inventory can confirm
+						// its absence after the publication deadline.
+						try
+						{
+							committed = MountTableEntry (mountPoint, identity);
+							if (!committed && Clock::now() >= publicationDeadline)
+								break;
+						}
 						catch (const SystemException &) { }
-						if (!committed && Clock::now() >= publicationDeadline)
-							break;
 					}
 
 					if (helper > 0)

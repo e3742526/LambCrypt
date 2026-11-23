@@ -319,10 +319,10 @@ def build(build_dir, work):
         "-I", source, "-I", source / "Crypto", "-I", source / "Crypto/Argon2/include",
         "-I", source / "PKCS11",
     ]
-    # Substitute positioned I/O only in the production file implementation.
-    # Successful reads and writes still use real system calls.
+    # Inject faults only in the production file implementation. Successful
+    # reads, writes, and syncs still use real system calls.
     subprocess.run([
-        *compiler, "-Dpread=TestPositionedRead", "-Dpwrite=TestPositionedWrite",
+        *compiler, "-Dpread=TestPositionedRead", "-Dpwrite=TestPositionedWrite", "-Dfsync=TestFileSync",
         "-c", source / "Platform/Unix/File.cpp", "-o", work / "file-io-test.o",
     ], check=True)
     subprocess.run([
@@ -392,6 +392,18 @@ def inspect_worker(work):
     reply = exchange(work, packet)
     assert struct.unpack_from("<II", reply) == (0, 40)
     return struct.unpack_from("<QQ16sQ", reply, 8)
+
+
+def check_sync_failures(work):
+    for mode, expected_error in (("sync-interrupted", 0), ("sync-error", errno.EIO)):
+        with serve(work, 3, mode=mode):
+            _, _, generation, read_only = inspect_worker(work)
+            assert read_only == 0
+            packet = struct.pack("<IIQII16s", SIGNATURE, 5, 0, 0, 0, generation)
+            first = struct.unpack("<II", exchange(work, packet))
+            second = struct.unpack("<II", exchange(work, packet))
+            assert first == (expected_error, 0), (mode, first)
+            assert second == (0, 0), (mode, second)
 
 
 def check_positioned_write_failures(work):
@@ -615,6 +627,7 @@ def main():
         shutil.copyfile(FIXTURE, work / FIXTURE.name)
         build(args.build_dir.resolve(), work)
         subprocess.run([work / "server", "--check-buffer-erase"], check=True, timeout=10)
+        check_sync_failures(work)
         command = [work / "client", work, DIGESTS[FIXTURE.name]]
         with serve(work, 2):
             subprocess.run([work / "client", work, "--enumeration"], check=True, timeout=10)
@@ -673,6 +686,7 @@ def main():
             send.result()
     print("PASS: fresh native activity snapshots, control deadline, and replaced worker rejection")
     print("PASS: native flush matches serial, path, and slot and rejects a replaced worker")
+    print("PASS: encrypted volume sync retries an interruption and still reports I/O errors")
     print("PASS: extension deadlines for sending and receiving, including a fragmented reply and buffer clearing")
     print("PASS: inspection metadata bounds and buffer clearing after an interrupted multi-chunk read")
     print("PASS: FSKit provider honors worker protection and read-only load options")

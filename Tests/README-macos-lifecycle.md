@@ -131,7 +131,9 @@ device with Apple's `mount_msdos` and checks the kernel FAT and protection
 flags. It checks file creation, rename and deletion, a synced payload, and
 busy refusal with the original mount still listed. It then verifies ordinary
 dismount, worker and image release, and payload integrity after a read-only
-reopen. A failure leaves the disposable volume and evidence for diagnosis.
+reopen. The teardown check reads the mount table and Disk Images inventory
+with deadlines before probing the backing paths. The open-file check also
+has a deadline. A failure leaves the disposable volume and evidence for diagnosis.
 Native Finder eject has its own smoke check.
 
 The inactivity check takes about two minutes. It attaches two

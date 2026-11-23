@@ -185,6 +185,18 @@ namespace VeraCrypt
 
 	static bool FindDiskImageInfoByImagePath (const string &xml, const string &imagePath, DevicePath &device, DirectoryPath &mountPoint)
 	{
+		CFHolder plist (ParsePropertyList (xml));
+		if (!plist.Get() || CFGetTypeID (plist.Get()) != CFDictionaryGetTypeID())
+			throw ParameterIncorrect (SRC_POS);
+		CFTypeRef images = CFDictionaryGetValue ((CFDictionaryRef) plist.Get(), CFSTR ("images"));
+		if (!images || CFGetTypeID (images) != CFArrayGetTypeID())
+			throw ParameterIncorrect (SRC_POS);
+		CFArrayRef imageArray = (CFArrayRef) images;
+		const CFIndex imageCount = CFArrayGetCount (imageArray);
+		// An empty inventory proves absence without accessing the backing filesystem.
+		if (imageCount == 0)
+			return false;
+
 		string canonicalImagePath = CanonicalizeDiskImagePath (imagePath);
 		size_t imageSeparator = canonicalImagePath.find_last_of ('/');
 		if (imageSeparator == string::npos || imageSeparator == 0)
@@ -194,18 +206,10 @@ namespace VeraCrypt
 			throw ParameterIncorrect (SRC_POS);
 		const string imageSuffix = canonicalImagePath.substr (auxiliarySeparator);
 
-		CFHolder plist (ParsePropertyList (xml));
-		if (!plist.Get() || CFGetTypeID (plist.Get()) != CFDictionaryGetTypeID())
-			throw ParameterIncorrect (SRC_POS);
-		CFTypeRef images = CFDictionaryGetValue ((CFDictionaryRef) plist.Get(), CFSTR ("images"));
-		if (!images || CFGetTypeID (images) != CFArrayGetTypeID())
-			throw ParameterIncorrect (SRC_POS);
-
-		CFArrayRef imageArray = (CFArrayRef) images;
 		bool uncertain = false;
 		DevicePath matchedDevice;
 		DirectoryPath matchedMount;
-		for (CFIndex i = 0; i < CFArrayGetCount (imageArray); ++i)
+		for (CFIndex i = 0; i < imageCount; ++i)
 		{
 			CFTypeRef image = CFArrayGetValueAtIndex (imageArray, i);
 			if (!image || CFGetTypeID (image) != CFDictionaryGetTypeID())
@@ -459,8 +463,8 @@ namespace VeraCrypt
 		{
 #ifdef VC_MACOSX_FSKIT
 			// Recheck ownership after detaching the disk image and between
-			// forced attempts.
-			if (forceAuxiliaryUnmount)
+			// auxiliary unmount attempts, even for an ordinary dismount.
+			if (fskitMount)
 				ValidateMountedVolume (mountedVolume);
 #endif
 			try

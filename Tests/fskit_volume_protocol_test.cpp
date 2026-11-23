@@ -14,6 +14,18 @@ using namespace VeraCrypt;
 enum class WriteFault { None, Interrupt, Short, Zero, ShortThenFull, Full };
 static WriteFault nextWriteFault = WriteFault::None;
 static bool interruptNextRead = false;
+static int nextSyncError = 0;
+
+extern "C" int TestFileSync (int fd)
+{
+	if (nextSyncError != 0)
+	{
+		errno = nextSyncError;
+		nextSyncError = 0;
+		return -1;
+	}
+	return fsync (fd);
+}
 
 extern "C" ssize_t TestPositionedRead (int fd, void *data, size_t length, off_t offset)
 {
@@ -103,6 +115,8 @@ int main (int argc, char **argv)
 		if (mode == "write-interrupted") nextWriteFault = WriteFault::Interrupt;
 		else if (mode == "write-zero") nextWriteFault = WriteFault::Zero;
 		else if (mode == "write-full") nextWriteFault = WriteFault::ShortThenFull;
+		else if (mode == "sync-interrupted") nextSyncError = EINTR;
+		else if (mode == "sync-error") nextSyncError = EIO;
 		else if (mode != "write") return 2;
 	}
 

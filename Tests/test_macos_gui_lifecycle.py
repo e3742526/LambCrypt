@@ -47,7 +47,7 @@ def require_no_retained_fat_image():
     try:
         inventory = plistlib.loads(subprocess.check_output(["/usr/bin/hdiutil", "info", "-plist"], timeout=8))
     except (OSError, subprocess.SubprocessError, ValueError, ExpatError) as error:
-        raise RuntimeError("could not verify Disk Images inventory before the FAT trial") from error
+        raise RuntimeError("could not verify Disk Images inventory for the FAT trial") from error
     if not isinstance(inventory, dict) or not isinstance(inventory.get("images"), list):
         raise RuntimeError("Disk Images inventory is incomplete")
     for record in inventory["images"]:
@@ -58,6 +58,29 @@ def require_no_retained_fat_image():
         if any(part.startswith((".veracrypt_aux_mnt", "lambcrypt-fskit.", "lambcrypt-fat-repro-"))
                for part in directories):
             raise RuntimeError(f"a previous LambCrypt or VeraCrypt disk image remains attached at {image}")
+
+
+def confirm_closed(mounts, root, volume, active, kernel_fat):
+    mount_table = mounts()
+    assert str(root) not in mount_table, "Disposable mount remains"
+    if kernel_fat:
+        # A stalled detach can leave the image attached after the mount row
+        # disappears. Confirm both inventories before probing its paths.
+        if active:
+            assert f" on {active[1]} (" not in mount_table, "Auxiliary mount remains"
+        require_no_retained_fat_image()
+    if active:
+        pid, aux, endpoint = active
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            pass
+        else:
+            raise AssertionError("Disposable service still running")
+        assert not aux.exists() and not aux.parent.exists(), "Auxiliary mount or directory remains"
+        assert endpoint is None or not endpoint.exists(), "Shutdown endpoint remains"
+    handles = subprocess.run(["/usr/sbin/lsof", "-t", str(volume)], capture_output=True, text=True, timeout=8)
+    assert handles.returncode == 1 and not handles.stdout.strip(), "Backing file still open"
 
 
 def main():
@@ -201,23 +224,6 @@ def main():
         active = (int(identities[0].read_text().split()[0]), aux,
                   Path((aux / "shutdown-socket").read_text().strip()))
 
-    def confirm_closed():
-        if active:
-            pid, aux, endpoint = active
-            try:
-                os.kill(pid, 0)
-            except ProcessLookupError:
-                pass
-            else:
-                raise AssertionError("Disposable service still running")
-            assert not aux.exists() and not aux.parent.exists(), "Auxiliary mount or directory remains"
-            assert endpoint is None or not endpoint.exists(), "Shutdown endpoint remains"
-            if args.fskit_kernel_fat:
-                assert not fskit_images(aux), "Disposable Disk Images attachment remains"
-        assert str(root) not in mounts(), "Disposable mount remains"
-        handles = subprocess.run(["/usr/sbin/lsof", "-t", str(volume)], capture_output=True, text=True)
-        assert handles.returncode == 1 and not handles.stdout.strip(), "Backing file still open"
-
     def fskit_images(aux):
         inventory = subprocess.check_output(["/usr/bin/hdiutil", "info", "-plist"], timeout=8)
         return [image for image in plistlib.loads(inventory)["images"]
@@ -324,14 +330,14 @@ with open(sys.argv[1], 'r+b') as stream:
             if args.fskit_kernel_fat:
                 check_busy_kernel_fat(stream, payload)
         vc("unmount-write", "--unmount", volume)
-        confirm_closed()
+        confirm_closed(mounts, root, volume, active, args.fskit_kernel_fat)
         if args.release_binary or cli_only:
             mount(read_only=True, client=release)
             assert hashlib.sha256((mountpoint / "payload.bin").read_bytes()).digest() == hashlib.sha256(payload).digest()
             if args.fskit_kernel_fat:
                 assert not (mountpoint / "before.bin").exists() and not (mountpoint / "after.bin").exists()
             vc("unmount-release", "--unmount", volume, client=release)
-            confirm_closed()
+            confirm_closed(mounts, root, volume, active, args.fskit_kernel_fat)
             print("PASS: create, write/fsync, read-only remount, payload integrity, service/file cleanup", flush=True)
         if cli_only:
             succeeded = True
@@ -357,7 +363,7 @@ with open(sys.argv[1], 'r+b') as stream:
         else:
             vc("unmount-readonly", "--unmount", volume)
         assert gui.wait(timeout=20) == 0, "Background app did not exit cleanly"
-        confirm_closed()
+        confirm_closed(mounts, root, volume, active, args.fskit_kernel_fat)
         succeeded = True
         print("PASS: payload integrity, initial background discovery, external-dismount refresh, automatic exit, service/file cleanup", flush=True)
     finally:
@@ -368,7 +374,7 @@ with open(sys.argv[1], 'r+b') as stream:
         if not args.fskit_kernel_fat and (str(root) in mounts() or (active and active[1].exists())):
             vc("test-cleanup", "--unmount", volume, client=mount_client)
         if succeeded and not args.keep_artifacts:
-            confirm_closed()
+            confirm_closed(mounts, root, volume, active, args.fskit_kernel_fat)
             shutil.rmtree(root)
 
 

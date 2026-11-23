@@ -120,7 +120,12 @@ namespace VeraCrypt
 	void File::Flush () const
 	{
 		if_debug (ValidateState());
-		throw_sys_sub_if (fsync (FileHandle) != 0, wstring (Path));
+		while (fsync (FileHandle) != 0)
+		{
+			const int error = errno;
+			if (error != EINTR)
+				throw SystemException (SRC_POS, wstring (Path), error);
+		}
 	}
 
 	uint32 File::GetDeviceSectorSize () const
