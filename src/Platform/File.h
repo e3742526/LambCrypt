@@ -86,6 +86,9 @@ namespace VeraCrypt
 		static void Copy (const FilePath &sourcePath, const FilePath &destinationPath, bool preserveTimestamps = true);
 		void Delete ();
 		void Flush () const;
+		// Like Flush, and on macOS also forces the drive to commit its write cache.
+		// For metadata whose loss makes a volume unopenable, such as volume headers.
+		void FlushToStableStorage () const;
 		uint32 GetDeviceSectorSize () const;
 		static size_t GetOptimalReadSize () { return OptimalReadSize; }
 		static size_t GetOptimalWriteSize ()  { return OptimalWriteSize; }
@@ -121,6 +124,10 @@ namespace VeraCrypt
 		void Write (const ConstBufferPtr &buffer) const;
 		void Write (const ConstBufferPtr &buffer, size_t length) const { Write (buffer.GetRange (0, length)); }
 		void WriteAt (const ConstBufferPtr &buffer, uint64 position) const;
+		// Writes data as the complete contents of path and makes it durable. An existing
+		// regular file is replaced atomically, so a crash leaves either its previous or its
+		// new contents. Without replaceExisting, an existing path fails with EEXIST.
+		static void WriteDurably (const FilePath &path, const ConstBufferPtr &data, bool replaceExisting);
 
 	protected:
 		void ValidateState () const;

@@ -70,7 +70,7 @@ namespace VeraCrypt
 					throw ExternalException (SRC_POS, newPkcs5Kdf->GetDerivationFailureMessage (derivationResult));
 
 				openVolume->ReEncryptHeader (backupHeader, newSalt, newHeaderKey, newPkcs5Kdf);
-				openVolume->GetFile()->Flush();
+				openVolume->GetFile()->FlushToStableStorage();
 			}
 
 			if (!openVolume->GetLayout()->HasBackupHeader() || backupHeader)

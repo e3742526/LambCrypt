@@ -86,6 +86,10 @@ namespace VeraCrypt
 		virtual ~Volume ();
 
 		void Close ();
+		// Drops this object's references to its keys, header, layout and host file, so
+		// their owners can wipe and release them while other references to this Volume
+		// remain (for example in a process that exits without unwinding them).
+		void Discard ();
 		shared_ptr <EncryptionAlgorithm> GetEncryptionAlgorithm () const;
 		shared_ptr <EncryptionMode> GetEncryptionMode () const;
 		shared_ptr <File> GetFile () const { return VolumeFile; }

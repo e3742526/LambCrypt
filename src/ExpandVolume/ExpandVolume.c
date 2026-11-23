@@ -523,6 +523,10 @@ static int ExpandVolume (HWND hwndDlg, wchar_t *lpszVolume, Password *pVolumePas
 	CRYPTO_INFO tmpCI;
 	PCRYPTO_INFO cryptoInfoBackup = NULL;
 	BOOL bIsRamEncryptionEnabled = IsRamEncryptionEnabled();
+	// Until the primary header changes, the original headers describe the original volume,
+	// so truncating a grown container back to its original size undoes the expansion.
+	BOOL bHostFileResized = FALSE;
+	BOOL bPrimaryHeaderUpdateStarted = FALSE;
 
 	if (pVolumePassword->Length == 0) return -1;
 
@@ -780,6 +784,7 @@ static int ExpandVolume (HWND hwndDlg, wchar_t *lpszVolume, Password *pVolumePas
 		if (hostSize != newHostSize)
 		{
 			// Preallocate the file
+			bHostFileResized = TRUE;
 			if (!SetFilePointerEx (dev, liNewSize, NULL, FILE_BEGIN)
 				|| !SetEndOfFile (dev))
 			{
@@ -844,16 +849,15 @@ static int ExpandVolume (HWND hwndDlg, wchar_t *lpszVolume, Password *pVolumePas
 	{
 		dwError = GetLastError();
 		DebugAddProgressDlgStatus(hwndDlg, L"Error: failed to write random data ...\r\n");
-		if ( !bDevice ) {
-			// restore original size of the container file
-			LARGE_INTEGER liOldSize;
-			liOldSize.QuadPart=(LONGLONG)hostSize;
-			if (!SetFilePointerEx (dev, liOldSize, NULL, FILE_BEGIN) || !SetEndOfFile (dev))
-			{
-				DebugAddProgressDlgStatus(hwndDlg, L"Warning: failed to restore original size of the container file\r\n");
-			}
-		}
+		// The error path restores the original size of the container file.
 		SetLastError (dwError);
+		goto error;
+	}
+
+	// The new size and the new area must be durable before any header describes them.
+	if (!bDevice && !FlushFileBuffers (dev))
+	{
+		nStatus = ERR_OS_ERROR;
 		goto error;
 	}
 
@@ -911,6 +915,9 @@ static int ExpandVolume (HWND hwndDlg, wchar_t *lpszVolume, Password *pVolumePas
 
 		if (nStatus != 0)
 			goto error;
+
+		if (!backupHeader)
+			bPrimaryHeaderUpdateStarted = TRUE;
 
 		if (!SetFilePointerEx ((HANDLE) dev, headerOffset, NULL, FILE_BEGIN))
 		{
@@ -996,7 +1003,14 @@ static int ExpandVolume (HWND hwndDlg, wchar_t *lpszVolume, Password *pVolumePas
 			}
 		}
 
-		FlushFileBuffers (dev);
+		// The backup header must be durable before the primary header changes, and the
+		// primary header before the old backup header is wiped. FlushFileBuffers can fail
+		// on devices, which the writes above reached directly.
+		if (!FlushFileBuffers (dev) && !bDevice)
+		{
+			nStatus = ERR_OS_ERROR;
+			goto error;
+		}
 
 		if (!backupHeader)
 			break;
@@ -1082,6 +1096,18 @@ static int ExpandVolume (HWND hwndDlg, wchar_t *lpszVolume, Password *pVolumePas
 
 error:
 	dwError = GetLastError ();
+
+	if (nStatus != ERR_SUCCESS && bHostFileResized && !bPrimaryHeaderUpdateStarted && dev != INVALID_HANDLE_VALUE)
+	{
+		// Removes any new backup header beyond the original end; the original backup
+		// header at that end is still intact.
+		LARGE_INTEGER liOldSize;
+		liOldSize.QuadPart = (LONGLONG) hostSize;
+		if (!SetFilePointerEx (dev, liOldSize, NULL, FILE_BEGIN) || !SetEndOfFile (dev) || !FlushFileBuffers (dev))
+		{
+			DebugAddProgressDlgStatus(hwndDlg, L"Warning: failed to restore original size of the container file\r\n");
+		}
+	}
 
 	if (wipeBuffer)
 	{

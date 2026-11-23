@@ -12519,6 +12519,8 @@ int BackupVolumeHeader (HWND hwndDlg, BOOL bRequireConfirmation, const wchar_t *
 	int nStatus = ERR_OS_ERROR;
 	wchar_t szTmp[4096];
 	int fBackup = -1;
+	wchar_t szTempBackupFileName[TC_MAX_PATH + 32];
+	BOOL bTempBackupFileCreated = FALSE;
 	OpenVolumeContext volume;
 	OpenVolumeContext hiddenVolume;
 	Password hiddenVolPassword;
@@ -12661,12 +12663,8 @@ noHidden:
 	if (!BrowseFiles (hwndDlg, "OPEN_TITLE", szFileName, bHistory, TRUE))
 		goto ret;
 
-	/* Conceive the backup file */
-	if ((fBackup = _wopen(szFileName, _O_CREAT|_O_TRUNC|_O_WRONLY|_O_BINARY, _S_IREAD|_S_IWRITE)) == -1)
-	{
-		nStatus = ERR_OS_ERROR;
-		goto error;
-	}
+	// The backup file is written only once both headers are ready, through a temporary
+	// file that atomically replaces it, so an existing backup survives a failure or crash.
 
 	// Backup headers
 
@@ -12731,11 +12729,43 @@ noHidden:
 			goto error;
 	}
 
-	if (_write (fBackup, backup, backupFileSize) == -1)
+	/* Conceive the backup file next to its destination, so the final move is a rename */
+	for (int attempt = 0; ; ++attempt)
+	{
+		StringCbPrintfW (szTempBackupFileName, sizeof (szTempBackupFileName), L"%s.%08lx.tmp", szFileName, (unsigned long) (GetTickCount () ^ (GetCurrentProcessId () << 16) ^ attempt));
+		fBackup = _wopen (szTempBackupFileName, _O_CREAT|_O_EXCL|_O_WRONLY|_O_BINARY, _S_IREAD|_S_IWRITE);
+		if (fBackup != -1)
+			break;
+
+		if (errno != EEXIST || attempt >= 16)
+		{
+			nStatus = ERR_OS_ERROR;
+			goto error;
+		}
+	}
+	bTempBackupFileCreated = TRUE;
+
+	if (_write (fBackup, backup, backupFileSize) != backupFileSize
+		|| _commit (fBackup) != 0)
 	{
 		nStatus = ERR_OS_ERROR;
 		goto error;
 	}
+
+	if (_close (fBackup) != 0)
+	{
+		fBackup = -1;
+		nStatus = ERR_OS_ERROR;
+		goto error;
+	}
+	fBackup = -1;
+
+	if (!MoveFileExW (szTempBackupFileName, szFileName, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+	{
+		nStatus = ERR_OS_ERROR;
+		goto error;
+	}
+	bTempBackupFileCreated = FALSE;
 
 	/* Backup has been successfully created */
 	Warning("VOL_HEADER_BACKED_UP", hwndDlg);
@@ -12751,6 +12781,9 @@ error:
 
 	if (fBackup != -1)
 		_close (fBackup);
+
+	if (bTempBackupFileCreated)
+		DeleteFileW (szTempBackupFileName);
 
 	SetLastError (dwError);
 	if (nStatus != 0)
@@ -12923,6 +12956,13 @@ int RestoreVolumeHeader (HWND hwndDlg, const wchar_t *lpszVolume)
 		}
 
 		if (!WriteEffectiveVolumeHeader (volume.IsDevice, volume.HostFileHandle, (uint8 *) buffer))
+		{
+			nStatus = ERR_OS_ERROR;
+			goto error;
+		}
+
+		// FlushFileBuffers can fail on devices, which the write above reached directly.
+		if (!FlushFileBuffers (volume.HostFileHandle) && !volume.IsDevice)
 		{
 			nStatus = ERR_OS_ERROR;
 			goto error;
@@ -13184,6 +13224,15 @@ int RestoreVolumeHeader (HWND hwndDlg, const wchar_t *lpszVolume)
 			goto error;
 		}
 
+		// Make the primary header durable before touching the backup header, so a crash
+		// cannot leave both header copies torn or stale at the same time. FlushFileBuffers
+		// can fail on devices, which the write above reached directly.
+		if (!FlushFileBuffers (dev) && !bDevice)
+		{
+			nStatus = ERR_OS_ERROR;
+			goto error;
+		}
+
 		if (!restoredCryptoInfo->LegacyVolume)
 		{
 			// Restore backup header encrypted with a new key
@@ -13198,6 +13247,12 @@ int RestoreVolumeHeader (HWND hwndDlg, const wchar_t *lpszVolume)
 			}
 
 			if (!WriteEffectiveVolumeHeader (bDevice, dev, (uint8 *) buffer))
+			{
+				nStatus = ERR_OS_ERROR;
+				goto error;
+			}
+
+			if (!FlushFileBuffers (dev) && !bDevice)
 			{
 				nStatus = ERR_OS_ERROR;
 				goto error;

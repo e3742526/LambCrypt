@@ -382,7 +382,7 @@ BOOL Randmix ()
 			break;
 
 		case STREEBOG:
-			burn (&stctx, sizeof(sctx));
+			burn (&stctx, sizeof(stctx));
 			break;
         #endif
 		default:

@@ -442,8 +442,9 @@ namespace VeraCrypt
 		if (files.empty())
 			return;
 
-		File backupFile;
-		backupFile.Open (*files.front(), File::CreateWrite);
+		// The save dialog has already confirmed any overwrite. The file is replaced only
+		// once both headers are ready, so an existing backup survives a failure or crash.
+		const FilePath backupFilePath = *files.front();
 
 		RandomNumberGenerator::Start();
 		/* force the display of the random enriching interface */
@@ -454,12 +455,14 @@ namespace VeraCrypt
 			wxBusyCursor busy;
 
 			// Re-encrypt volume header
-			SecureBuffer newHeaderBuffer (normalVolume->GetLayout()->GetHeaderSize());
+			const size_t headerSize = normalVolume->GetLayout()->GetHeaderSize();
+			SecureBuffer backupFileBuffer (headerSize * 2);
+			SecureBuffer newHeaderBuffer (headerSize);
 			ReEncryptHeaderThreadRoutine routine(newHeaderBuffer, normalVolume->GetHeader(), normalVolumeMountOptions.Password, normalVolumeMountOptions.Pim, normalVolumeMountOptions.Keyfiles, normalVolumeMountOptions.EMVSupportEnabled);
 
 			ExecuteWaitThreadRoutine (parent, &routine);
 
-			backupFile.Write (newHeaderBuffer);
+			backupFileBuffer.GetRange (0, headerSize).CopyFrom (newHeaderBuffer);
 
 			if (hiddenVolume)
 			{
@@ -476,7 +479,8 @@ namespace VeraCrypt
 				ea->Encrypt (newHeaderBuffer);
 			}
 
-			backupFile.Write (newHeaderBuffer);
+			backupFileBuffer.GetRange (headerSize, headerSize).CopyFrom (newHeaderBuffer);
+			File::WriteDurably (backupFilePath, backupFileBuffer, true);
 		}
 
 		ShowWarning ("VOL_HEADER_BACKED_UP");
@@ -1864,6 +1868,7 @@ namespace VeraCrypt
 				volumeFile->SeekEnd (headerOffset);
 
 			volumeFile->Write (newHeaderBuffer);
+			volumeFile->FlushToStableStorage();
 		}
 		else
 		{
@@ -1979,6 +1984,10 @@ namespace VeraCrypt
 
 			volumeFile.Write (newHeaderBuffer);
 
+			// Make the primary header durable before touching the backup header, so a
+			// crash cannot leave both header copies torn or stale at the same time.
+			volumeFile.FlushToStableStorage();
+
 			if (decryptedLayout->HasBackupHeader())
 			{
 				// Re-encrypt backup volume header
@@ -1994,6 +2003,7 @@ namespace VeraCrypt
 					volumeFile.SeekEnd (headerOffset);
 
 				volumeFile.Write (newHeaderBuffer);
+				volumeFile.FlushToStableStorage();
 			}
 		}
 

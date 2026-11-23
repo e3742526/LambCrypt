@@ -59,6 +59,14 @@ namespace VeraCrypt
 		VolumeFile.reset();
 	}
 
+	void Volume::Discard ()
+	{
+		EA.reset();
+		Header.reset();
+		Layout.reset();
+		VolumeFile.reset();
+	}
+
 	shared_ptr <EncryptionAlgorithm> Volume::GetEncryptionAlgorithm () const
 	{
 		if_debug (ValidateState ());

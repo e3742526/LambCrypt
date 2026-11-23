@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits>
+#include <stdlib.h>
 #include <unistd.h>
 #include <utime.h>
 
@@ -117,15 +118,165 @@ namespace VeraCrypt
 	}
 
 
-	void File::Flush () const
+	static void WriteAllToDescriptor (int fd, const uint8 *data, size_t remaining, const wstring &path)
 	{
-		if_debug (ValidateState());
-		while (fsync (FileHandle) != 0)
+		while (remaining != 0)
+		{
+			const ssize_t count = write (fd, data, remaining);
+			if (count < 0)
+			{
+				const int error = errno;
+				if (error == EINTR)
+					continue;
+				throw SystemException (SRC_POS, path, error);
+			}
+			if (count == 0)
+				throw SystemException (SRC_POS, path, EIO);
+
+			// A short write has already written this prefix.
+			data += count;
+			remaining -= static_cast <size_t> (count);
+		}
+	}
+
+	static void SyncDescriptor (int fd, bool stableStorage, const wstring &path)
+	{
+#ifdef TC_MACOSX
+		// On macOS, fsync() can leave the data in the drive's volatile write cache.
+		// Some filesystems, such as SMB, reject F_FULLFSYNC; fsync() is the best they offer.
+		if (stableStorage && fcntl (fd, F_FULLFSYNC) == 0)
+			return;
+#else
+		(void) stableStorage;
+#endif
+		while (fsync (fd) != 0)
 		{
 			const int error = errno;
 			if (error != EINTR)
-				throw SystemException (SRC_POS, wstring (Path), error);
+				throw SystemException (SRC_POS, path, error);
 		}
+	}
+
+	// Makes a new or renamed directory entry durable. Directories that cannot be
+	// opened or synced (for example on some network filesystems) are skipped.
+	static void SyncParentDirectory (const string &path)
+	{
+		const string::size_type slash = path.find_last_of ('/');
+		const string directory = (slash == string::npos) ? string (".") : (slash == 0 ? string ("/") : path.substr (0, slash));
+
+		int flags = O_RDONLY;
+#ifdef O_DIRECTORY
+		flags |= O_DIRECTORY;
+#endif
+#ifdef O_CLOEXEC
+		flags |= O_CLOEXEC;
+#endif
+		const int fd = open (directory.c_str(), flags);
+		if (fd == -1)
+			return;
+
+		int result;
+		do
+		{
+			result = fsync (fd);
+		} while (result != 0 && errno == EINTR);
+
+		const int error = errno;
+		close (fd);
+
+		if (result != 0 && error != EINVAL && error != ENOTSUP && error != EROFS && error != EBADF)
+			throw SystemException (SRC_POS, StringConverter::ToWide (directory), error);
+	}
+
+	void File::Flush () const
+	{
+		if_debug (ValidateState());
+		SyncDescriptor (FileHandle, false, wstring (Path));
+	}
+
+	void File::FlushToStableStorage () const
+	{
+		if_debug (ValidateState());
+		SyncDescriptor (FileHandle, true, wstring (Path));
+	}
+
+	void File::WriteDurably (const FilePath &path, const ConstBufferPtr &data, bool replaceExisting)
+	{
+		const string target = path;
+
+		if (!replaceExisting)
+		{
+			File file;
+			file.Open (path, CreateNewWrite);
+
+			try
+			{
+				file.Write (data);
+				file.FlushToStableStorage();
+				file.Close();
+			}
+			catch (...)
+			{
+				// This call created the file (O_EXCL), so it removes only its own partial output.
+				if (file.IsOpen())
+					file.Close();
+				unlink (target.c_str());
+				throw;
+			}
+
+			SyncParentDirectory (target);
+			return;
+		}
+
+		struct stat existing;
+		if (lstat (target.c_str(), &existing) == 0)
+		{
+			// Replacing a symlink, device or directory entry would not write where the caller expects.
+			if (!S_ISREG (existing.st_mode))
+				throw SystemException (SRC_POS, wstring (path), S_ISDIR (existing.st_mode) ? EISDIR : EEXIST);
+		}
+		else
+		{
+			const int error = errno;
+			if (error != ENOENT)
+				throw SystemException (SRC_POS, wstring (path), error);
+		}
+
+		// The temporary file shares the target's directory, so rename() replaces it atomically.
+		const string::size_type slash = target.find_last_of ('/');
+		const string directoryPrefix = (slash == string::npos) ? string() : target.substr (0, slash + 1);
+		string baseName = (slash == string::npos) ? target : target.substr (slash + 1);
+		if (baseName.size() > 200)
+			baseName = "tmp";
+
+		string tempPath = directoryPrefix + "." + baseName + ".XXXXXX";
+		int fd = mkstemp (&tempPath[0]);
+		throw_sys_sub_if (fd == -1, wstring (path));
+
+		try
+		{
+			const int fdFlags = fcntl (fd, F_GETFD);
+			if (fdFlags != -1)
+				fcntl (fd, F_SETFD, fdFlags | FD_CLOEXEC);
+
+			WriteAllToDescriptor (fd, data.Get(), data.Size(), wstring (path));
+			SyncDescriptor (fd, true, wstring (path));
+
+			const int closeResult = close (fd);
+			fd = -1;
+			throw_sys_sub_if (closeResult == -1, wstring (path));
+
+			throw_sys_sub_if (rename (tempPath.c_str(), target.c_str()) == -1, wstring (path));
+		}
+		catch (...)
+		{
+			if (fd != -1)
+				close (fd);
+			unlink (tempPath.c_str());
+			throw;
+		}
+
+		SyncParentDirectory (target);
 	}
 
 	uint32 File::GetDeviceSectorSize () const
@@ -520,7 +671,7 @@ namespace VeraCrypt
 #ifdef TC_TRACE_FILE_OPERATIONS
 		TraceFileOperation (FileHandle, Path, true, buffer.Size());
 #endif
-		throw_sys_sub_if (write (FileHandle, buffer, buffer.Size()) != (ssize_t) buffer.Size(), wstring (Path));
+		WriteAllToDescriptor (FileHandle, buffer.Get(), buffer.Size(), wstring (Path));
 	}
 
 	void File::WriteAt (const ConstBufferPtr &buffer, uint64 position) const

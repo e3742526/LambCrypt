@@ -464,24 +464,16 @@ namespace VeraCrypt
 		if (filePath.IsEmpty())
 			throw UserAbort (SRC_POS);
 
-		File backupFile;
-		if (CmdLine->ArgForce)
-			backupFile.Open (filePath, File::CreateWrite);
-		else
+		// The backup is written only once both headers are ready, and an existing file is
+		// replaced atomically, so a failure or crash cannot destroy a previous backup.
+		bool replaceExistingBackup = CmdLine->ArgForce;
+		if (!replaceExistingBackup)
 		{
-			try
+			struct stat destination;
+			if (lstat (string (filePath).c_str(), &destination) == 0)
 			{
-				// The destination can appear after the filename prompt.
-				backupFile.Open (filePath, File::CreateNewWrite);
-			}
-			catch (SystemException &e)
-			{
-				if (e.GetErrorCode() != EEXIST)
-					throw;
-
-				struct stat destination;
-				if (lstat (string (filePath).c_str(), &destination) != 0 || !S_ISREG (destination.st_mode))
-					throw;
+				if (!S_ISREG (destination.st_mode))
+					throw SystemException (SRC_POS, wstring (filePath), EEXIST);
 
 				wxString overwritePrompt = wxString::Format (_("File '%s' already exists, do you really want to overwrite it?"), wstring (filePath).c_str());
 				if (Preferences.NonInteractive)
@@ -489,8 +481,10 @@ namespace VeraCrypt
 				if (!AskYesNo (overwritePrompt, false, true))
 					throw UserAbort (SRC_POS);
 
-				backupFile.Open (filePath, File::CreateWrite);
+				replaceExistingBackup = true;
 			}
+			else if (errno != ENOENT)
+				throw SystemException (SRC_POS, wstring (filePath));
 		}
 
 		RandomNumberGenerator::Start();
@@ -499,10 +493,12 @@ namespace VeraCrypt
 		UserEnrichRandomPool();
 
 		// Re-encrypt volume header
-		SecureBuffer newHeaderBuffer (normalVolume->GetLayout()->GetHeaderSize());
+		const size_t headerSize = normalVolume->GetLayout()->GetHeaderSize();
+		SecureBuffer backupFileBuffer (headerSize * 2);
+		SecureBuffer newHeaderBuffer (headerSize);
 		Core->ReEncryptVolumeHeaderWithNewSalt (newHeaderBuffer, normalVolume->GetHeader(), normalVolumeMountOptions.Password, normalVolumeMountOptions.Pim, normalVolumeMountOptions.Keyfiles, normalVolumeMountOptions.EMVSupportEnabled);
 
-		backupFile.Write (newHeaderBuffer);
+		backupFileBuffer.GetRange (0, headerSize).CopyFrom (newHeaderBuffer);
 
 		if (hiddenVolume)
 		{
@@ -517,7 +513,11 @@ namespace VeraCrypt
 			ea->Encrypt (newHeaderBuffer);
 		}
 
-		backupFile.Write (newHeaderBuffer);
+		backupFileBuffer.GetRange (headerSize, headerSize).CopyFrom (newHeaderBuffer);
+
+		// Without --force or a confirmed overwrite, a file that appeared after the
+		// prompt is not replaced (EEXIST).
+		File::WriteDurably (filePath, backupFileBuffer, replaceExistingBackup);
 
 		ShowString (L"\n");
 		ShowInfo ("VOL_HEADER_BACKED_UP");
@@ -1953,6 +1953,7 @@ namespace VeraCrypt
 				volumeFile->SeekEnd (headerOffset);
 
 			volumeFile->Write (newHeaderBuffer);
+			volumeFile->FlushToStableStorage();
 		}
 		else
 		{
@@ -2056,6 +2057,10 @@ namespace VeraCrypt
 
 			volumeFile.Write (newHeaderBuffer);
 
+			// Make the primary header durable before touching the backup header, so a
+			// crash cannot leave both header copies torn or stale at the same time.
+			volumeFile.FlushToStableStorage();
+
 			if (decryptedLayout->HasBackupHeader())
 			{
 				// Re-encrypt backup volume header
@@ -2069,6 +2074,7 @@ namespace VeraCrypt
 					volumeFile.SeekEnd (headerOffset);
 
 				volumeFile.Write (newHeaderBuffer);
+				volumeFile.FlushToStableStorage();
 			}
 		}
 

@@ -1160,8 +1160,11 @@ namespace VeraCrypt
 			if (MountedVolume->GetFile().use_count() > 1)
 				MountedVolume->GetFile()->Close();
 
+			// Other references (such as the mount caller's) outlive this process, so
+			// release the key material through this Volume instead of destroying it
+			// under them.
 			if (MountedVolume.use_count() > 1)
-				delete MountedVolume.get();
+				MountedVolume->Discard();
 
 			MountedVolume.reset();
 		}
