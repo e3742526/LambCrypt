@@ -88,6 +88,7 @@ def main():
         refresh = source[source.index("\tstatic void ClearDiskImageInfo"):source.index("\t// Strict /dev/diskN")]
         attach = source[source.index("\tDevicePath CoreMacOSX::MountAuxVolumeImage"):
                         source.index("\tunique_ptr <CoreBase> Core (")]
+        attach = "\n#define open OpenKernelMountMedia\n" + attach + "\n#undef open\n"
         device_name_check = source[source.index("\tstatic bool IsPlainDiskDevicePath"):
                                    source.index("\tstatic int64_t GetDiskMediaRegistryId")]
         unix_source = (ROOT / "src/Core/Unix/CoreUnix.cpp").read_text()
@@ -255,6 +256,8 @@ static list<uint64> MediaReads;
 static string KernelMountFailure;
 static list<string> KernelMountArguments;
 static string KernelMountDevice;
+static int KernelMediaFd = -1;
+static bool KernelMediaOpenDenied;
 static bool ReportKernelMount, KernelMountReadOnly, KernelMountIsFSKit;
 
 static int OpenMountParent(const string &mountPoint) {
@@ -269,6 +272,13 @@ static void RequireUnmountLock(const string &mountPoint) {
     finally_do_arg(int, observer, { close(finally_arg); });
     if (flock(observer, LOCK_SH | LOCK_NB) == 0 || errno != EWOULDBLOCK)
         throw runtime_error("FSKit teardown step ran without the exclusive lock");
+}
+
+static int OpenKernelMountMedia(const char *path, int flags) {
+    if (string(path) != "/dev/rdisk42" || flags != (O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC))
+        throw runtime_error("unexpected raw media open");
+    if (KernelMediaOpenDenied) { errno = EACCES; return -1; }
+    return KernelMediaFd = open("/dev/null", flags);
 }
 
 struct Process {
@@ -303,6 +313,8 @@ struct Process {
         if (arguments.front() == "detach" && deadline != 0) RequireUnmountLock(DismountMountPoint);
         if (path == "/sbin/mount_msdos") {
             RequireUnmountLock(DismountMountPoint);
+            if (KernelMediaFd < 0 || fcntl(KernelMediaFd, F_GETFD) < 0)
+                throw runtime_error("raw media descriptor did not stay open through the kernel mount");
             KernelMountArguments = arguments;
             KernelMountDevice = *prev(arguments.end(), 2);
             if (!KernelMountFailure.empty()) throw ExecutedProcessFailed(KernelMountFailure);
@@ -1038,6 +1050,10 @@ static void CheckKernelFat(CoreMacOSX &core, const DirectoryPath &auxiliary, con
                 "invalid FAT geometry selected the kernel driver");
     };
     const auto reset = [&] {
+        Require(KernelMediaFd < 0 || fcntl(KernelMediaFd, F_GETFD) == -1,
+                "raw media descriptor leaked from the kernel mount");
+        KernelMediaFd = -1;
+        KernelMediaOpenDenied = false;
         Commands.clear();
         AttachCommands.clear();
         MediaReads.clear();
@@ -1115,13 +1131,22 @@ static void CheckKernelFat(CoreMacOSX &core, const DirectoryPath &auxiliary, con
     MediaReads = {42, 43};
     unconfirmed(false);
     reset();
+    KernelMediaOpenDenied = true;
+    bool missingDescriptor = false;
+    try { core.MountAuxVolumeImage(auxiliary, options, &volume, false); }
+    catch (const runtime_error &error) { missingDescriptor = string(error.what()) == "/dev/rdisk42"; }
+    Require(missingDescriptor && KernelMountArguments.empty(), "a failed raw open reached the kernel driver");
+    reset();
+    MediaReads = {42, 42, 43};
+    unconfirmed(false);
+    reset();
     Inventory = Read(root + "/absent");
     unconfirmed(false);
     reset();
     TimeoutCommand = "/sbin/mount_msdos";
     unconfirmed(true);
     reset();
-    MediaReads = {42, 42, 43};
+    MediaReads = {42, 42, 42, 43};
     unconfirmed(true);
     reset();
     KernelMountFailure = "mount rejected";

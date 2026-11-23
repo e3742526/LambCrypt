@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <fstream>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -1049,6 +1050,13 @@ exit "$status"
 				throw ParameterIncorrect (SRC_POS);
 
 			const uint64 media = FSKit::GetMediaIdentity (virtualDev);
+			ConfirmDiskImageMedia (auxMountPoint, virtualDev, media);
+			// Keep the raw device open so its BSD slot stays assigned while
+			// mount_msdos resolves the corresponding block device by name.
+			const string rawDevice = "/dev/r" + device.substr (5);
+			const int mediaFd = open (rawDevice.c_str(), O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC);
+			throw_sys_sub_if (mediaFd < 0, rawDevice);
+			finally_do_arg (int, mediaFd, { close (finally_arg); });
 			ConfirmDiskImageMedia (auxMountPoint, virtualDev, media);
 			const bool readOnly = options.Protection == VolumeProtection::ReadOnly;
 			try
