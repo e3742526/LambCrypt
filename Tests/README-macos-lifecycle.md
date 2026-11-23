@@ -67,8 +67,9 @@ inventories, late publication, and final release. One case never publishes
 the auxiliary mount. These are simulated macOS events.
 The runner also runs `macos_process_test.cpp`
 against the real platform archive, checking subprocess deadlines, output limits,
-descriptor isolation, error reporting, and child reaping with its own helper
-processes. `macos_volume_state_test.cpp` includes production headers directly to
+descriptor isolation including detached workers with closed standard descriptors,
+error reporting, and child reaping with its own helper processes.
+`macos_volume_state_test.cpp` includes production headers directly to
 check auxiliary mount owner/backend/basename filtering and initial, partial,
 invalidated, and stale snapshot decisions.
 
@@ -89,6 +90,33 @@ unchanged.
 
 These tests exercise state and serialization contracts. They do not establish
 real backend timing, GUI rendering, or filesystem behavior under forced unmount.
+
+### Native Disk Images worker drill
+
+With a matching FSKit build, run this on Apple Silicon as a regular user.
+The signed bundle only creates two disposable FAT containers in this drill.
+
+```sh
+python3 -B Tests/test_macos_fskit_worker_lifecycle.py --build-dir "$VC_TEST_BUILD_SRC"
+```
+
+The test compiles the production worker into a test executable and injects
+its mount-table observation. Each worker decrypts a new container through
+its normal socket protocol. Disk Images attaches the resulting APFS-backed
+raw files read-only and without mounting their inner filesystems. The test
+records the exact image paths, media identifiers and worker generations.
+One worker sees the auxiliary mount disappear with its image already
+attached. The other sees an authoritative empty inventory before its image
+appears. Both must continue serving reads with their reservations held.
+The test detaches each verified fixture by its current device identity
+and checks that only its worker, socket and reservations are released.
+
+This exercises the production worker, socket, process runner and Disk Images
+inventory on macOS. A signed module, real auxiliary filesystem loss and
+Finder eject still require an enabled FSKit integration run. Add
+`--keep-artifacts` to retain test fixtures and capture files on success.
+A failed trial preserves its artifacts. Inspect the exact test records with
+`hdiutil info -plist` and recover any retained fixture without forcing detach.
 
 For an ordinary integration check with a FUSE-T GUI build, close other LambCrypt
 and VeraCrypt processes and dismount their volumes first. Run the tests from a

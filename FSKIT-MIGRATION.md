@@ -36,9 +36,11 @@ available, and the application ships in English.
   the app and extension before signing. The standard app has the preferred
   Finder handler rank for VeraCrypt containers when both apps are installed.
 - [ ] Run `codesign --verify --deep --strict src/Main/LambCrypt-FSKit.app`.
-  Verify the app and extension are signed by the same team and have matching
-  App Group entitlements. The extension should have the provisioned application
-  identifier and FSKit Module entitlement. In System Settings, go to General
+  Run `bash src/Setup/MacOSX/verify_fskit_bundle.sh src/Main/LambCrypt-FSKit.app`
+  to check arm64, deployment target, bundle versions, signature and embedded
+  profile agreement, App Group entitlements, and the opt-in document handler
+  rank. The same verifier accepts the app extracted from a development package.
+  In System Settings, go to General
   → Login Items & Extensions → By Category → File System Extensions and
   enable LambCrypt FSKit. Verify it on disposable internal-drive containers.
 - [ ] At the release gate, set `VC_SIGN_TEAM_ID`, select the team's Developer ID
@@ -926,6 +928,45 @@ clean release installation, upgrade and rollback remain unverified.
 Native FSKit worker retention, busy and multi-volume teardown, Finder
 eject, filesystem integrity and performance remain unverified on the
 updated revision.
+
+### Detached worker inventory and offline package verification
+
+The native Disk Images drill exposed a failure in the bounded process
+runner. The worker closes stdin, stdout and stderr at startup. Its
+inventory helper could then allocate a pipe at one of those descriptor
+numbers, where the spawn file actions also redirect child I/O. The
+standalone subprocess regression failed against the original platform
+archive with those descriptors closed. Moving the pipe ends above the
+standard descriptors before spawning preserved stdout, stderr, the child
+exit status and the existing isolation and time limits.
+
+On the physical arm64 macOS 26.6.2 host, the fixed build passed the
+[native Disk Images worker drill](Tests/README-macos-lifecycle.md#native-disk-images-worker-drill).
+Two independent workers served new 4 MiB FAT containers. With the
+mount-table observation injected, one retained its generation, reads and
+locks while its exact image was attached. The second retained those
+resources across an empty inventory and subsequent image publication.
+Detaching the first image left the second worker and image active.
+Each worker released its socket and reservations after its own detach.
+The upstream VeraCrypt reader matched every decrypted byte for both
+fixtures and left both encrypted inputs unchanged. The rebuilt default
+macFUSE client passed crypto self-tests against isolated vendor libraries.
+The rebuilt FUSE-T client passed its native FAT write, sync, read-only
+remount and cleanup again.
+
+Disk Images used APFS-backed read-only raw files in this drill. The
+signed FSKit extension, live disappearance of its auxiliary filesystem,
+and native Finder and writable filesystem tests still require an
+enabled FSKit integration host.
+
+The `1.28.15` development bundle and its expanded installer payload
+passed the offline bundle verifier. The verifier rejected a mismatched
+extension build number and rejected the development profile in
+distribution mode. The FSKit release script checks this same contract
+before packaging and on the expanded payload, while retaining its
+Developer ID, Hardened Runtime and secure timestamp requirements.
+It now compares the packaged extension executable and Info.plist as well
+as its provisioning profile. No notarization request was submitted.
 
 ### Warm-cache HFS+ comparison on the MVP revision
 
