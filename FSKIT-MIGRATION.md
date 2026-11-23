@@ -30,6 +30,11 @@ available, and the application ships in English.
   environment file and run `LOCAL_DEVELOPMENT_BUILD=true make -C src WITHFSKIT=1 prepare`.
   The recipe reads the Team ID from the profile, builds matching App Group
   entitlements, and signs the extension before signing the app.
+- [ ] When signing successive FSKit candidates with the same marketing
+  version, export an increasing `VC_FSKIT_BUILD_VERSION` before building.
+  Use one to three dot-separated integers. Make writes the value to both
+  the app and extension before signing. The standard app has the preferred
+  Finder handler rank for VeraCrypt containers when both apps are installed.
 - [ ] Run `codesign --verify --deep --strict src/Main/LambCrypt-FSKit.app`.
   Verify the app and extension are signed by the same team and have matching
   App Group entitlements. The extension should have the provisioned application
@@ -777,6 +782,52 @@ the full HFS+ GUI and Finder trials and the resumed CLI trials to pass. The
 record the preflight. The automatic FAT driver stall still has an
 independent Apple-only reproducer in the writable FAT investigation above.
 
+### Signed Tahoe guest installation and replacement
+
+The independently provisioned UTM guest ran macOS 26.6.2 (25G83), arm64.
+The exact running device matched the embedded development profile. The
+guest first opened the signed scratch app with an empty session, then
+passed an ordinary FAT12 write, busy dismount retry and read-only remount.
+After confirmed teardown, the trial replaced the scratch app at the same
+path. Both bundles retained the same marketing version and application
+identifiers. The app and extension build numbers increased together from
+`1.28.10` to `1.28.11`.
+
+The replacement passed its first GUI launch and the ordinary FAT12,
+FAT16, FAT32 and HFS+ read-write matrix, including read-only verification.
+FAT16 dismounted an independent keyfile/backup-header fixture while the
+first volume stayed busy. HFS+ passed background discovery, Disk
+Arbitration eject, and automatic GUI exit. The runner verified the final
+mount and Disk Images inventories and restored the prior per-account
+test registration. This was a development bundle install and replacement
+with all volumes already dismounted. Notarized package installation,
+in-use replacement and native Finder UI eject in the guest remain
+unverified. Native Finder eject passed on the physical Mac.
+
+The updated bundle recipe builds matching app and extension build numbers
+and gives the FSKit app the Alternate document handler rank. On the
+physical Mac, Launch Services offered the FSKit build as an opener for
+a disposable `.hc` file and kept the existing default. A development
+installer preserved the signed binaries, property lists and embedded
+profile. Its Distribution recorded the application build number and
+used the marketing version for the package version. The release dry
+run rejected the development signature before packaging for notarization.
+
+### FUSE-T rollback check
+
+FUSE-T 1.2.9 on the physical Mac mounted a disposable copy of the
+encrypted HFS+ container previously written by signed FSKit. It verified
+the persisted payload, timestamp and binary extended attribute read-only,
+then wrote and synced a new file in a writable mount of the copy.
+After read-only remount both payloads matched their expected SHA-256
+hashes, the source container's encrypted checksum remained unchanged,
+and no image, mount or open backing file remained.
+
+The host reported the FSKit module disabled on later scratch registration
+attempts despite an enabled PlugInKit record. Those mounts failed before
+Disk Images attached. The guest matrix independently passed with the same
+runtime code. The host registration discrepancy remains open.
+
 ### Warm-cache HFS+ comparison on the MVP revision
 
 On the same physical Tahoe host, FSKit and FUSE-T 1.2.9 each tested a copy
@@ -807,18 +858,17 @@ comparison remain unmeasured.
 
 ## Remaining migration gates
 
-1. Repeat the signed matrix on a clean, separately provisioned Tahoe guest.
-   Verify a first GUI launch, extension registration and update behavior,
-   and ordinary mount and eject of disposable containers. The current
-   integrated results cover one physical Apple Silicon Mac.
-2. On a Mac that already has the matching MacFUSE driver enabled, perform
-   the same HFS+ workload and verify rollback by opening a disposable
-   VeraCrypt-format container after the FSKit app closes. Record the
-   driver and workload with the results.
-3. Use the release credentials from the integrator checklist to verify
+1. On a physical Mac that already has the matching macFUSE kernel
+   driver enabled, perform the same HFS+ workload and verify rollback
+   by opening a disposable VeraCrypt-format container after the FSKit app closes. Record the
+   driver and workload with the results. Recent macOS guests cannot load
+   this third-party kernel driver. [macFUSE setup notes](https://github.com/macfuse/macfuse/wiki/Getting-Started)
+2. Use the release credentials from the integrator checklist to verify
    the Developer ID installer locally. For the distribution trial, install
    the notarized package in a clean Tahoe guest and repeat extension
-   enablement, Finder eject and standard volume discovery.
+   enablement, Finder eject and standard volume discovery. Confirm that
+   clean install and upgrade resolve the physical-host registration
+   discrepancy before promoting the backend.
 
 The current build selects a backend at compile time. An automatic retry
 across backends could attach a container twice while the first backend

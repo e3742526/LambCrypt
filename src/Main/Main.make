@@ -276,10 +276,21 @@ ifeq "$(VC_OSX_FSKIT)" "1"
 	plutil -replace CFBundleIdentifier -string io.github.e3742526.LambCrypt.fskit $(APPNAME).app/Contents/Info.plist
 	plutil -replace CFBundleExecutable -string $(APPNAME) $(APPNAME).app/Contents/Info.plist
 	plutil -replace CFBundleName -string "LambCrypt FSKit" $(APPNAME).app/Contents/Info.plist
+	plutil -replace CFBundleDocumentTypes.0.LSHandlerRank -string Alternate $(APPNAME).app/Contents/Info.plist
 	mkdir -p "$(FSKIT_EXTENSION)/Contents/MacOS"
 	rm -f "$(FSKIT_EXTENSION)/Contents/embedded.provisionprofile"
 	sed -e 's/_VERSION_/$(patsubst %a,%.1,$(patsubst %b,%.2,$(TC_VERSION)))/g' \
 		-e 's/_MINIMUM_OS_/$(VC_OSX_TARGET)/g' ../Driver/FSKit/Info.plist > "$(FSKIT_EXTENSION)/Contents/Info.plist"
+	# Keep Launch Services and ExtensionKit on the same build version.
+	@set -eu; \
+	if [ -n "$${VC_FSKIT_BUILD_VERSION:-}" ]; then \
+		case "$$VC_FSKIT_BUILD_VERSION" in \
+			*[!0123456789.]*|.*|*.|*..*|*.*.*.*) \
+				echo "VC_FSKIT_BUILD_VERSION must contain one to three dot-separated integers." >&2; exit 1 ;; \
+		esac; \
+		plutil -replace CFBundleVersion -string "$$VC_FSKIT_BUILD_VERSION" "$(APPNAME).app/Contents/Info.plist"; \
+		plutil -replace CFBundleVersion -string "$$VC_FSKIT_BUILD_VERSION" "$(FSKIT_EXTENSION)/Contents/Info.plist"; \
+	fi
 	xcrun --sdk macosx$(VC_OSX_SDK) swiftc -O -target $(shell uname -m)-apple-macos$(VC_OSX_TARGET) \
 		-application-extension -parse-as-library -Xlinker -e -Xlinker _NSExtensionMain \
 		../Driver/FSKit/FileSystem.swift ../Driver/FSKit/VolumeConnection.swift \

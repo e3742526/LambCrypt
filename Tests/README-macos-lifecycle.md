@@ -146,6 +146,15 @@ runner reports a retained image, preserve its logs and identify it in
 preflights stop before creating a fixture when a prior diagnostic image is
 still attached or the inventory is incomplete.
 
+For a signed development replacement trial, build two scratch bundles with
+ascending `VC_FSKIT_BUILD_VERSION` values and the same marketing version.
+Verify each with `codesign --verify --deep --strict`. Install the first into
+the scratch location, launch the empty GUI, then run a writable FAT12
+lifecycle. Confirm the inner mount, image, auxiliary mount, and worker
+are gone before replacing the app at the same location. Launch the newer
+bundle before repeating the FAT and HFS+ checks. Keep the previous
+bundle outside the app's registration path during the replacement.
+
 ### Isolated production kernel FAT trial
 
 After the direct-backing control passes with default Disk Images and the
