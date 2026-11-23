@@ -48,6 +48,7 @@ def main():
             "retained_after_auxiliary_loss": {"images": [
                 dict(exact, **{"image-path": str(work / "removed-auxiliary" / "volume.dmg")})]},
             "exact_after_unknown": {"images": [unknown_alias, {}, exact]},
+            "exact_before_unknown": {"images": [exact, {}, unknown_alias]},
             "unknown_alias": {"images": [unknown_alias]},
             "unknown_record": {"images": [{}]},
             "bad_entities": {"images": [{"image-path": str(image.resolve())}]},
@@ -345,7 +346,10 @@ struct MountOptions {
     int Protection = VolumeProtection::None;
     unsigned int SlotNumber = 2;
 };
-struct SystemLog { static void WriteException(const std::exception &) {} };
+struct SystemLog {
+    static void WriteException(const std::exception &) {}
+    static void WriteError(const string &) {}
+};
 #define foreach(declaration, collection) for (declaration : collection)
 struct Volume {
     string Path;
@@ -595,6 +599,8 @@ static chrono::milliseconds Elapsed;
 static int PublishAfter, UnavailableThrough, Probes, Requests, MountedChecks;
 static int ExitChecks, UnconfirmedExitChecks;
 static bool SentActivation, SentPending, SentHandoff, Cancel, InitiallyUnavailable, PendingAttach;
+static int FaultsInjected, MediaChecks, PendingRecords, PendingRemovals;
+static bool InjectPollFaults, RetryMedia, MediaHelperRunning;
 static vector<int> ExitStatuses;
 static bool HelperRunning;
 static constexpr uint64 PendingDiskImageAttachment = UINT64_MAX;
@@ -613,7 +619,7 @@ static bool PublicationTableEntry(const string &, fsid_t &identity) {
 static bool IsServiceMountPresent(int, const string &, const fsid_t &identity) {
     if (identity.val[0] != 42 || identity.val[1] != 7) throw runtime_error("worker used the wrong filesystem identity");
     ++MountedChecks;
-    return false;
+    return RetryMedia && MediaChecks < 2;
 }
 static int Poll(pollfd *descriptors, unsigned int, int timeout) {
     descriptors[0].revents = descriptors[1].revents = 0;
@@ -634,6 +640,14 @@ static int Poll(pollfd *descriptors, unsigned int, int timeout) {
         descriptors[1].revents = POLLIN;
         return 1;
     }
+    if (InjectPollFaults && ExitChecks == 1 && FaultsInjected < 2) {
+        if (++FaultsInjected == 1) {
+            errno = EIO;
+            return -1;
+        }
+        descriptors[0].revents = POLLERR;
+        return 1;
+    }
     Elapsed += chrono::milliseconds(timeout);
     if (Elapsed > chrono::seconds(35)) throw runtime_error("worker failed to exit after confirmed image absence");
     if (Requests == 0 || (Requests == 1 && HelperRunning && UnconfirmedExitChecks > 0)) {
@@ -642,7 +656,13 @@ static int Poll(pollfd *descriptors, unsigned int, int timeout) {
     }
     return 0;
 }
-static ssize_t Read(int, void *bytes, size_t size) {
+static ssize_t Read(int fd, void *bytes, size_t size) {
+    if (fd == 17 || (RetryMedia && SentHandoff)) {
+        if (size != sizeof(uint64)) throw runtime_error("wrong media report size");
+        const uint64 report = fd == 17 && MediaChecks > 1 ? 123 : 0;
+        memcpy(bytes, &report, size);
+        return size;
+    }
     if (Cancel || SentHandoff) return 0;
     if (SentPending) {
         if (size != sizeof(PendingDiskImageAttachment)) throw runtime_error("wrong attachment marker size");
@@ -654,6 +674,9 @@ static ssize_t Read(int, void *bytes, size_t size) {
 }
 static int Accept(int, void *, void *) { return 15; }
 static int Close(int) { return 0; }
+static int Pipe(int *fds) { fds[0] = 17; fds[1] = 18; return 0; }
+static void RecordPendingAttachment(int, const string &) { ++PendingRecords; }
+static int UnlinkPendingRecord(int, const char *, int) { ++PendingRemovals; return 0; }
 static void ServeRequest(int, uid_t, Volume &, VolumeInfo &, const array<uint8_t, 16> &) { ++Requests; }
 static uint64 IORegistryEntryIDMatching(uint64 media) { return media; }
 static bool LookupMedia(uint64, uint64 &) { throw runtime_error("worker watched unconfirmed media"); }
@@ -667,12 +690,21 @@ static pid_t Fork() {
     if (HelperRunning || (!Cancel && !SentHandoff))
         throw runtime_error("exit check overlapped another helper or the mounting caller");
     HelperRunning = true;
+    MediaHelperRunning = RetryMedia && MediaChecks < 2;
+    if (MediaHelperRunning) {
+        ++MediaChecks;
+        return 16;
+    }
     ++ExitChecks;
     return 16;
 }
 static pid_t WaitForHelper(pid_t child, int *status, int) {
     if (!HelperRunning || child != 16) throw runtime_error("wrong helper");
     HelperRunning = false;
+    if (MediaHelperRunning) {
+        *status = 0;
+        return child;
+    }
     *status = (ExitStatuses.empty() ? int(ExitChecks <= UnconfirmedExitChecks) : ExitStatuses.at(ExitChecks - 1)) << 8;
     return child;
 }
@@ -682,15 +714,21 @@ static pid_t WaitForHelper(pid_t child, int *status, int) {
 #define accept Accept
 #define close Close
 #define fork Fork
+#define pipe Pipe
+#define unlinkat UnlinkPendingRecord
 #define waitpid WaitForHelper
 #define MountTableEntry PublicationTableEntry
 static void Simulate(int publishAfter, bool cancel = false, bool initiallyUnavailable = false,
                      int unavailableThrough = 0, int unconfirmedExitChecks = 0,
-                     const vector<int> &pendingExitStatuses = {}) {
+                     const vector<int> &pendingExitStatuses = {}, bool injectPollFaults = false,
+                     bool retryMedia = false) {
     Elapsed = chrono::milliseconds(0);
     Probes = Requests = MountedChecks = 0;
     SentActivation = SentPending = SentHandoff = HelperRunning = false;
     ExitChecks = 0;
+    FaultsInjected = MediaChecks = PendingRecords = PendingRemovals = 0;
+    InjectPollFaults = injectPollFaults;
+    RetryMedia = retryMedia;
     UnconfirmedExitChecks = unconfirmedExitChecks;
     ExitStatuses = pendingExitStatuses;
     PendingAttach = !ExitStatuses.empty();
@@ -709,6 +747,8 @@ static void Simulate(int publishAfter, bool cancel = false, bool initiallyUnavai
 #undef MountTableEntry
 #undef waitpid
 #undef fork
+#undef pipe
+#undef unlinkat
 #undef close
 #undef accept
 #undef read
@@ -757,11 +797,18 @@ static void CheckLateWorkerPublication() {
     Require(ExitChecks == 3 && Requests == 2 && Elapsed >= chrono::seconds(10),
             "worker failed to retain the attachment, serve requests and back off before retrying");
     Simulate(3, false, false, 0, 0, {0, 2, 1, 0});
-    Require(ExitChecks == 4 && Requests >= 1 && Elapsed >= chrono::seconds(15),
+    Require(ExitChecks == 4 && Requests >= 1 && Elapsed >= chrono::seconds(15)
+            && PendingRecords == 1 && PendingRemovals == 1,
             "worker released a pending attach before its late image appeared and was released");
     Simulate(0, false, false, 0, 0, {0, 1, 0});
     Require(MountedChecks == 0 && ExitChecks == 3 && Elapsed >= chrono::seconds(20),
             "worker missed a late image when it never observed the auxiliary mount");
+    Simulate(3, false, false, 0, 2, {}, true);
+    Require(FaultsInjected == 2 && ExitChecks == 3 && Requests >= 1,
+            "poll failure bypassed attachment verification");
+    Simulate(3, false, false, 0, 0, {}, false, true);
+    Require(MediaChecks == 2 && ExitChecks == 1,
+            "inconclusive late media lookup stopped observation permanently");
 }
 static void CheckBackingReservation(const string &root, const string &image) {
     const int original = open(image.c_str(), O_RDONLY | O_CLOEXEC);
@@ -895,7 +942,7 @@ static void CheckAttach(CoreMacOSX &core, const DirectoryPath &auxiliary) {
     bool unconfirmed = false;
     try { core.MountAuxVolumeImage(auxiliary, options); }
     catch (const MountServiceCleanupFailed &e) {
-        unconfirmed = e.Reason == L"macOS did not confirm disk image attach: " + wstring(auxiliary);
+        unconfirmed = e.Reason.find(L"macOS did not confirm disk image attach: " + wstring(auxiliary) + L"/volume.dmg") == 0;
     }
     TimeoutCommand.clear();
     Require(unconfirmed && Commands.size() == 1, "attach timeout lost its cleanup state or attempted another command");
@@ -1168,6 +1215,17 @@ static void CheckDismount(CoreMacOSX &core, const string &image, const string &r
         }
     }
     Inventory = exactInventory;
+    for (const auto *record : {"exact_after_unknown", "exact_before_unknown"}) {
+        Inventory = Read(root + "/" + record);
+        for (bool force : {false, true}) {
+            Commands.clear();
+            bool refused = false;
+            try { core.DismountVolume(mounted, force, false); }
+            catch (const DismountServiceCleanupFailed &) { refused = true; }
+            Require(refused && Commands.empty(), "partial inventory authorized detach of a known match");
+        }
+    }
+    Inventory = exactInventory;
     for (const auto *record : {"exact", "reattached", "unknown_record", "conflicting_exact"}) {
         InventoryAfterDetach = Read(root + "/" + record);
         for (bool force : {false, true}) {
@@ -1336,7 +1394,7 @@ static void CheckDismount(CoreMacOSX &core, const string &image, const string &r
 int main(int argc, char **argv) {
     try {
         std::string root=argv[1], image=argv[2];
-        for (const auto &name : {"exact", "alias", "exact_after_unknown", "same_attachment"}) {
+        for (const auto &name : {"exact", "alias", "exact_after_unknown", "exact_before_unknown", "same_attachment"}) {
             DevicePath device; DirectoryPath mount;
             Require(FindDiskImageInfoByImagePath(Read(root+"/"+name),image,device,mount), "positive match lost");
             Require(device=="/dev/disk42" && mount=="/Volumes/unit", "wrong mapping");

@@ -6,6 +6,7 @@
 #include "Common/Tcdefs.h"
 #include "Core/CoreException.h"
 #include "Platform/Finally.h"
+#include "Platform/SystemLog.h"
 #include "Platform/Unix/Process.h"
 #include <cerrno>
 #include <chrono>
@@ -277,6 +278,16 @@ namespace VeraCrypt
 				return 0;
 			}
 
+			void RecordPendingAttachment (int directory, const string &mountPoint)
+			{
+				// The auxiliary pathname can disappear from the mount table.
+				// Keep the recovery indicator in its private parent directory.
+				const int fd = openat (directory, "attachment-pending", O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+				if (fd >= 0)
+					close (fd);
+				SystemLog::WriteError ("FSKit attachment is unresolved for " + mountPoint + "/volume.dmg");
+			}
+
 			void RunWorker (int listener, int commit, int directory, int volumeReservation, int slotReservation,
 				Volume &volume, VolumeInfo &info, const std::array <uint8, 16> &identifier, const string &mountPoint,
 				const string &resource)
@@ -312,6 +323,16 @@ namespace VeraCrypt
 				bool checkingImageAbsence = false;
 				bool attachmentRequested = false;
 				bool attachmentPending = false;
+				bool pendingRecorded = false;
+				bool pollFailureReported = false;
+				const auto pauseAfterPollError = [&] {
+					if (!pollFailureReported)
+					{
+						pollFailureReported = true;
+						SystemLog::WriteError ("FSKit worker polling failed. Attachment cleanup is unconfirmed for " + mountPoint);
+					}
+					Thread::Sleep (200);
+				};
 				while (true)
 				{
 					bool auxiliaryGone = false;
@@ -374,9 +395,16 @@ namespace VeraCrypt
 								}
 								close (mediaReport);
 								mediaReport = -1;
-								observeLateMedia = attachmentPending;
+								observeLateMedia = media == 0;
+								if (observeLateMedia)
+									nextMediaCheck = Clock::now() + std::chrono::seconds (5);
 							}
 						}
+					}
+					if (pendingRecorded && !attachmentPending)
+					{
+						unlinkat (directory, "attachment-pending", 0);
+						pendingRecorded = false;
 					}
 					// Disk Images queries and unmount run in a helper, with the
 					// worker serving the filesystem throughout either operation.
@@ -399,7 +427,6 @@ namespace VeraCrypt
 					}
 					else if (committed && observeLateMedia && helper < 0 && Clock::now() >= nextMediaCheck)
 					{
-						observeLateMedia = attachmentPending;
 						nextMediaCheck = Clock::now() + std::chrono::seconds (5);
 						int report[2];
 						if (pipe (report) == 0)
@@ -441,7 +468,10 @@ namespace VeraCrypt
 					if (ready < 0 && errno == EINTR)
 						continue;
 					if (ready < 0)
-						break;
+					{
+						pauseAfterPollError();
+						continue;
+					}
 
 					if (descriptors[1].revents != 0)
 					{
@@ -492,8 +522,12 @@ namespace VeraCrypt
 									attachmentPending = false;
 									observeLateMedia = media == 0;
 								}
-								else
-									observeLateMedia = attachmentPending;
+								else if (attachmentPending)
+								{
+									observeLateMedia = true;
+									RecordPendingAttachment (directory, mountPoint);
+									pendingRecorded = true;
+								}
 								close (commit);
 								descriptors[1].fd = -1;
 							}
@@ -502,7 +536,10 @@ namespace VeraCrypt
 					}
 
 					if (descriptors[0].revents & (POLLERR | POLLHUP | POLLNVAL))
-						break;
+					{
+						pauseAfterPollError();
+						continue;
+					}
 					if ((descriptors[0].revents & POLLIN) == 0)
 						continue;
 					const int connection = accept (listener, nullptr, nullptr);

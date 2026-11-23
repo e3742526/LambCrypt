@@ -207,6 +207,7 @@ def main():
         late.channel.sendall(struct.pack("<Q", 2**64 - 1))
         late.present.unlink()
         late.channel.close()
+        late.wait_for("attachment-pending")
         late.wait_for("image-absent")
         late.check_retained()
         late.attach()
@@ -220,6 +221,7 @@ def main():
         late.check_retained()
         late.detach()
         late.check_closed()
+        assert not (late.root / "attachment-pending").exists()
     finally:
         for worker in workers:
             worker.present.unlink(missing_ok=True)

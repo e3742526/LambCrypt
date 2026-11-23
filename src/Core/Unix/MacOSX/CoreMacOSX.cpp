@@ -188,7 +188,7 @@ namespace VeraCrypt
 	}
 
 	static bool FindDiskImageInfoByImagePath (const string &xml, const string &imagePath, DevicePath &device, DirectoryPath &mountPoint,
-		bool imagePathIsCanonical = false)
+		bool imagePathIsCanonical = false, bool requireCompleteInventory = false)
 	{
 		CFHolder plist (ParsePropertyList (xml));
 		if (!plist.Get() || CFGetTypeID (plist.Get()) != CFDictionaryGetTypeID())
@@ -259,15 +259,16 @@ namespace VeraCrypt
 			matchedDevice = currentDevice;
 			matchedMount = currentMount;
 		}
+		// Discovery can display a known match from a partial inventory.
+		// Detach needs enough evidence to rule out another matching record.
+		if (uncertain && (requireCompleteInventory || matchedDevice.IsEmpty()))
+			throw ParameterIncorrect (SRC_POS);
 		if (!matchedDevice.IsEmpty())
 		{
 			device = matchedDevice;
 			mountPoint = matchedMount;
 			return true;
 		}
-		// A partial inventory cannot establish absence. In particular, never
-		// substitute a cached BSD disk number when ownership is unknown.
-		if (uncertain) throw ParameterIncorrect (SRC_POS);
 		return false;
 	}
 
@@ -285,7 +286,7 @@ namespace VeraCrypt
 		DevicePath device;
 		DirectoryPath innerMount;
 		FindDiskImageInfoByImagePath (GetDiskImageInventory(),
-			string (mountPoint) + FuseService::GetVolumeImagePath(), device, innerMount);
+			string (mountPoint) + FuseService::GetVolumeImagePath(), device, innerMount, false, true);
 		return device;
 	}
 
@@ -1011,7 +1012,9 @@ exit "$status"
 			{
 				// Disk Images may still be attaching the disk after we time out.
 				throw MountServiceCleanupFailed (SRC_POS,
-					L"macOS did not confirm disk image attach: " + wstring (auxMountPoint));
+					L"macOS did not confirm disk image attach: " + wstring (auxMountPoint) + L"/volume.dmg"
+					L"\nThe worker retains this image until its attachment status can be confirmed."
+					L"\nCheck Disk Images inventory for this exact path before retrying.");
 			}
 #endif
 		}
