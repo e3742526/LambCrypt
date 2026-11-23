@@ -98,6 +98,22 @@ class MacOSBuildTargetTests(unittest.TestCase):
         self.assertIn("-framework FSKit", result.stdout)
         self.assertFalse(probe.exists(), "macOS Makefile queried a FUSE package")
 
+    @unittest.skipUnless(sys.platform == "darwin", "requires macOS signing tools")
+    def test_development_bundle_verifier_requires_target_device(self):
+        bundle = os.environ.get("VC_TEST_FSKIT_DEV_BUNDLE")
+        if not bundle:
+            self.skipTest("set VC_TEST_FSKIT_DEV_BUNDLE to a signed development app for this Mac")
+        verifier = BUILD.parent / "Setup/MacOSX/verify_fskit_bundle.sh"
+        command = ["/bin/bash", verifier, bundle]
+        env = dict(os.environ)
+        env.pop("VC_FSKIT_TARGET_UDID", None)
+        valid = subprocess.run(command, env=env, capture_output=True, text=True, timeout=15)
+        self.assertEqual(valid.returncode, 0, valid.stdout + valid.stderr)
+        env["VC_FSKIT_TARGET_UDID"] = "00000000-0000-0000-0000-000000000000"
+        wrong = subprocess.run(command, env=env, capture_output=True, text=True, timeout=15)
+        self.assertEqual(wrong.returncode, 1, wrong.stdout + wrong.stderr)
+        self.assertIn("does not authorize the target Mac's exact Provisioning UDID", wrong.stderr)
+
     @unittest.skipUnless(sys.platform == "darwin", "requires the macOS plutil command")
     def test_native_bundle_metadata_supports_side_by_side_installation(self):
         build = self.script.parent

@@ -330,7 +330,7 @@ prepare: bundle
 			echo "The app and FSKit extension must be signed by the provisioning profile's team." >&2; exit 1; \
 		fi; \
 	done; \
-	codesign --verify --deep --strict "$(APPNAME).app"
+	/bin/bash ../Setup/MacOSX/verify_fskit_bundle.sh "$(APPNAME).app"
 
 package: prepare
 	productbuild --component "$(APPNAME).app" /Applications "$(APPNAME)_$(TC_VERSION).pkg"

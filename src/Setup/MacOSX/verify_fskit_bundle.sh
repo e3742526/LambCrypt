@@ -72,17 +72,49 @@ done
 
 codesign --verify --deep --strict "$bundle"
 work=$(mktemp -d "${TMPDIR:-/tmp}/lambcrypt-verify-fskit.XXXXXX")
-trap 'rm -f "$work/profile.plist" "$work/entitlements.plist"; rmdir "$work"' EXIT
+trap 'rm -f "$work/profile.plist" "$work/entitlements.plist" "$work"/signing-certificate*; rmdir "$work"' EXIT
 security cms -D -i "$profile" -o "$work/profile.plist" 2>/dev/null ||
     fail "The embedded FSKit profile could not be decoded."
-if $distribution && [[ "$(plist_value ProvisionsAllDevices "$work/profile.plist" 2>/dev/null)" != true ]]; then
-    fail "Prepare the FSKit app with a Developer ID distribution profile."
+expiry=$(plist_value ExpirationDate "$work/profile.plist" 2>/dev/null) &&
+    expiry_epoch=$(/bin/date -ju -f '%Y-%m-%dT%H:%M:%SZ' "$expiry" +%s 2>/dev/null) ||
+    fail "The FSKit profile has no valid expiration date."
+[[ "$expiry_epoch" -gt "$(/bin/date +%s)" ]] || fail "The FSKit provisioning profile has expired."
+
+if [[ "$(plist_value ProvisionsAllDevices "$work/profile.plist" 2>/dev/null)" != true ]]; then
+    if $distribution; then
+        fail "Prepare the FSKit app with a Developer ID distribution profile."
+    fi
+    target_device=${VC_FSKIT_TARGET_UDID:-}
+    if [[ -z "$target_device" ]]; then
+        target_device=$(/usr/sbin/system_profiler -json SPHardwareDataType |
+            plutil -extract SPHardwareDataType.0.provisioning_UDID raw -o - - 2>/dev/null) ||
+            fail "Could not determine this Mac's Provisioning UDID. Set VC_FSKIT_TARGET_UDID for the target Mac."
+    fi
+    [[ -n "$target_device" ]] || fail "The target Mac's Provisioning UDID is empty."
+    devices=$(entitlement ProvisionedDevices "$work/profile.plist" 2>/dev/null) ||
+        fail "The FSKit development profile does not list any provisioned devices."
+    awk -v id="$target_device" 'NF == 1 && $1 == id { found = 1 } END { exit !found }' <<< "$devices" ||
+        fail "The FSKit development profile does not authorize the target Mac's exact Provisioning UDID."
 fi
 team=$(entitlement Entitlements:com.apple.developer.team-identifier "$work/profile.plist" 2>/dev/null || true)
 profile_id=$(entitlement Entitlements:com.apple.application-identifier "$work/profile.plist" 2>/dev/null || true)
 [[ -n "$team" && "${profile_id#*.}" == "$extension_id" &&
    "$(entitlement Entitlements:com.apple.developer.fskit.fsmodule "$work/profile.plist" 2>/dev/null)" == true ]] ||
     fail "The profile must authorize the exact FSKit module identifier."
+
+codesign --display --extract-certificates="$work/signing-certificate" "$extension" 2>/dev/null ||
+    fail "Could not extract the FSKit extension's signing certificate."
+signer=$(/usr/bin/base64 -i "$work/signing-certificate0") || fail "Could not read the FSKit signing certificate."
+certificate_index=0
+authorized=false
+while certificate=$(plist_value "DeveloperCertificates.$certificate_index" "$work/profile.plist" 2>/dev/null); do
+    if [[ "$certificate" == "$signer" ]]; then
+        authorized=true
+        break
+    fi
+    certificate_index=$((certificate_index + 1))
+done
+$authorized || fail "The FSKit profile does not authorize the extension's signing certificate."
 
 for component in "$bundle" "$extension"; do
     signature=$(codesign --display --verbose=4 "$component" 2>&1)

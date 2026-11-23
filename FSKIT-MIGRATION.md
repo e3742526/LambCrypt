@@ -30,7 +30,9 @@ while its FSKit replacement is verified on the host.
   separate build tree with the build dependencies configured, source the local
   environment file and run `LOCAL_DEVELOPMENT_BUILD=true make -C src WITHFSKIT=1 prepare`.
   The recipe reads the Team ID from the profile, builds matching App Group
-  entitlements, and signs the extension before signing the app.
+  entitlements, and signs the extension before signing the app. For a different
+  Mac or VM, set `VC_FSKIT_TARGET_UDID` to that device's exact Provisioning UDID
+  in the private signing environment before preparing or verifying the app.
 - [ ] When signing successive FSKit candidates with the same marketing
   version, export an increasing `VC_FSKIT_BUILD_VERSION` before building.
   Use one to three dot-separated integers. Make writes the value to both
@@ -39,9 +41,10 @@ while its FSKit replacement is verified on the host.
 - [ ] Run `codesign --verify --deep --strict src/Main/LambCrypt-FSKit.app`.
   Run `bash src/Setup/MacOSX/verify_fskit_bundle.sh src/Main/LambCrypt-FSKit.app`
   to check arm64, deployment target, bundle versions, signature and embedded
-  profile agreement, App Group entitlements, and the document handler
-  rank for side-by-side installs. The same verifier accepts the app extracted
-  from a development package.
+  profile expiry, authorized signer and exact target device, App Group
+  entitlements, and the document handler rank for side-by-side installs. The
+  verifier uses the local Mac's Provisioning UDID by default and checks apps
+  extracted from a development package.
   In System Settings, go to General
   → Login Items & Extensions → By Category → File System Extensions and
   enable LambCrypt FSKit. Verify it on disposable internal-drive containers.
@@ -1074,6 +1077,13 @@ disposable container opened far enough to reject the mount with the disabled
 module diagnostic. Disk Images inventory and the fixture's open file handles
 were clear afterward. The earlier local app remains available while activation
 is resolved.
+
+A follow-up removed the two obsolete Launch Services registrations and
+verified that the installed app was the sole registration for its bundle ID.
+A version-only trial re-signed the same binaries and profile with matching
+app and extension build numbers bumped from `1.27.1` to `1.29.1`. The isolated
+launch succeeded and FSClient still reported the module disabled. The
+original bundle was restored after the trial.
 
 1. Verify that FSClient sees the intended signed FSKit module as enabled.
    Complete a disposable mount, write, sync, dismount and read-only remount
