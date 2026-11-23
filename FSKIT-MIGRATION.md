@@ -1026,6 +1026,38 @@ write, sync and read-only remount passed. The three builds passed crypto
 self-tests. The FSKit development bundle passed offline verification.
 The native signed-module integration and release gates below remain open.
 
+### Follow-up on unconfirmed attach and BSD media reuse
+
+The bounded runner reports whether `hdiutil attach` started and lost a
+confirmed exit or output. A timeout before launch takes ordinary startup
+rollback. A timeout, signal, or incomplete output after launch keeps
+attachment monitoring active and prevents a second attach attempt. A
+normal exit still permits the existing retry for an unsupported
+`-noautofsck` option. If an interrupted request never publishes, the
+worker still needs conclusive OS evidence to release its resources.
+
+On the kernel FAT route, LambCrypt holds a read-only, close-on-exec raw
+device descriptor across `mount_msdos`. It verifies the image path and
+I/O Registry media again after opening the descriptor. The hold covers
+the command's lookup of the BSD name. Explicit detach still uses a fresh
+image and media check before the name-based Disk Images command. Apple's
+Disk Arbitration implementation also derives a BSD name when a client
+constructs a disk object from I/O Registry media.
+[Apple storage driver](https://github.com/apple-oss-distributions/IOStorageFamily/blob/main/IOMediaBSDClient.cpp#L3609-L3624)
+[Apple Disk Arbitration implementation](https://github.com/apple-oss-distributions/DiskArbitration/blob/main/DiskArbitration/DADisk.c#L349-L373)
+
+The focused discovery, process, protocol and native worker checks passed
+on macOS 26.6.2 (25G83). Native Disk Images FAT12, FAT16 and FAT32 fixtures
+with the same held-descriptor flags passed write, sync and checksum
+verification after a read-only remount. These raw fixtures tested the OS
+mount behavior independently of the FSKit extension. The development
+installer payload passed offline verification. All three builds passed
+crypto self-tests, and FUSE-T passed the disposable FAT lifecycle trial.
+A read-only signed
+FSClient probe still found a different registered bundle with effective
+enablement false and exited 3. PlugInKit still reported a positive
+election for the module identifier. Host policy was left as found.
+
 ## Remaining migration gates
 
 1. On a physical Mac that already has the matching macFUSE kernel
