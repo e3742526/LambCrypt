@@ -67,6 +67,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # Accept the LambCrypt license terms for test processes (see Installing LambCrypt).
+  LAMBCRYPT_LICENSE_ACCEPTED: "1"
   WXWIDGETS_VERSION: 3.2.5
   # SHA-256 of wxWidgets-3.2.5.tar.bz2 (its SHA-1 matches the release notes).
   # Update together with WXWIDGETS_VERSION.

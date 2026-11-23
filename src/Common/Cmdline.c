@@ -52,7 +52,7 @@ BOOL CALLBACK CommandHelpDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM 
 
 		*tmp = 0;
 
-		StringCchCopyW (tmp, 8192, L"VeraCrypt " _T(VERSION_STRING) _T(VERSION_STRING_SUFFIX) L"  (64-bit)");
+		StringCchCopyW (tmp, 8192, L"LambCrypt " _T(VERSION_STRING) _T(VERSION_STRING_SUFFIX) L"  (64-bit)");
 #if (defined(_DEBUG) || defined(DEBUG))
 		StringCchCatW (tmp, 8192, L"  (debug)");
 #endif
@@ -67,7 +67,7 @@ BOOL CALLBACK CommandHelpDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM 
 			}
 		}
 #if defined(TCMOUNT) && !defined(VCEXPANDER)
-		StringCchCatW (tmp, 8192, L"\nExamples:\n\nMount a volume as X:\tveracrypt.exe /q /v volume.hc /l X\nUnmount a volume X:\tveracrypt.exe /q /u X");
+		StringCchCatW (tmp, 8192, L"\nExamples:\n\nMount a volume as X:\tlambcrypt.exe /q /v volume.hc /l X\nUnmount a volume X:\tlambcrypt.exe /q /u X");
 		StringCchCatW (tmp, 8192, L"\n\nNote: /cancelmount requests cancellation of the currently active mount operation only. If auto-mount scanning is between mount attempts, the scan is not stopped by this command.");
 #endif
 		SetWindowTextW (GetDlgItem (hwndDlg, IDC_COMMANDHELP_TEXT), tmp);

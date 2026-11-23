@@ -110,44 +110,24 @@ Motivations behind using a custom PIM value can be:<br>
 <li>Add an extra secret parameter (PIM) that an attacker will have to guess </li><li>Increase security level by using large PIM values to thwart future development of brute force attacks.
 </li><li>Speeding up booting or mounting through the use of a small PIM value (less than 12 for Argon2id volumes, less than 98 for system encryption that doesn't use SHA-512 or Whirlpool, and less than 485 for PBKDF2-HMAC in the other cases)
 </li></ul>
-<p>The screenshots below show the step to mount a volume using a PIM equal to 231:</p>
+<p>To mount a volume that uses a PIM of 231, select &quot;Use PIM&quot; in the password dialog and enter 231 in the PIM field.</p>
 <table style="margin-left:auto; margin-right:auto">
 <tbody>
-<tr>
-<td><img src="Personal Iterations Multiplier (PIM)_VeraCrypt_UsePIM_Step1.png" alt=""></td>
-</tr>
-<tr>
-<td><img src="Personal Iterations Multiplier (PIM)_VeraCrypt_UsePIM_Step2.png" alt=""></td>
-</tr>
 </tbody>
 </table>
 <p>&nbsp;</p>
 <h3>Changing/clearing the PIM</h3>
-<p>The PIM of a volume or for system encryption can be changed or cleared using the change password functionality. The screenshots below shows an example of changing the PIM from the empty default value to a value equal to 3 (this is possible since the password
+<p>The PIM of a volume or for system encryption can be changed or cleared using the change password functionality. For example, you can change the PIM from the empty default value to a value equal to 3 (this is possible since the password
  has more than 20 characters). In order to do so, the user must first tick &quot;Use PIM&quot; checkbox in the &quot;New&quot; section to reveal the PIM field.</p>
 <table width="519" style="height:896px; width:519px; margin-left:auto; margin-right:auto">
 <caption><strong>Normal volume case</strong></caption>
 <tbody>
-<tr>
-<td style="text-align:center"><img src="Personal Iterations Multiplier (PIM)_VeraCrypt_ChangePIM_Step1.png" alt=""></td>
-</tr>
-<tr>
-<td>
-<p><img src="Personal Iterations Multiplier (PIM)_VeraCrypt_ChangePIM_Step2.png" alt=""></p>
-</td>
-</tr>
 </tbody>
 </table>
 <h5>&nbsp;</h5>
 <table style="margin-left:auto; margin-right:auto">
 <caption><strong>System encryption case</strong></caption>
 <tbody>
-<tr>
-<td><img src="Personal Iterations Multiplier (PIM)_VeraCrypt_ChangePIM_System_Step1.png" alt=""></td>
-</tr>
-<tr>
-<td><img src="Personal Iterations Multiplier (PIM)_VeraCrypt_ChangePIM_System_Step2.png" alt=""></td>
-</tr>
 </tbody>
 </table>
 <p>&nbsp;</p>

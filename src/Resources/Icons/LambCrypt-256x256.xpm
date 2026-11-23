@@ -1,5 +1,5 @@
 /* XPM */
-static char *LambCrypt_256x256[] = {
+static const char * LambCryptIcon256x256[] = {
 "256 256 85 2",
 "## c None",
 "#$ c #7665A5",

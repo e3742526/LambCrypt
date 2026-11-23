@@ -686,7 +686,7 @@ BOOL isMsiInstalled ()
 {
 	BOOL bRet = FALSE;
 	HKEY hKey;
-	if (ERROR_SUCCESS == RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\VeraCrypt_MSI", 0, KEY_READ | KEY_WOW64_64KEY, &hKey))
+	if (ERROR_SUCCESS == RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\LambCrypt_MSI", 0, KEY_READ | KEY_WOW64_64KEY, &hKey))
 	{
 		DWORD dwType = 0;
 		if (	(ERROR_SUCCESS == RegQueryValueExW(hKey, L"ProductGuid", NULL, &dwType, NULL, NULL))
@@ -720,7 +720,7 @@ static BOOL IsFileInUse (const wstring &filePath)
 // it is not recorded before the driver service is installed.
 static BOOL RecordInstallationPath (const wchar_t *path, BOOL bOnlyIfServiceExists)
 {
-	const wchar_t *key = L"SYSTEM\\CurrentControlSet\\Services\\veracrypt";
+	const wchar_t *key = L"SYSTEM\\CurrentControlSet\\Services\\lambcrypt";
 	// Never replace a recorded path with an invalid one.
 	if (!path || wcslen (path) < 3 || path[1] != L':' || path[2] != L'\\')
 	{
@@ -776,7 +776,7 @@ BOOL DoFilesInstall (HWND hwndDlg, wchar_t *szDestDir)
 		BOOL bResult, zipFile = FALSE, bFileWritten = FALSE;
 		wchar_t szDir[TC_MAX_PATH];
 
-		if (wcsstr (szFiles[i], L"VeraCrypt Setup") != 0)
+		if (wcsstr (szFiles[i], L"LambCrypt Setup") != 0)
 		{
 			if (bUninstall)
 				continue;	// Prevent 'access denied' error
@@ -828,7 +828,7 @@ BOOL DoFilesInstall (HWND hwndDlg, wchar_t *szDestDir)
 		{
 			SetCurrentDirectory (SetupFilesDir);
 
-			if (wcsstr (szFiles[i], L"VeraCrypt Setup") != 0)
+			if (wcsstr (szFiles[i], L"LambCrypt Setup") != 0)
 			{
 				// Copy ourselves (the distribution package) to the destination location as 'VeraCrypt Setup.exe'
 
@@ -842,44 +842,44 @@ BOOL DoFilesInstall (HWND hwndDlg, wchar_t *szDestDir)
 				StringCchCopyNW (curFileName, ARRAYSIZE(curFileName), szFiles[i] + 1, wcslen (szFiles[i]) - 1);
 				curFileName [wcslen (szFiles[i]) - 1] = 0;
 
-				if ((wcscmp (szFiles[i], L"Dveracrypt.sys") == 0) || (wcscmp (szFiles[i], L"Averacrypt.sys") == 0))
+				if ((wcscmp (szFiles[i], L"Dlambcrypt.sys") == 0) || (wcscmp (szFiles[i], L"Alambcrypt.sys") == 0))
 				{
 					if (IsARM())
-						StringCbCopyNW (curFileName, sizeof(curFileName), L"veracrypt-arm64.sys", sizeof(L"veracrypt-arm64.sys"));
+						StringCbCopyNW (curFileName, sizeof(curFileName), L"lambcrypt-arm64.sys", sizeof(L"lambcrypt-arm64.sys"));
 					else
-						StringCbCopyNW (curFileName, sizeof(curFileName), L"veracrypt-x64.sys", sizeof(L"veracrypt-x64.sys"));
+						StringCbCopyNW (curFileName, sizeof(curFileName), L"lambcrypt-x64.sys", sizeof(L"lambcrypt-x64.sys"));
 				}
 
-				if (wcscmp (szFiles[i], L"Averacrypt.cat") == 0)
+				if (wcscmp (szFiles[i], L"Alambcrypt.cat") == 0)
 				{
 					if (IsARM())
-						StringCbCopyNW (curFileName, sizeof(curFileName), L"veracrypt-arm64.cat", sizeof(L"veracrypt-arm64.cat"));
+						StringCbCopyNW (curFileName, sizeof(curFileName), L"lambcrypt-arm64.cat", sizeof(L"lambcrypt-arm64.cat"));
 					else
-						StringCbCopyNW (curFileName, sizeof(curFileName), L"veracrypt-x64.cat", sizeof (L"veracrypt-x64.cat"));
+						StringCbCopyNW (curFileName, sizeof(curFileName), L"lambcrypt-x64.cat", sizeof (L"lambcrypt-x64.cat"));
 				}
 
-				if (wcscmp (szFiles[i], L"AVeraCrypt.exe") == 0)
+				if (wcscmp (szFiles[i], L"ALambCrypt.exe") == 0)
 				{
 					if (IsARM())
-						StringCbCopyNW (curFileName, sizeof(curFileName), L"VeraCrypt-arm64.exe", sizeof(L"VeraCrypt-arm64.exe"));
+						StringCbCopyNW (curFileName, sizeof(curFileName), L"LambCrypt-arm64.exe", sizeof(L"LambCrypt-arm64.exe"));
 					else
-						StringCbCopyNW (curFileName, sizeof(curFileName), L"VeraCrypt-x64.exe", sizeof (L"VeraCrypt-x64.exe"));
+						StringCbCopyNW (curFileName, sizeof(curFileName), L"LambCrypt-x64.exe", sizeof (L"LambCrypt-x64.exe"));
 				}
 
-				if (wcscmp (szFiles[i], L"AVeraCryptExpander.exe") == 0)
+				if (wcscmp (szFiles[i], L"ALambCryptExpander.exe") == 0)
 				{
 					if (IsARM())
-						StringCbCopyNW (curFileName, sizeof(curFileName), L"VeraCryptExpander-arm64.exe", sizeof(L"VeraCryptExpander-arm64.exe"));
+						StringCbCopyNW (curFileName, sizeof(curFileName), L"LambCryptExpander-arm64.exe", sizeof(L"LambCryptExpander-arm64.exe"));
 					else
-						StringCbCopyNW (curFileName, sizeof(curFileName), L"VeraCryptExpander-x64.exe", sizeof (L"VeraCryptExpander-x64.exe"));
+						StringCbCopyNW (curFileName, sizeof(curFileName), L"LambCryptExpander-x64.exe", sizeof (L"LambCryptExpander-x64.exe"));
 				}
 
-				if (wcscmp (szFiles[i], L"AVeraCrypt Format.exe") == 0)
+				if (wcscmp (szFiles[i], L"ALambCrypt Format.exe") == 0)
 				{
 					if (IsARM())
-						StringCbCopyNW (curFileName, sizeof(curFileName), L"VeraCrypt Format-arm64.exe", sizeof(L"VeraCrypt Format-arm64.exe"));
+						StringCbCopyNW (curFileName, sizeof(curFileName), L"LambCrypt Format-arm64.exe", sizeof(L"LambCrypt Format-arm64.exe"));
 					else
-						StringCbCopyNW (curFileName, sizeof(curFileName), L"VeraCrypt Format-x64.exe", sizeof (L"VeraCrypt Format-x64.exe"));
+						StringCbCopyNW (curFileName, sizeof(curFileName), L"LambCrypt Format-x64.exe", sizeof (L"LambCrypt Format-x64.exe"));
 				}
 
 				if (!bDevm)
@@ -948,7 +948,7 @@ BOOL DoFilesInstall (HWND hwndDlg, wchar_t *szDestDir)
 
 				bFileWritten = bResult;
 
-				if (bResult && wcscmp (szFiles[i], L"AVeraCrypt.exe") == 0)
+				if (bResult && wcscmp (szFiles[i], L"ALambCrypt.exe") == 0)
 				{
 					EnableWow64FsRedirection (FALSE);
 
@@ -1063,7 +1063,7 @@ BOOL DoFilesInstall (HWND hwndDlg, wchar_t *szDestDir)
 				bResult = StatDeleteFile (szTmp, TRUE);
 			EnableWow64FsRedirection (TRUE);
 
-			if (bResult && wcscmp (szFiles[i], L"AVeraCrypt.exe") == 0)
+			if (bResult && wcscmp (szFiles[i], L"ALambCrypt.exe") == 0)
 			{
 				EnableWow64FsRedirection (FALSE);
 
@@ -1100,7 +1100,7 @@ BOOL DoFilesInstall (HWND hwndDlg, wchar_t *szDestDir)
 				EnableWow64FsRedirection (TRUE);
 			}
 
-			if (wcscmp (szFiles[i], L"AVeraCrypt.exe") == 0)
+			if (wcscmp (szFiles[i], L"ALambCrypt.exe") == 0)
 			{
 				// Whatever happens to the other files, a copy of the service executable
 				// staged by an upgrade must not be restored when Windows restarts.
@@ -1124,8 +1124,8 @@ err:
 			wchar_t* pszDesc;
 			// These executables contain the security fixes. Never offer to keep an
 			// old copy, including in silent mode.
-			BOOL bRequired = !bUninstall && !bFileWritten && (wcscmp (szFiles[i], L"AVeraCrypt.exe") == 0
-				|| wcscmp (szFiles[i], L"AVeraCrypt Format.exe") == 0);
+			BOOL bRequired = !bUninstall && !bFileWritten && (wcscmp (szFiles[i], L"ALambCrypt.exe") == 0
+				|| wcscmp (szFiles[i], L"ALambCrypt Format.exe") == 0);
 
 			FormatMessage (
 					      FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
@@ -1177,7 +1177,7 @@ err:
 		SetCurrentDirectory (szDestDir);
 
 		// remove PDF from previous version if any
-		h = FindFirstFile (L"VeraCrypt User Guide*.pdf", &f);
+		h = FindFirstFile (L"LambCrypt User Guide*.pdf", &f);
 
 		if (h != INVALID_HANDLE_VALUE)
 		{
@@ -1236,7 +1236,7 @@ BOOL DoRegInstall (HWND hwndDlg, wchar_t *szDestDir, BOOL bInstallType)
 
 	if (SystemEncryptionUpdate)
 	{
-		if (RegCreateKeyEx (HKEY_LOCAL_MACHINE, L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\VeraCrypt",
+		if (RegCreateKeyEx (HKEY_LOCAL_MACHINE, L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\LambCrypt",
 			0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE | KEY_WOW64_32KEY, NULL, &hkey, &dw) == ERROR_SUCCESS)
 		{
 			StringCbCopyW (szTmp, sizeof(szTmp), _T(VERSION_STRING) _T(VERSION_STRING_SUFFIX));
@@ -1264,14 +1264,14 @@ BOOL DoRegInstall (HWND hwndDlg, wchar_t *szDestDir, BOOL bInstallType)
 	if (bInstallType)
 	{
 
-		key = L"Software\\Classes\\VeraCryptVolume";
+		key = L"Software\\Classes\\LambCryptVolume";
 		RegMessage (hwndDlg, key);
 		if (RegCreateKeyEx (HKEY_LOCAL_MACHINE,
 				    key,
 				    0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hkey, &dw) != ERROR_SUCCESS)
 			goto error;
 
-		StringCbCopyW (szTmp, sizeof(szTmp), L"VeraCrypt Volume");
+		StringCbCopyW (szTmp, sizeof(szTmp), L"LambCrypt Volume");
 		if (RegSetValueEx (hkey, L"", 0, REG_SZ, (BYTE *) szTmp, (wcslen (szTmp) + 1) * sizeof (wchar_t)) != ERROR_SUCCESS)
 			goto error;
 
@@ -1282,28 +1282,28 @@ BOOL DoRegInstall (HWND hwndDlg, wchar_t *szDestDir, BOOL bInstallType)
 		RegCloseKey (hkey);
 		hkey = 0;
 
-		key = L"Software\\Classes\\VeraCryptVolume\\DefaultIcon";
+		key = L"Software\\Classes\\LambCryptVolume\\DefaultIcon";
 		RegMessage (hwndDlg, key);
 		if (RegCreateKeyEx (HKEY_LOCAL_MACHINE,
 				    key,
 				    0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hkey, &dw) != ERROR_SUCCESS)
 			goto error;
 
-		StringCbPrintfW (szTmp, sizeof(szTmp), L"%sVeraCrypt.exe,1", szDir);
+		StringCbPrintfW (szTmp, sizeof(szTmp), L"%sLambCrypt.exe,1", szDir);
 		if (RegSetValueEx (hkey, L"", 0, REG_SZ, (BYTE *) szTmp, (wcslen (szTmp) + 1) * sizeof (wchar_t)) != ERROR_SUCCESS)
 			goto error;
 
 		RegCloseKey (hkey);
 		hkey = 0;
 
-		key = L"Software\\Classes\\VeraCryptVolume\\Shell\\open\\command";
+		key = L"Software\\Classes\\LambCryptVolume\\Shell\\open\\command";
 		RegMessage (hwndDlg, key);
 		if (RegCreateKeyEx (HKEY_LOCAL_MACHINE,
 				    key,
 				    0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hkey, &dw) != ERROR_SUCCESS)
 			goto error;
 
-		StringCbPrintfW (szTmp, sizeof(szTmp), L"\"%sVeraCrypt.exe\" /v \"%%1\"", szDir );
+		StringCbPrintfW (szTmp, sizeof(szTmp), L"\"%sLambCrypt.exe\" /v \"%%1\"", szDir );
 		if (RegSetValueEx (hkey, L"", 0, REG_SZ, (BYTE *) szTmp, (wcslen (szTmp) + 1) * sizeof (wchar_t)) != ERROR_SUCCESS)
 			goto error;
 
@@ -1315,7 +1315,7 @@ BOOL DoRegInstall (HWND hwndDlg, wchar_t *szDestDir, BOOL bInstallType)
 		wchar_t typeClass[256];
 		DWORD typeClassSize = sizeof (typeClass);
 
-		if (ReadLocalMachineRegistryString (key, L"", typeClass, &typeClassSize) && typeClassSize > 0 && wcscmp (typeClass, L"VeraCryptVolume") == 0)
+		if (ReadLocalMachineRegistryString (key, L"", typeClass, &typeClassSize) && typeClassSize > 0 && wcscmp (typeClass, L"LambCryptVolume") == 0)
 			typeClassChanged = FALSE;
 
 		RegMessage (hwndDlg, key);
@@ -1324,7 +1324,7 @@ BOOL DoRegInstall (HWND hwndDlg, wchar_t *szDestDir, BOOL bInstallType)
 				    0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hkey, &dw) != ERROR_SUCCESS)
 			goto error;
 
-		StringCbCopyW (szTmp, sizeof(szTmp), L"VeraCryptVolume");
+		StringCbCopyW (szTmp, sizeof(szTmp), L"LambCryptVolume");
 		if (RegSetValueEx (hkey, L"", 0, REG_SZ, (BYTE *) szTmp, (wcslen (szTmp) + 1) * sizeof (wchar_t)) != ERROR_SUCCESS)
 			goto error;
 
@@ -1335,7 +1335,7 @@ BOOL DoRegInstall (HWND hwndDlg, wchar_t *szDestDir, BOOL bInstallType)
 			SHChangeNotify (SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
 	}
 
-	key = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\VeraCrypt";
+	key = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\LambCrypt";
 	RegMessage (hwndDlg, key);
 	if (RegCreateKeyEx (HKEY_LOCAL_MACHINE,
 		key,
@@ -1343,15 +1343,15 @@ BOOL DoRegInstall (HWND hwndDlg, wchar_t *szDestDir, BOOL bInstallType)
 		goto error;
 
 	/* IMPORTANT: IF YOU CHANGE THIS IN ANY WAY, REVISE AND UPDATE SetInstallationPath() ACCORDINGLY! */
-	StringCbPrintfW (szTmp, sizeof(szTmp), L"\"%sVeraCrypt Setup.exe\" /u", szDir);
+	StringCbPrintfW (szTmp, sizeof(szTmp), L"\"%sLambCrypt Setup.exe\" /u", szDir);
 	if (RegSetValueEx (hkey, L"UninstallString", 0, REG_SZ, (BYTE *) szTmp, (wcslen (szTmp) + 1) * sizeof (wchar_t)) != ERROR_SUCCESS)
 		goto error;
 
-	StringCbPrintfW (szTmp, sizeof(szTmp), L"\"%sVeraCrypt Setup.exe\" /c", szDir);
+	StringCbPrintfW (szTmp, sizeof(szTmp), L"\"%sLambCrypt Setup.exe\" /c", szDir);
 	if (RegSetValueEx (hkey, L"ModifyPath", 0, REG_SZ, (BYTE *) szTmp, (wcslen (szTmp) + 1) * sizeof (wchar_t)) != ERROR_SUCCESS)
 		goto error;
 
-	StringCbPrintfW (szTmp, sizeof(szTmp), L"\"%sVeraCrypt Setup.exe\"", szDir);
+	StringCbPrintfW (szTmp, sizeof(szTmp), L"\"%sLambCrypt Setup.exe\"", szDir);
 	if (RegSetValueEx (hkey, L"DisplayIcon", 0, REG_SZ, (BYTE *) szTmp, (wcslen (szTmp) + 1) * sizeof (wchar_t)) != ERROR_SUCCESS)
 		goto error;
 
@@ -1359,11 +1359,11 @@ BOOL DoRegInstall (HWND hwndDlg, wchar_t *szDestDir, BOOL bInstallType)
 	if (RegSetValueEx (hkey, L"DisplayVersion", 0, REG_SZ, (BYTE *) szTmp, (wcslen (szTmp) + 1) * sizeof (wchar_t)) != ERROR_SUCCESS)
 		goto error;
 
-	StringCbCopyW (szTmp, sizeof(szTmp), L"VeraCrypt");
+	StringCbCopyW (szTmp, sizeof(szTmp), L"LambCrypt");
 	if (RegSetValueEx (hkey, L"DisplayName", 0, REG_SZ, (BYTE *) szTmp, (wcslen (szTmp) + 1) * sizeof (wchar_t)) != ERROR_SUCCESS)
 		goto error;
 
-	StringCbCopyW (szTmp, sizeof(szTmp), L"AM Crypto");
+	StringCbCopyW (szTmp, sizeof(szTmp), L"LambCrypt contributors");
 	if (RegSetValueEx (hkey, L"Publisher", 0, REG_SZ, (BYTE *) szTmp, (wcslen (szTmp) + 1) * sizeof (wchar_t)) != ERROR_SUCCESS)
 		goto error;
 
@@ -1402,7 +1402,7 @@ BOOL DoApplicationDataUninstall (HWND hwndDlg)
 	StatusMessage (hwndDlg, "REMOVING_APPDATA");
 
 	SHGetFolderPath (NULL, CSIDL_APPDATA, NULL, 0, path);
-	StringCbCatW (path, sizeof(path), L"\\VeraCrypt\\");
+	StringCbCatW (path, sizeof(path), L"\\LambCrypt\\");
 
 	// Delete favorite volumes file
 	StringCbPrintfW (path2, sizeof(path2), L"%s%s", path, TC_APPD_FILENAME_FAVORITE_VOLUMES);
@@ -1430,7 +1430,7 @@ BOOL DoApplicationDataUninstall (HWND hwndDlg)
 	StatDeleteFile (path2, FALSE);
 
 	SHGetFolderPath (NULL, CSIDL_APPDATA, NULL, 0, path);
-	StringCbCatW (path, sizeof(path), L"\\VeraCrypt");
+	StringCbCatW (path, sizeof(path), L"\\LambCrypt");
 	RemoveMessage (hwndDlg, path);
 	if (!StatRemoveDirectory (path))
 	{
@@ -1461,25 +1461,25 @@ BOOL DoRegUninstall (HWND hwndDlg, BOOL bRemoveDeprecated)
 	if (!bRemoveDeprecated)
 		StatusMessage (hwndDlg, "REMOVING_REG");
 
-	RegDeleteKeyExW (HKEY_LOCAL_MACHINE, L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\VeraCrypt", KEY_WOW64_32KEY, 0);
-	RegDeleteKeyExW (HKEY_CURRENT_USER, L"Software\\VeraCrypt", KEY_WOW64_32KEY, 0);
+	RegDeleteKeyExW (HKEY_LOCAL_MACHINE, L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\LambCrypt", KEY_WOW64_32KEY, 0);
+	RegDeleteKeyExW (HKEY_CURRENT_USER, L"Software\\LambCrypt", KEY_WOW64_32KEY, 0);
 	BootEncryption::ClearEfiBootLoaderDiagnosticsRegistry ();
-	RegDeleteKeyExW (HKEY_LOCAL_MACHINE, L"Software\\VeraCrypt\\Diagnostics", KEY_WOW64_64KEY, 0);
+	RegDeleteKeyExW (HKEY_LOCAL_MACHINE, L"Software\\LambCrypt\\Diagnostics", KEY_WOW64_64KEY, 0);
 	// Also remove diagnostics written to the redirected view by older installers.
-	DeleteRegistryKey (HKEY_LOCAL_MACHINE, L"Software\\VeraCrypt\\Diagnostics\\EfiBootLoader");
-	RegDeleteKey (HKEY_LOCAL_MACHINE, L"Software\\VeraCrypt\\Diagnostics");
+	DeleteRegistryKey (HKEY_LOCAL_MACHINE, L"Software\\LambCrypt\\Diagnostics\\EfiBootLoader");
+	RegDeleteKey (HKEY_LOCAL_MACHINE, L"Software\\LambCrypt\\Diagnostics");
 
-	RegDeleteKey (HKEY_LOCAL_MACHINE, L"Software\\Classes\\VeraCryptVolume\\Shell\\open\\command");
-	RegDeleteKey (HKEY_LOCAL_MACHINE, L"Software\\Classes\\VeraCryptVolume\\Shell\\open");
-	RegDeleteKey (HKEY_LOCAL_MACHINE, L"Software\\Classes\\VeraCryptVolume\\Shell");
-	RegDeleteKey (HKEY_LOCAL_MACHINE, L"Software\\Classes\\VeraCryptVolume\\DefaultIcon");
-	RegDeleteKey (HKEY_LOCAL_MACHINE, L"Software\\Classes\\VeraCryptVolume");
+	RegDeleteKey (HKEY_LOCAL_MACHINE, L"Software\\Classes\\LambCryptVolume\\Shell\\open\\command");
+	RegDeleteKey (HKEY_LOCAL_MACHINE, L"Software\\Classes\\LambCryptVolume\\Shell\\open");
+	RegDeleteKey (HKEY_LOCAL_MACHINE, L"Software\\Classes\\LambCryptVolume\\Shell");
+	RegDeleteKey (HKEY_LOCAL_MACHINE, L"Software\\Classes\\LambCryptVolume\\DefaultIcon");
+	RegDeleteKey (HKEY_LOCAL_MACHINE, L"Software\\Classes\\LambCryptVolume");
 
 	if (!bRemoveDeprecated)
 	{
 		HKEY hKey;
 		GetStartupRegKeyName (regk, sizeof(regk));
-		DeleteRegistryValue (regk, L"VeraCrypt");
+		DeleteRegistryValue (regk, L"LambCrypt");
 
 		DeleteRegistryKey (HKEY_LOCAL_MACHINE, L"Software\\Classes\\.hc");
 
@@ -1487,17 +1487,17 @@ BOOL DoRegUninstall (HWND hwndDlg, BOOL bRemoveDeprecated)
 		SetPrivilege (SE_TAKE_OWNERSHIP_NAME, TRUE);
 
 		// clean MuiCache list from VeraCrypt entries
-		SearchAndDeleteRegistrySubString (HKEY_CLASSES_ROOT, L"Local Settings\\Software\\Microsoft\\Windows\\Shell\\MuiCache", L"VeraCrypt", FALSE, NULL);
+		SearchAndDeleteRegistrySubString (HKEY_CLASSES_ROOT, L"Local Settings\\Software\\Microsoft\\Windows\\Shell\\MuiCache", L"LambCrypt", FALSE, NULL);
 
 		// clean other VeraCrypt entries from all users
 		SearchAndDeleteRegistrySubString (HKEY_USERS, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.hc", NULL, TRUE, NULL);
-		SearchAndDeleteRegistrySubString (HKEY_USERS, L"Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Compatibility Assistant\\Persisted", L"VeraCrypt", TRUE, NULL);
-		SearchAndDeleteRegistrySubString (HKEY_USERS, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartPage\\NewShortcuts", L"VeraCrypt", TRUE, NULL);
+		SearchAndDeleteRegistrySubString (HKEY_USERS, L"Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Compatibility Assistant\\Persisted", L"LambCrypt", TRUE, NULL);
+		SearchAndDeleteRegistrySubString (HKEY_USERS, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartPage\\NewShortcuts", L"LambCrypt", TRUE, NULL);
 
 		if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, L"SYSTEM", 0, KEY_ALL_ACCESS | WRITE_DAC | WRITE_OWNER, &hKey) == ERROR_SUCCESS)
 		{
-			SearchAndDeleteRegistrySubString (hKey, L"Enum\\Root\\LEGACY_VERACRYPT", NULL, TRUE, L"ControlSet");
-			SearchAndDeleteRegistrySubString (hKey, L"services\\veracrypt", NULL, TRUE, L"ControlSet");
+			SearchAndDeleteRegistrySubString (hKey, L"Enum\\Root\\LEGACY_LAMBCRYPT", NULL, TRUE, L"ControlSet");
+			SearchAndDeleteRegistrySubString (hKey, L"services\\lambcrypt", NULL, TRUE, L"ControlSet");
 			RegCloseKey(hKey);
 		}
 
@@ -1531,7 +1531,7 @@ retry:
 	if (hService == NULL)
 		goto error;
 
-	if (wcscmp (L"veracrypt", lpszService) == 0)
+	if (wcscmp (L"lambcrypt", lpszService) == 0)
 	{
 		try
 		{
@@ -1590,7 +1590,7 @@ retry:
 
 try_delete:
 
-	if (wcscmp (L"veracrypt", lpszService) == 0)
+	if (wcscmp (L"lambcrypt", lpszService) == 0)
 		StatusMessage (hwndDlg, "REMOVING_DRIVER");
 	else
 		StatusMessageParam (hwndDlg, "REMOVING", lpszService);
@@ -1815,7 +1815,7 @@ static void LogSetupWarning (const wchar_t *message)
 	HANDLE source = RegisterEventSourceW (NULL, TC_SYSTEM_FAVORITES_SERVICE_NAME);
 	if (source)
 	{
-		LPCWSTR strings[] = { L"VeraCrypt EXE Setup", message };
+		LPCWSTR strings[] = { L"LambCrypt EXE Setup", message };
 		ReportEventW (source, EVENTLOG_WARNING_TYPE, 0, 0xC0000000 + EVENTLOG_WARNING_TYPE,
 			NULL, ARRAYSIZE (strings), 0, strings, NULL);
 		DeregisterEventSource (source);
@@ -1904,7 +1904,7 @@ BOOL UpgradeBootLoader (HWND hwndDlg)
 					bUpdateRescueDisk = TRUE;
 				wchar_t message[512];
 				StringCchPrintfW (message, ARRAYSIZE (message),
-					L"EXE boot loader update deliberately deferred; no loader write was attempted. Service readiness error=0x%.8X, stop error=0x%.8X, executable replacement or pending-copy cleanup error=0x%.8X. ERROR_NOT_READY can mean the operation was not reached. Restart Windows, then run VeraCrypt Repair/Reinstall.",
+					L"EXE boot loader update deliberately deferred; no loader write was attempted. Service readiness error=0x%.8X, stop error=0x%.8X, executable replacement or pending-copy cleanup error=0x%.8X. ERROR_NOT_READY can mean the operation was not reached. Restart Windows, then run LambCrypt Repair/Reinstall.",
 					ServiceUpdateError, ServiceStopError, ServiceExecutableError);
 				LogSetupWarning (message);
 				if (ServiceUpdateError == ERROR_SUCCESS_REBOOT_REQUIRED)
@@ -1974,7 +1974,7 @@ BOOL DoShortcutsUninstall (HWND hwndDlg, wchar_t *szDestDir)
 	if (bSlash == FALSE)
 		StringCbCatW (szLinkDir, sizeof(szLinkDir), L"\\");
 
-	StringCbCatW (szLinkDir, sizeof(szLinkDir), L"VeraCrypt");
+	StringCbCatW (szLinkDir, sizeof(szLinkDir), L"LambCrypt");
 
 	// Global start menu
 	{
@@ -1982,7 +1982,7 @@ BOOL DoShortcutsUninstall (HWND hwndDlg, wchar_t *szDestDir)
 		wchar_t path[TC_MAX_PATH];
 
 		SHGetSpecialFolderPath (hwndDlg, path, CSIDL_COMMON_PROGRAMS, 0);
-		StringCbCatW (path, sizeof(path), L"\\VeraCrypt");
+		StringCbCatW (path, sizeof(path), L"\\LambCrypt");
 
 		if (_wstat (path, &st) == 0)
 		{
@@ -1992,22 +1992,22 @@ BOOL DoShortcutsUninstall (HWND hwndDlg, wchar_t *szDestDir)
 	}
 
 	// Start menu entries
-	StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\VeraCrypt.lnk");
+	StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\LambCrypt.lnk");
 	RemoveMessage (hwndDlg, szTmp2);
 	if (StatDeleteFile (szTmp2, FALSE) == FALSE)
 		goto error;
 
-	StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\VeraCryptExpander.lnk");
+	StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\LambCryptExpander.lnk");
 	RemoveMessage (hwndDlg, szTmp2);
 	if (StatDeleteFile (szTmp2, FALSE) == FALSE)
 		goto error;
 
-	StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\VeraCrypt Website.url");
+	StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\LambCrypt Website.url");
 	RemoveMessage (hwndDlg, szTmp2);
 	if (StatDeleteFile (szTmp2, FALSE) == FALSE)
 		goto error;
 
-	StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\VeraCrypt User's Guide.lnk");
+	StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\LambCrypt User's Guide.lnk");
 	StatDeleteFile (szTmp2, FALSE);
 
 	// Start menu group
@@ -2022,7 +2022,7 @@ BOOL DoShortcutsUninstall (HWND hwndDlg, wchar_t *szDestDir)
 	else
 		SHGetSpecialFolderPath (hwndDlg, szLinkDir, CSIDL_DESKTOPDIRECTORY, 0);
 
-	StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\VeraCrypt.lnk");
+	StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\LambCrypt.lnk");
 
 	RemoveMessage (hwndDlg, szTmp2);
 	if (StatDeleteFile (szTmp2, FALSE) == FALSE)
@@ -2060,7 +2060,7 @@ BOOL DoShortcutsInstall (HWND hwndDlg, wchar_t *szDestDir, BOOL bProgGroup, BOOL
 	if (bSlash == FALSE)
 		StringCbCatW (szLinkDir, sizeof(szLinkDir), L"\\");
 
-	StringCbCatW (szLinkDir, sizeof(szLinkDir), L"VeraCrypt");
+	StringCbCatW (szLinkDir, sizeof(szLinkDir), L"LambCrypt");
 
 	StringCbCopyW (szDir, sizeof(szDir), szDestDir);
 	x = wcslen (szDestDir);
@@ -2089,21 +2089,21 @@ BOOL DoShortcutsInstall (HWND hwndDlg, wchar_t *szDestDir, BOOL bProgGroup, BOOL
 			}
 		}
 
-		StringCbPrintfW (szTmp, sizeof(szTmp), L"%s%s", szDir, L"VeraCrypt.exe");
-		StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\VeraCrypt.lnk");
+		StringCbPrintfW (szTmp, sizeof(szTmp), L"%s%s", szDir, L"LambCrypt.exe");
+		StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\LambCrypt.lnk");
 
 		IconMessage (hwndDlg, szTmp2);
 		if (CreateLink (szTmp, L"", szTmp2, NULL, -1) != S_OK)
 			goto error;
 
-		StringCbPrintfW (szTmp, sizeof(szTmp), L"%s%s", szDir, L"VeraCryptExpander.exe");
-		StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\VeraCryptExpander.lnk");
+		StringCbPrintfW (szTmp, sizeof(szTmp), L"%s%s", szDir, L"LambCryptExpander.exe");
+		StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\LambCryptExpander.lnk");
 
 		IconMessage (hwndDlg, szTmp2);
 		if (CreateLink (szTmp, L"", szTmp2, NULL, -1) != S_OK)
 			goto error;
 
-		StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\VeraCrypt Website.url");
+		StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\LambCrypt Website.url");
 		IconMessage (hwndDlg, szTmp2);
 		f = _wfopen (szTmp2, L"w");
 		if (f)
@@ -2116,10 +2116,10 @@ BOOL DoShortcutsInstall (HWND hwndDlg, wchar_t *szDestDir, BOOL bProgGroup, BOOL
 		else
 			goto error;
 
-		StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\Uninstall VeraCrypt.lnk");
+		StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\Uninstall LambCrypt.lnk");
 		StatDeleteFile (szTmp2, FALSE);
 
-		StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\VeraCrypt User's Guide.lnk");
+		StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\LambCrypt User's Guide.lnk");
 		StatDeleteFile (szTmp2, FALSE);
 	}
 
@@ -2140,8 +2140,8 @@ BOOL DoShortcutsInstall (HWND hwndDlg, wchar_t *szDestDir, BOOL bProgGroup, BOOL
 		else
 			SHGetSpecialFolderPath (hwndDlg, szLinkDir, CSIDL_DESKTOPDIRECTORY, 0);
 
-		StringCbPrintfW (szTmp, sizeof(szTmp), L"%s%s", szDir, L"VeraCrypt.exe");
-		StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\VeraCrypt.lnk");
+		StringCbPrintfW (szTmp, sizeof(szTmp), L"%s%s", szDir, L"LambCrypt.exe");
+		StringCbPrintfW (szTmp2, sizeof(szTmp2), L"%s%s", szLinkDir, L"\\LambCrypt.lnk");
 
 		IconMessage (hwndDlg, szTmp2);
 
@@ -2253,7 +2253,7 @@ static void SetSystemRestorePoint (HWND hwndDlg, BOOL finalize)
 		RestPtInfo.dwEventType = BEGIN_SYSTEM_CHANGE;
 		RestPtInfo.dwRestorePtType = bUninstall ? APPLICATION_UNINSTALL : APPLICATION_INSTALL | DEVICE_DRIVER_INSTALL;
 		RestPtInfo.llSequenceNumber = 0;
-		StringCbCopyW (RestPtInfo.szDescription, sizeof(RestPtInfo.szDescription), bUninstall ? L"VeraCrypt uninstallation" : L"VeraCrypt installation");
+		StringCbCopyW (RestPtInfo.szDescription, sizeof(RestPtInfo.szDescription), bUninstall ? L"LambCrypt uninstallation" : L"LambCrypt installation");
 
 		if(!_SRSetRestorePoint (&RestPtInfo, &SMgrStatus))
 		{
@@ -2303,7 +2303,7 @@ void DoUninstall (void *arg)
 		if (!Rollback && bSystemRestore && !bTempSkipSysRestore)
 			SetSystemRestorePoint (hwndDlg, FALSE);
 
-		if (DoServiceUninstall (hwndDlg, L"veracrypt") == FALSE)
+		if (DoServiceUninstall (hwndDlg, L"lambcrypt") == FALSE)
 		{
 			bOK = FALSE;
 		}
@@ -2329,10 +2329,10 @@ void DoUninstall (void *arg)
 			FILE *f;
 
 			// Deprecated service
-			DoServiceUninstall (hwndDlg, L"VeraCryptService");
+			DoServiceUninstall (hwndDlg, L"LambCryptService");
 
 			GetTempPath (ARRAYSIZE (temp), temp);
-			StringCbPrintfW (UninstallBatch, sizeof (UninstallBatch), L"%sVeraCrypt-Uninstall.bat", temp);
+			StringCbPrintfW (UninstallBatch, sizeof (UninstallBatch), L"%sLambCrypt-Uninstall.bat", temp);
 
 			UninstallBatch [ARRAYSIZE(UninstallBatch)-1] = 0;
 
@@ -2347,8 +2347,8 @@ void DoUninstall (void *arg)
 					L"if exist \"%s%s\" goto loop\n"
 					L"rmdir \"%s\"\n"
 					L"del \"%s\"",
-					InstallationPath, L"VeraCrypt Setup.exe",
-					InstallationPath, L"VeraCrypt Setup.exe",
+					InstallationPath, L"LambCrypt Setup.exe",
+					InstallationPath, L"LambCrypt Setup.exe",
 					InstallationPath,
 					UninstallBatch
 					);
@@ -2468,7 +2468,7 @@ void DoInstall (void *arg)
 	UpdateProgressBarProc(50);
 
 	// Remove deprecated
-	DoServiceUninstall (hwndDlg, L"VeraCryptService");
+	DoServiceUninstall (hwndDlg, L"LambCryptService");
 
 	UpdateProgressBarProc(55);
 
@@ -2478,10 +2478,10 @@ void DoInstall (void *arg)
 	UpdateProgressBarProc(61);
 
 	GetWindowsDirectory (path, ARRAYSIZE (path));
-	StringCbCatW (path, sizeof (path), L"\\VeraCrypt Setup.exe");
+	StringCbCatW (path, sizeof (path), L"\\LambCrypt Setup.exe");
 	StatDeleteFile (path, FALSE);
 
-	if (UpdateProgressBarProc(63) && UnloadDriver && DoServiceUninstall (hwndDlg, L"veracrypt") == FALSE)
+	if (UpdateProgressBarProc(63) && UnloadDriver && DoServiceUninstall (hwndDlg, L"lambcrypt") == FALSE)
 	{
 		bOK = FALSE;
 	}
@@ -2798,9 +2798,9 @@ int WINAPI wWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, wchar_t *lpsz
 	}
 
 #ifdef PORTABLE
-	lpszTitle = L"VeraCrypt Portable";
+	lpszTitle = L"LambCrypt Portable";
 #else
-	lpszTitle = L"VeraCrypt Setup";
+	lpszTitle = L"LambCrypt Setup";
 #endif
 	/* Call InitApp to initialize the common code */
 	InitApp (hInstance, NULL);
@@ -2857,9 +2857,9 @@ int WINAPI wWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, wchar_t *lpsz
 			else if (!bDevm)
 			{
 #ifndef PORTABLE
-				MessageBox (NULL, L"Error: This installer file does not contain any compressed files.\n\nTo create a self-extracting installation package (with embedded compressed files), run:\n\"VeraCrypt Setup.exe\" /p", L"VeraCrypt", MB_ICONERROR | MB_SETFOREGROUND | MB_TOPMOST);
+				MessageBox (NULL, L"Error: This installer file does not contain any compressed files.\n\nTo create a self-extracting installation package (with embedded compressed files), run:\n\"LambCrypt Setup.exe\" /p", L"LambCrypt", MB_ICONERROR | MB_SETFOREGROUND | MB_TOPMOST);
 #else
-				MessageBox (NULL, L"Error: This portable installer file does not contain any compressed files.\n\nTo create a self-extracting portable installation package (with embedded compressed files), run:\n\"VeraCrypt Portable.exe\" /p", L"VeraCrypt", MB_ICONERROR | MB_SETFOREGROUND | MB_TOPMOST);
+				MessageBox (NULL, L"Error: This portable installer file does not contain any compressed files.\n\nTo create a self-extracting portable installation package (with embedded compressed files), run:\n\"LambCrypt Portable.exe\" /p", L"LambCrypt", MB_ICONERROR | MB_SETFOREGROUND | MB_TOPMOST);
 #endif
 				exit (1);
 			}

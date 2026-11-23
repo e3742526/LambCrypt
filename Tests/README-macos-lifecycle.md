@@ -4,6 +4,10 @@
 Run these checks on macOS with Xcode Command Line Tools and Python 3. They do not
 require administrator privileges, mounted containers, or an installed test app.
 
+LambCrypt asks each user to accept its license on first use. Tests that run the
+`lambcrypt` binary need `export LAMBCRYPT_LICENSE_ACCEPTED=1` first, which
+accepts the terms for those processes without recording anything.
+
 Build the matching LambCrypt sources first. Use a clean build after changing
 headers: the current makefiles do not track every header dependency. The archive
 architecture must match the compiler's default architecture.

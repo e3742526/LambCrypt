@@ -49,12 +49,12 @@ enum
 	TC_TBXID_EXTRA_BOOT_PARTITION_REMOVAL_INSTRUCTIONS
 };
 
-#define TC_APPLICATION_ID	L"AMCrypto.VeraCrypt"
+#define TC_APPLICATION_ID	L"LambCrypt.LambCrypt"
 
-#define TC_MUTEX_NAME_SYSENC				L"Global\\VeraCrypt System Encryption Wizard"
-#define TC_MUTEX_NAME_NONSYS_INPLACE_ENC	L"Global\\VeraCrypt In-Place Encryption Wizard"
-#define TC_MUTEX_NAME_APP_SETUP				L"Global\\VeraCrypt Setup"
-#define TC_MUTEX_NAME_DRIVER_SETUP			L"Global\\VeraCrypt Driver Setup"
+#define TC_MUTEX_NAME_SYSENC				L"Global\\LambCrypt System Encryption Wizard"
+#define TC_MUTEX_NAME_NONSYS_INPLACE_ENC	L"Global\\LambCrypt In-Place Encryption Wizard"
+#define TC_MUTEX_NAME_APP_SETUP				L"Global\\LambCrypt Setup"
+#define TC_MUTEX_NAME_DRIVER_SETUP			L"Global\\LambCrypt Driver Setup"
 
 #define IDC_ABOUT 0x7fff	/* ID for AboutBox on system menu in wm_user range */
 
@@ -83,7 +83,7 @@ enum
 #define TC_APPD_FILENAME_POST_INSTALL_TASK_RELEASE_NOTES	L"Post-Install Task - Release Notes"
 #define TC_APPD_FILENAME_POST_INSTALL_TASK_RESCUE_DISK		L"Post-Install Task - Rescue Disk"
 
-#define VC_EFI_BOOT_LOADER_DIAGNOSTICS_REGISTRY_KEY			L"Software\\VeraCrypt\\Diagnostics\\EfiBootLoader"
+#define VC_EFI_BOOT_LOADER_DIAGNOSTICS_REGISTRY_KEY			L"Software\\LambCrypt\\Diagnostics\\EfiBootLoader"
 #define VC_EFI_BOOT_LOADER_RESOURCE_SET_2011				2011
 #define VC_EFI_BOOT_LOADER_RESOURCE_SET_2023				2023
 #define VC_EFI_BOOT_LOADER_RESOURCE_SET_VALUE_NAME			L"EfiBootLoaderResourceSet"

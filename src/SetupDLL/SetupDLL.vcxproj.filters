@@ -94,16 +94,16 @@
     <None Include="Setup.ico">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="..\Common\VeraCrypt.ico">
+    <None Include="..\Common\LambCrypt.ico">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="VeraCrypt_setup.bmp">
+    <None Include="LambCrypt_setup.bmp">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="VeraCrypt_setup_background.bmp">
+    <None Include="LambCrypt_setup_background.bmp">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="..\Common\VeraCrypt_Volume.ico">
+    <None Include="..\Common\LambCrypt_Volume.ico">
       <Filter>Resource Files</Filter>
     </None>
     <None Include="..\Common\Language.xml">

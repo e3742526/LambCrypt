@@ -1,3 +1,4 @@
+/* Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. */
 /*
  Derived from source code of TrueCrypt 7.1a, which is
  Copyright (c) 2008-2012 TrueCrypt Developers Association and which is governed
@@ -64,7 +65,7 @@ namespace VeraCrypt
 		void Show (HWND parent) const
 		{
 			string msgBody = "Parameter incorrect.\n\n\n(If you report a bug in connection with this, please include the following technical information in the bug report:\n" + string (SrcPos) + ")";
-			MessageBoxA (parent, msgBody.c_str(), "VeraCrypt", MB_ICONERROR | MB_SETFOREGROUND);
+			MessageBoxA (parent, msgBody.c_str(), "LambCrypt", MB_ICONERROR | MB_SETFOREGROUND);
 		}
 
 		const char *SrcPos;
@@ -79,7 +80,7 @@ namespace VeraCrypt
 			char szErrCode[16];
 			StringCchPrintfA (szErrCode, ARRAYSIZE(szErrCode), "0x%.8X", LastError);
 			string msgBody = "The Random Generator initialization failed.\n\n\n(If you report a bug in connection with this, please include the following technical information in the bug report:\n" + string (SrcPos) + "\nLast Error = " + string (szErrCode) + ")";
-			MessageBoxA (parent, msgBody.c_str(), "VeraCrypt", MB_ICONERROR | MB_SETFOREGROUND);
+			MessageBoxA (parent, msgBody.c_str(), "LambCrypt", MB_ICONERROR | MB_SETFOREGROUND);
 		}
 
 		const char *SrcPos;
@@ -95,7 +96,7 @@ namespace VeraCrypt
 			char szErrCode[16];
 			StringCchPrintfA (szErrCode, ARRAYSIZE(szErrCode), "0x%.8X", LastError);
 			string msgBody = "Windows Crypto API failed.\n\n\n(If you report a bug in connection with this, please include the following technical information in the bug report:\n" + string (SrcPos) + "\nLast Error = " + string (szErrCode) + ")";
-			MessageBoxA (parent, msgBody.c_str(), "VeraCrypt", MB_ICONERROR | MB_SETFOREGROUND);
+			MessageBoxA (parent, msgBody.c_str(), "LambCrypt", MB_ICONERROR | MB_SETFOREGROUND);
 		}
 
 		const char *SrcPos;

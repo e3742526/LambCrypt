@@ -1354,7 +1354,7 @@ namespace VeraCrypt
 	DWORD BootEncryption::GetDriverServiceStartType ()
 	{
 		DWORD startType;
-		throw_sys_if (!ReadLocalMachineRegistryDword (L"SYSTEM\\CurrentControlSet\\Services\\veracrypt", L"Start", &startType));
+		throw_sys_if (!ReadLocalMachineRegistryDword (L"SYSTEM\\CurrentControlSet\\Services\\lambcrypt", L"Start", &startType));
 		return startType;
 	}
 
@@ -1383,7 +1383,7 @@ namespace VeraCrypt
 
 		finally_do_arg (SC_HANDLE, serviceManager, { CloseServiceHandle (finally_arg); });
 
-		SC_HANDLE service = OpenService (serviceManager, L"veracrypt", SERVICE_CHANGE_CONFIG);
+		SC_HANDLE service = OpenService (serviceManager, L"lambcrypt", SERVICE_CHANGE_CONFIG);
 		throw_sys_if (!service);
 
 		finally_do_arg (SC_HANDLE, service, { CloseServiceHandle (finally_arg); });
@@ -1395,7 +1395,7 @@ namespace VeraCrypt
 			NULL, NULL, NULL, NULL, NULL));
 
 		// ChangeServiceConfig() rejects SERVICE_BOOT_START with ERROR_INVALID_PARAMETER
-		throw_sys_if (!WriteLocalMachineRegistryDword (L"SYSTEM\\CurrentControlSet\\Services\\veracrypt", L"Start", startType));
+		throw_sys_if (!WriteLocalMachineRegistryDword (L"SYSTEM\\CurrentControlSet\\Services\\lambcrypt", L"Start", startType));
 	}
 
 
@@ -2182,7 +2182,7 @@ namespace VeraCrypt
 			device.SeekAt (0);
 			device.Read (mbr, sizeof (mbr));
 
-			if (!BufferContainsString (mbr, sizeof (mbr), TC_APP_NAME)
+			if (!BufferContainsString (mbr, sizeof (mbr), TC_BOOT_LOADER_SIGNATURE)
 				|| BE16 (*(uint16 *) (mbr + TC_BOOT_SECTOR_VERSION_OFFSET)) != VERSION_NUM)
 			{
 				return;
@@ -3515,10 +3515,10 @@ namespace VeraCrypt
 				return MakeEfiBootLoaderResourceSelection (EfiBootLoaderResources2011, VC_EFI_BOOT_LOADER_RESOURCE_SET_2011, L"Secure Boot is unavailable and firmware db does not contain a supported Microsoft UEFI CA; using 2011 compatibility fallback", ERROR_SUCCESS);
 
 			if (b2023SetRevoked || b2011SetRevoked)
-				ThrowUnsupportedEfiSecureBootDb (L"Secure Boot is enabled, but every VeraCrypt EFI bootloader signing CA set present in firmware db is forbidden by firmware dbx", firmwareDbError, firmwareDbxError);
+				ThrowUnsupportedEfiSecureBootDb (L"Secure Boot is enabled, but every LambCrypt EFI bootloader signing CA set present in firmware db is forbidden by firmware dbx", firmwareDbError, firmwareDbxError);
 
 			if (bSecureBootStateKnown)
-				ThrowUnsupportedEfiSecureBootDb (L"Secure Boot is enabled but firmware db does not contain Microsoft Corporation UEFI CA 2011 or the Microsoft 2023 UEFI CA pair required by VeraCrypt", firmwareDbError, firmwareDbxError);
+				ThrowUnsupportedEfiSecureBootDb (L"Secure Boot is enabled but firmware db does not contain Microsoft Corporation UEFI CA 2011 or the Microsoft 2023 UEFI CA pair required by LambCrypt", firmwareDbError, firmwareDbxError);
 
 			ThrowUnsupportedEfiSecureBootDb (L"firmware db does not contain a supported Microsoft UEFI CA and Secure Boot state could not be read; refusing to select an unsupported EFI bootloader signing CA", secureBootLastError, firmwareDbxError);
 		}
@@ -4235,9 +4235,9 @@ namespace VeraCrypt
 
 	static bool BufferHasVeraCryptBootLoaderPattern (const std::vector<uint8>& fileContent)
 	{
-		const wchar_t* appName = _T(TC_APP_NAME);
+		const wchar_t* appName = _T(TC_BOOT_LOADER_SIGNATURE);
 		return BufferHasPattern (fileContent.data (), fileContent.size (), appName, wcslen (appName) * sizeof (wchar_t))
-			|| BufferHasPattern (fileContent.data (), fileContent.size (), TC_APP_NAME, strlen (TC_APP_NAME));
+			|| BufferHasPattern (fileContent.data (), fileContent.size (), TC_BOOT_LOADER_SIGNATURE, strlen (TC_BOOT_LOADER_SIGNATURE));
 	}
 
 	bool EfiBoot::IsVeraCryptBootLoader (const wchar_t* name)
@@ -4911,7 +4911,7 @@ namespace VeraCrypt
 			if (error != ERROR_SUCCESS) { SetLastError (error); throw SystemException (SRC_POS); }
 		}
 		// Never change the owner of a legacy backup to make its old bytes trusted.
-		return wstring (path) + (legacy ? L"\\VeraCrypt" : L"\\VeraCryptSystem");
+		return wstring (path) + (legacy ? L"\\LambCrypt" : L"\\LambCryptSystem");
 	}
 
 	static void CheckSystemEncryptionFileResult (DWORD error)
@@ -5015,13 +5015,13 @@ namespace VeraCrypt
 		catch (SystemException &e)
 		{
 			if (failedPath)
-				*failedPath = L"%ProgramData%\\VeraCrypt";
+				*failedPath = L"%ProgramData%\\LambCrypt";
 			return e.ErrorCode != ERROR_SUCCESS ? e.ErrorCode : ERROR_PATH_NOT_FOUND;
 		}
 		catch (...)
 		{
 			if (failedPath)
-				*failedPath = L"%ProgramData%\\VeraCrypt";
+				*failedPath = L"%ProgramData%\\LambCrypt";
 			return ERROR_GEN_FAILURE;
 		}
 	}
@@ -5034,10 +5034,10 @@ namespace VeraCrypt
 	{
 		if (!determined)
 		{
-			failedPath = L"HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\veracrypt\\InstallationPath";
+			failedPath = L"HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\lambcrypt\\InstallationPath";
 			return ERROR_FILE_NOT_FOUND;
 		}
-		const wchar_t *files[] = { L"VeraCrypt.exe", L"veracrypt.inf", L"veracrypt.sys", L"veracrypt.cat" };
+		const wchar_t *files[] = { L"LambCrypt.exe", L"lambcrypt.inf", L"lambcrypt.sys", L"lambcrypt.cat" };
 		const wchar_t *separator = !installation.empty () && installation[installation.size () - 1] == L'\\' ? L"" : L"\\";
 		for (size_t i = 0; i < ARRAYSIZE (files); ++i)
 		{
@@ -5140,12 +5140,12 @@ namespace VeraCrypt
 			&& record (SystemEncryptionSetup::GetValue (config, L"ReflectDrivers", reflectedDrivers), config) == ERROR_SUCCESS
 			&& !SystemEncryptionSetup::PathMatches (reflectedDrivers, oldDrivers))
 		{
-			const wchar_t *oldDriverFiles[] = { L"veracrypt.inf", L"veracrypt.sys", L"veracrypt.cat" };
+			const wchar_t *oldDriverFiles[] = { L"lambcrypt.inf", L"lambcrypt.sys", L"lambcrypt.cat" };
 			for (size_t i = 0; i < ARRAYSIZE (oldDriverFiles); ++i)
 				DeleteFileW ((oldDrivers + L"\\" + oldDriverFiles[i]).c_str ());
 			RemoveDirectoryW (oldDrivers.c_str ());
 		}
-		DeleteFileW ((registration.Directory + L"\\VeraCrypt-SetupConfig.lock").c_str ());
+		DeleteFileW ((registration.Directory + L"\\LambCrypt-SetupConfig.lock").c_str ());
 
 		if (!failures.empty ())
 			throw ErrorException (failures, SRC_POS);
@@ -5211,7 +5211,7 @@ namespace VeraCrypt
 
 					// restore boot menu entry in case of PostOOBE
 					if (PostOOBEMode)
-						EfiBootInst.SetStartExec(L"VeraCrypt BootLoader (DcsBoot)", L"\\EFI\\VeraCrypt\\DcsBoot.efi", SetBootEntry, ForceFirstBootEntry, SetBootNext);
+						EfiBootInst.SetStartExec(L"LambCrypt BootLoader (DcsBoot)", L"\\EFI\\VeraCrypt\\DcsBoot.efi", SetBootEntry, ForceFirstBootEntry, SetBootNext);
 
 					if (EfiBootInst.FileExists (szBackupMsBootloader))
 					{
@@ -5373,7 +5373,7 @@ namespace VeraCrypt
 #endif
 				if (!preserveUserConfig)
 					EfiBootInst.DelFile(L"\\EFI\\VeraCrypt\\PlatformInfo");
-				EfiBootInst.SetStartExec(L"VeraCrypt BootLoader (DcsBoot)", L"\\EFI\\VeraCrypt\\DcsBoot.efi", SetBootEntry, ForceFirstBootEntry, SetBootNext);
+				EfiBootInst.SetStartExec(L"LambCrypt BootLoader (DcsBoot)", L"\\EFI\\VeraCrypt\\DcsBoot.efi", SetBootEntry, ForceFirstBootEntry, SetBootNext);
 
 				if (EfiBootInst.FileExists (szStdEfiBootloader))
 				{
@@ -5390,7 +5390,7 @@ namespace VeraCrypt
 						EfiBootInst.RenameFile (szStdEfiBootloader, szBackupEfiBootloader, TRUE);
 						EfiBootInst.SaveFile(szStdEfiBootloader, dcsBootImg, sizeDcsBoot);
 					}
-					if (	((loaderSize <= 32768) && BufferHasPattern (bootLoaderBuf.data (), (size_t) loaderSize, _T(TC_APP_NAME), strlen (TC_APP_NAME) * 2))
+					if (	((loaderSize <= 32768) && BufferHasPattern (bootLoaderBuf.data (), (size_t) loaderSize, _T(TC_BOOT_LOADER_SIGNATURE), strlen (TC_BOOT_LOADER_SIGNATURE) * 2))
 						)
 					{
 						EfiBootInst.SaveFile(szStdEfiBootloader, dcsBootImg, sizeDcsBoot);
@@ -5438,7 +5438,7 @@ namespace VeraCrypt
 				device.SeekAt (0);
 				device.Read (mbr, sizeof (mbr));
 
-				if (preserveUserConfig && BufferContainsString (mbr, sizeof (mbr), TC_APP_NAME))
+				if (preserveUserConfig && BufferContainsString (mbr, sizeof (mbr), TC_BOOT_LOADER_SIGNATURE))
 				{
 					uint16 version = BE16 (*(uint16 *) (mbr + TC_BOOT_SECTOR_VERSION_OFFSET));
 					if (version != 0)
@@ -5461,7 +5461,7 @@ namespace VeraCrypt
 				// perform actual write only if content is different and either we are not in PostOOBE mode or the MBR contains VeraCrypt/Windows signature.
 				// this last check is done to avoid interfering with multi-boot configuration where MBR belongs to a boot manager like Grub
 				bool writeMbr = memcmp (mbr, bootLoaderBuf, TC_MAX_MBR_BOOT_CODE_SIZE)
-					&& (!PostOOBEMode || BufferContainsString (mbr, sizeof (mbr), TC_APP_NAME) || IsWindowsMBR (mbr, sizeof (mbr)));
+					&& (!PostOOBEMode || BufferContainsString (mbr, sizeof (mbr), TC_BOOT_LOADER_SIGNATURE) || IsWindowsMBR (mbr, sizeof (mbr)));
 				bool writeLoader = !PostOOBEMode;
 
 				if (writeMbr && PostOOBEMode)
@@ -5476,7 +5476,7 @@ namespace VeraCrypt
 
 					if (!BootSectorMatchesLoader (bootLoaderBuf, diskLoader.data (), diskLoader.size ()))
 					{
-						if (BufferContainsString (mbr, sizeof (mbr), TC_APP_NAME)
+						if (BufferContainsString (mbr, sizeof (mbr), TC_BOOT_LOADER_SIGNATURE)
 							&& BootSectorMatchesLoader (mbr, diskLoader.data (), diskLoader.size ()))
 						{
 							// Keep the complete loader on the disk until the installer, Repair or a
@@ -5796,7 +5796,7 @@ namespace VeraCrypt
 
 			// Primary volume descriptor
 			const char* szPrimVolDesc = "\001CD001\001";
-			const char* szPrimVolLabel = "VeraCrypt Rescue Disk           ";
+			const char* szPrimVolLabel = "LambCrypt Rescue Disk           ";
 			memcpy (image + 0x8000, szPrimVolDesc, strlen(szPrimVolDesc) + 1);
 			memcpy (image + 0x7fff + 41, szPrimVolLabel, strlen(szPrimVolLabel) + 1);
 			*(uint32 *) (image + 0x7fff + 81) = RescueIsoImageSize / 2048;
@@ -6342,7 +6342,7 @@ namespace VeraCrypt
 			}
 			else
 			{
-				if (BufferHasPattern (bootLoaderBuf.data (), bootLoaderBuf.size (), _T(TC_APP_NAME), wcslen (_T(TC_APP_NAME)) * 2))
+				if (BufferHasPattern (bootLoaderBuf.data (), bootLoaderBuf.size (), _T(TC_BOOT_LOADER_SIGNATURE), wcslen (_T(TC_BOOT_LOADER_SIGNATURE)) * 2))
 				{
 					if (AskWarnNoYes ("TC_BOOT_LOADER_ALREADY_INSTALLED", ParentWindow) == IDNO)
 						throw UserAbort (SRC_POS);
@@ -6391,9 +6391,9 @@ namespace VeraCrypt
 				throw ParameterIncorrect (SRC_POS);
 
 			// Prevent TrueCrypt loader from being backed up
-			for (size_t i = 0; i < sizeof (bootLoaderBuf) - strlen (TC_APP_NAME); ++i)
+			for (size_t i = 0; i < sizeof (bootLoaderBuf) - strlen (TC_BOOT_LOADER_SIGNATURE); ++i)
 			{
-				if (memcmp (bootLoaderBuf + i, TC_APP_NAME, strlen (TC_APP_NAME)) == 0)
+				if (memcmp (bootLoaderBuf + i, TC_BOOT_LOADER_SIGNATURE, strlen (TC_BOOT_LOADER_SIGNATURE)) == 0)
 				{
 					if (!ParentWindow) throw ErrorException ("TC_BOOT_LOADER_ALREADY_INSTALLED", SRC_POS);
 					if (AskWarnNoYes ("TC_BOOT_LOADER_ALREADY_INSTALLED", ParentWindow) == IDNO)
@@ -6564,14 +6564,14 @@ namespace VeraCrypt
 		{
 		case DriveFilter:
 		case VolumeFilter:
-			filter = L"veracrypt";
+			filter = L"lambcrypt";
 			filterReg = L"UpperFilters";
 			regKey = OpenDeviceClassRegKey (deviceClassGuid);
 			throw_sys_if (regKey == INVALID_HANDLE_VALUE);
 			break;
 
 		case DumpFilter:
-			filter = L"veracrypt.sys";
+			filter = L"lambcrypt.sys";
 			filterReg = L"DumpFilters";
 			SetLastError (RegOpenKeyEx (HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Control\\CrashControl", 0, KEY_READ | KEY_WRITE, &regKey));
 			throw_sys_if (GetLastError() != ERROR_SUCCESS);
@@ -6727,7 +6727,7 @@ namespace VeraCrypt
 			throw_sys_if (!service);
 
 			SERVICE_DESCRIPTION description;
-			description.lpDescription = L"Mounts VeraCrypt system favorite volumes.";
+			description.lpDescription = L"Mounts LambCrypt system favorite volumes.";
 			ChangeServiceConfig2 (service, SERVICE_CONFIG_DESCRIPTION, &description);
 
 			// start the service immediatly if it already existed before
@@ -6857,9 +6857,9 @@ namespace VeraCrypt
 		else
 			configMap &= ~flag;
 #ifdef SETUP
-		throw_sys_if (!WriteLocalMachineRegistryDword (L"SYSTEM\\CurrentControlSet\\Services\\veracrypt", TC_DRIVER_CONFIG_REG_VALUE_NAME, configMap));
+		throw_sys_if (!WriteLocalMachineRegistryDword (L"SYSTEM\\CurrentControlSet\\Services\\lambcrypt", TC_DRIVER_CONFIG_REG_VALUE_NAME, configMap));
 #else
-		WriteLocalMachineRegistryDwordValue (L"SYSTEM\\CurrentControlSet\\Services\\veracrypt", TC_DRIVER_CONFIG_REG_VALUE_NAME, configMap);
+		WriteLocalMachineRegistryDwordValue (L"SYSTEM\\CurrentControlSet\\Services\\lambcrypt", TC_DRIVER_CONFIG_REG_VALUE_NAME, configMap);
 #endif
 	}
 
@@ -7043,9 +7043,9 @@ namespace VeraCrypt
 		WriteEfiBootLoaderDiagnosticsRegistryDword (L"SecureBootUnavailable", status.SecureBootUnavailable ? 1 : 0);
 		WriteEfiBootLoaderDiagnosticsRegistryDword (L"SecureBootDisabledWithNoDb", status.SecureBootDisabledWithNoDb ? 1 : 0);
 		WriteEfiBootLoaderDiagnosticsRegistryDword (L"FirmwareDbxPresent", status.FirmwareDbxPresent ? 1 : 0);
-		WriteEfiBootLoaderDiagnosticsRegistryDword (L"VeraCryptLoaderFilesValid", status.VeraCryptLoaderFilesValid ? 1 : 0);
-		WriteEfiBootLoaderDiagnosticsRegistryDword (L"VeraCryptLoaderKnownCaAllowed", status.VeraCryptLoaderKnownCaAllowed ? 1 : 0);
-		WriteEfiBootLoaderDiagnosticsRegistryDword (L"VeraCryptLoaderKnownCaRevoked", status.VeraCryptLoaderKnownCaRevoked ? 1 : 0);
+		WriteEfiBootLoaderDiagnosticsRegistryDword (L"LambCryptLoaderFilesValid", status.VeraCryptLoaderFilesValid ? 1 : 0);
+		WriteEfiBootLoaderDiagnosticsRegistryDword (L"LambCryptLoaderKnownCaAllowed", status.VeraCryptLoaderKnownCaAllowed ? 1 : 0);
+		WriteEfiBootLoaderDiagnosticsRegistryDword (L"LambCryptLoaderKnownCaRevoked", status.VeraCryptLoaderKnownCaRevoked ? 1 : 0);
 		WriteEfiBootLoaderDiagnosticsRegistryDword (L"WindowsLoaderInspectionSucceeded", status.WindowsLoaderInspectionSucceeded ? 1 : 0);
 		WriteEfiBootLoaderDiagnosticsRegistryDword (L"WindowsLoaderPresent", status.WindowsLoaderPresent ? 1 : 0);
 		WriteEfiBootLoaderDiagnosticsRegistryDword (L"WindowsLoaderSigner", status.WindowsLoaderSigner);
@@ -7057,8 +7057,8 @@ namespace VeraCrypt
 		HKEY key;
 		if (RegOpenKeyExW (HKEY_LOCAL_MACHINE, EfiBootLoaderDiagnosticsRegistryKey, 0, KEY_SET_VALUE | KEY_WOW64_64KEY, &key) == ERROR_SUCCESS)
 		{
-			RegDeleteValueW (key, L"VeraCryptLoaderTrusted");
-			RegDeleteValueW (key, L"VeraCryptLoaderRevoked");
+			RegDeleteValueW (key, L"LambCryptLoaderTrusted");
+			RegDeleteValueW (key, L"LambCryptLoaderRevoked");
 			RegDeleteValueW (key, L"WindowsLoaderTrusted");
 			RegDeleteValueW (key, L"WindowsLoaderRevoked");
 			RegCloseKey (key);
@@ -7947,7 +7947,7 @@ namespace VeraCrypt
 	{
 		DWORD configMap;
 
-		if (!ReadLocalMachineRegistryDword (L"SYSTEM\\CurrentControlSet\\Services\\veracrypt", TC_DRIVER_CONFIG_REG_VALUE_NAME, &configMap))
+		if (!ReadLocalMachineRegistryDword (L"SYSTEM\\CurrentControlSet\\Services\\lambcrypt", TC_DRIVER_CONFIG_REG_VALUE_NAME, &configMap))
 			configMap = 0;
 
 		return configMap;

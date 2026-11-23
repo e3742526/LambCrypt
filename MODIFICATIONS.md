@@ -22,36 +22,50 @@ Run it with `--fix` after changing another upstream file.
 ## Changed files without an inline notice
 
 <!-- BEGIN FILES WITHOUT INLINE NOTICE -->
-- `doc/chm/VeraCrypt User Guide.chm`
-- `doc/chm/en/VeraCrypt.hhc`
-- `doc/chm/en/VeraCrypt.hhp`
+- `doc/chm/en/LambCrypt.hhc`
+- `doc/chm/en/LambCrypt.hhp`
 - `src/Build/Resources/MacOSX/Info.plist.legacy.xml`
 - `src/Build/Resources/MacOSX/Info.plist.xml`
+- `src/COMReg/COMReg.vcxproj`
 - `src/Common/Language.xml`
 - `src/Common/Textual_logo_288dpi.bmp`
 - `src/Common/Textual_logo_96dpi.bmp`
 - `src/Common/Textual_logo_background.bmp`
-- `src/Common/VeraCrypt.ico`
-- `src/Common/VeraCrypt_Volume.ico`
-- `src/Common/VeraCrypt_mounted.ico`
+- `src/Driver/BuildDriver.cmd`
+- `src/Driver/Driver.vcxproj`
+- `src/Driver/Driver.vcxproj.filters`
+- `src/Driver/lambcrypt.Inf`
+- `src/ExpandVolume/ExpandVolume.vcxproj`
+- `src/ExpandVolume/ExpandVolume.vcxproj.filters`
 - `src/ExpandVolume/Logo_288dpi.bmp`
 - `src/ExpandVolume/Logo_96dpi.bmp`
-- `src/Format/VeraCrypt_Wizard.bmp`
+- `src/Format/Format.vcxproj`
+- `src/Format/Format.vcxproj.filters`
+- `src/Format/FormatCom.idl`
+- `src/FormatDLL/FormatDLL.vcxproj`
+- `src/FormatDLL/FormatDLL.vcxproj.filters`
 - `src/Main/Forms/TrueCrypt.fbp`
 - `src/Mount/Logo_288dpi.bmp`
 - `src/Mount/Logo_96dpi.bmp`
+- `src/Mount/MainCom.idl`
+- `src/Mount/Mount.vcxproj`
+- `src/Mount/Mount.vcxproj.filters`
 - `src/Release/Setup Files/Product64.wxs`
 - `src/Release/Setup Files/ProductARM64.wxs`
 - `src/Release/Setup Files/Strings-en.wxl`
+- `src/Release/Setup Files/lambcrypt.Inf`
+- `src/Setup/ComSetup.rgs`
 - `src/Setup/FreeBSD/lambcrypt.xml`
 - `src/Setup/Linux/lambcrypt.xml`
-- `src/Setup/MacOSX/lambcrypt.pkgproj`
-- `src/Setup/MacOSX/lambcrypt_Legacy.pkgproj`
-- `src/Setup/MacOSX/lambcrypt_fuse-t.pkgproj`
+- `src/Setup/MacOSX/FSKit.entitlements.plist`
+- `src/Setup/Portable.vcxproj`
+- `src/Setup/Portable.vcxproj.filters`
 - `src/Setup/Setup.ico`
-- `src/Setup/VeraCrypt_setup.bmp`
-- `src/Setup/VeraCrypt_setup_background.bmp`
+- `src/Setup/Setup.vcxproj`
+- `src/Setup/Setup.vcxproj.filters`
+- `src/SetupDLL/ComSetup.rgs`
 - `src/SetupDLL/Setup.ico`
-- `src/SetupDLL/VeraCrypt_setup.bmp`
-- `src/SetupDLL/VeraCrypt_setup_background.bmp`
+- `src/SetupDLL/SetupDLL.def`
+- `src/SetupDLL/SetupDLL.vcxproj`
+- `src/SetupDLL/SetupDLL.vcxproj.filters`
 <!-- END FILES WITHOUT INLINE NOTICE -->

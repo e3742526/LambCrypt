@@ -29,17 +29,15 @@ OSX_TARGET=""
 # Initialize flags
 brew=false
 package=false
-fuset=false
-local_build=false
+sign_app=false
 
 # Function to display usage information
 usage() {
     echo "Usage: $0 [options]"
     echo "Options:"
     echo "  -b           Use Homebrew to build with precompiled packages"
-    echo "  -p           Create a package after building"
-    echo "  -f           Build with FUSE-T support"
-    echo "  -l           Use local wxWidgets and disable universal binaries"
+    echo "  -s           Sign the local FSKit app and extension"
+    echo "  -p           Sign the app and create a local installer package"
     echo "  -t <target>  Set the macOS deployment target (default: $DEFAULT_OSX_TARGET)"
     echo "  -v <version> Specify wxWidgets version (default: $DEFAULT_WX_VERSION)"
     echo "  -h           Display this help message"
@@ -47,13 +45,14 @@ usage() {
 }
 
 # Parse command-line options
-while getopts "bpflt:v:h" flag
+while getopts "bspflt:v:h" flag
 do
     case "${flag}" in
         b) brew=true;;
+        s) sign_app=true;;
         p) package=true;;
-        f) fuset=true;;
-        l) local_build=true;;
+        f) echo "The -f option is retired. macOS builds use FSKit." >&2; exit 2;;
+        l) ;; # All macOS builds are native now.
         t)
             if [ -z "$OPTARG" ]; then
                 echo "Error: -t requires a target argument."
@@ -73,14 +72,18 @@ do
     esac
 done
 
-export VC_OSX_FUSET=$([ "$fuset" = true ] && echo 1 || echo 0)
 export VC_OSX_TARGET=${OSX_TARGET:-$DEFAULT_OSX_TARGET}
+export LOCAL_DEVELOPMENT_BUILD=true
+export VC_OSX_SDK=$(xcrun --sdk macosx --show-sdk-version)
 
-if [ "$fuset" = true ]; then
-    echo "Building LambCrypt with FUSE-T support"
-else
-    echo "Building LambCrypt with MacFUSE support"
+target=bundle
+if [ "$package" = true ]; then
+    target=package
+elif [ "$sign_app" = true ]; then
+    target=prepare
 fi
+
+echo "Building LambCrypt with FSKit using macOS SDK $VC_OSX_SDK and deployment target $VC_OSX_TARGET"
 
 if [ "$brew" = true ]; then
     if ! command -v brew &> /dev/null; then
@@ -88,36 +91,13 @@ if [ "$brew" = true ]; then
         exit 1
     fi
 
-    VC_OSX_SDK=$(xcrun --sdk macosx --show-sdk-version)
-    export VC_OSX_SDK
-    echo "Using MacOSX SDK $VC_OSX_SDK with target set to $VC_OSX_TARGET"
-    cd "$SOURCEPATH"
-
-    echo "Building LambCrypt with precompiled homebrew packages"
-    cellar=$(brew --cellar "wxwidgets")
-    version=$(brew list --versions "wxwidgets" | head -1 | awk '{print $2}')
-    export WX_BUILD_DIR="$cellar/$version/bin"
-    # skip signing and build only for local arch
-    export LOCAL_DEVELOPMENT_BUILD=true
-    # set the correct CPU arch for Makefile
-    export CPU_ARCH=$(uname -m)
-    export AS=$(which yasm)
-    export COMPILE_ASM=$( if [[ "$CPU_ARCH" != "arm64" ]]; then echo true; else echo false; fi )
-    make clean
-    make
-    if [ "$package" = true ]; then
-        make package
-    else
-        make bundle
+    WX_CONFIG="$(brew --prefix wxwidgets)/bin/wx-config"
+    if [ ! -x "$WX_CONFIG" ]; then
+        echo "Homebrew wxWidgets is missing. Install it with brew install wxwidgets." >&2
+        exit 1
     fi
-    exit 0
-fi
-
-if [ "$local_build" = true ]; then
-    echo "Building LambCrypt with local wxWidgets support and no universal binary"
-    export LOCAL_DEVELOPMENT_BUILD=true
-    export CPU_ARCH=$(uname -m)
-    export COMPILE_ASM=$( if [[ "$CPU_ARCH" != "arm64" ]]; then echo true; else echo false; fi )
+    make -C "$SOURCEPATH" WX_CONFIG="$WX_CONFIG" clean
+    exec make -C "$SOURCEPATH" WX_CONFIG="$WX_CONFIG" "$target"
 fi
 
 # Check the condition of wxBuildConsole and wxWidgets-$WX_VERSION in the original PARENTDIR
@@ -149,10 +129,6 @@ export WX_ROOT="$PARENTDIR/wxWidgets-$WX_VERSION"
 # this will be the temporary wxWidgets directory
 export WX_BUILD_DIR="$PARENTDIR/wxBuild-$WX_VERSION"
 
-VC_OSX_SDK=$(xcrun --sdk macosx --show-sdk-version)
-export VC_OSX_SDK
-echo "Using MacOSX SDK $VC_OSX_SDK with target set to $VC_OSX_TARGET"
-
 cd "$SOURCEPATH"
 
 echo "Building LambCrypt"
@@ -164,12 +140,6 @@ else
     make WXSTATIC=FULL wxbuild
 fi
 make WXSTATIC=FULL clean
-make WXSTATIC=FULL
-if [ "$package" = true ]; then
-    make WXSTATIC=FULL package
-else
-    # Notarization consumes the app bundle, not the standalone executable.
-    make WXSTATIC=FULL bundle
-fi
+make WXSTATIC=FULL "$target"
 
 echo "LambCrypt build completed successfully."

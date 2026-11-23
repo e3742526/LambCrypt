@@ -22,12 +22,12 @@
 		<param name="Local" value="Beginner's Tutorial.html">
 		</OBJECT>
 	<LI> <OBJECT type="text/sitemap">
-		<param name="Name" value="VeraCrypt Volume ">
+		<param name="Name" value="LambCrypt Volume ">
 		<param name="Local" value="VeraCrypt Volume.html">
 		</OBJECT>
 	<UL>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="Creating a New VeraCrypt Volume">
+			<param name="Name" value="Creating a New LambCrypt Volume">
 			<param name="Local" value="Creating New Volumes.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
@@ -57,7 +57,7 @@
 			<param name="Local" value="EFISecureBoot.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="VeraCrypt Rescue Disk">
+			<param name="Name" value="LambCrypt Rescue Disk">
 			<param name="Local" value="VeraCrypt Rescue Disk.html">
 			</OBJECT>
 	</UL>
@@ -279,11 +279,11 @@
 			<param name="Local" value="Unencrypted Data in RAM.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="VeraCrypt RAM Encryption">
+			<param name="Name" value="LambCrypt RAM Encryption">
 			<param name="Local" value="VeraCrypt RAM Encryption.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="VeraCrypt Memory Protection">
+			<param name="Name" value="LambCrypt Memory Protection">
 			<param name="Local" value="VeraCrypt Memory Protection.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
@@ -349,7 +349,7 @@
 		</OBJECT>
 	<UL>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="Using VeraCrypt Without Administrator Privileges">
+			<param name="Name" value="Using LambCrypt Without Administrator Privileges">
 			<param name="Local" value="Using VeraCrypt Without Administrator Privileges.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
@@ -357,7 +357,7 @@
 			<param name="Local" value="Sharing over Network.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="VeraCrypt Background Task">
+			<param name="Name" value="LambCrypt Background Task">
 			<param name="Local" value="VeraCrypt Background Task.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
@@ -365,7 +365,7 @@
 			<param name="Local" value="Removable Medium Volume.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="VeraCrypt System Files &amp; Application Data">
+			<param name="Name" value="LambCrypt System Files &amp; Application Data">
 			<param name="Local" value="VeraCrypt System Files.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
@@ -431,7 +431,7 @@
 			<param name="Local" value="Personal Iterations Multiplier (PIM).html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="VeraCrypt Volume Format Specification">
+			<param name="Name" value="LambCrypt Volume Format Specification">
 			<param name="Local" value="VeraCrypt Volume Format Specification.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
@@ -443,7 +443,7 @@
 			<param name="Local" value="Source Code.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="Building VeraCrypt From Source">
+			<param name="Name" value="Building LambCrypt From Source">
 			<param name="Local" value="CompilingGuidelines.html">
 			</OBJECT>
 		<UL>

@@ -2335,9 +2335,9 @@ NTSTATUS ProcessMainDeviceControlIrp (PDEVICE_OBJECT DeviceObject, PEXTENSION Ex
 								if (opentest->bDetectTCBootLoader && IoStatus.Information >= TC_SECTOR_SIZE_BIOS)
 								{
 									// Search for the string "VeraCrypt"
-									for (i = 0; i < TC_SECTOR_SIZE_BIOS - strlen (TC_APP_NAME); ++i)
+									for (i = 0; i < TC_SECTOR_SIZE_BIOS - strlen (TC_BOOT_LOADER_SIGNATURE); ++i)
 									{
-										if (memcmp (readBuffer + i, TC_APP_NAME, strlen (TC_APP_NAME)) == 0)
+										if (memcmp (readBuffer + i, TC_BOOT_LOADER_SIGNATURE, strlen (TC_BOOT_LOADER_SIGNATURE)) == 0)
 										{
 											opentest->TCBootLoaderDetected = TRUE;
 											break;
@@ -2517,9 +2517,9 @@ NTSTATUS ProcessMainDeviceControlIrp (PDEVICE_OBJECT DeviceObject, PEXTENSION Ex
 							request->CustomUserMessage[0] = 0;
 
 							// Search for the string "VeraCrypt"
-							for (i = 0; i < TC_SECTOR_SIZE_BIOS - strlen (TC_APP_NAME); ++i)
+							for (i = 0; i < TC_SECTOR_SIZE_BIOS - strlen (TC_BOOT_LOADER_SIGNATURE); ++i)
 							{
-								if (memcmp (readBuffer + i, TC_APP_NAME, strlen (TC_APP_NAME)) == 0)
+								if (memcmp (readBuffer + i, TC_BOOT_LOADER_SIGNATURE, strlen (TC_BOOT_LOADER_SIGNATURE)) == 0)
 								{
 									request->BootLoaderVersion = BE16 (*(uint16 *) (readBuffer + TC_BOOT_SECTOR_VERSION_OFFSET));
 									request->Configuration = readBuffer[TC_BOOT_SECTOR_CONFIG_OFFSET];
@@ -4925,7 +4925,7 @@ BOOL IsVolumeClassFilterRegistered ()
 			ULONG i;
 			for (i = 0; i <= data->DataLength - 9 * sizeof (wchar_t); ++i)
 			{
-				if (memcmp (data->Data + i, L"veracrypt", 9 * sizeof (wchar_t)) == 0)
+				if (memcmp (data->Data + i, L"lambcrypt", 9 * sizeof (wchar_t)) == 0)
 				{
 					Dump ("Volume class filter active\n");
 					registered = TRUE;
@@ -4950,7 +4950,7 @@ NTSTATUS ReadRegistryConfigFlags (BOOL driverEntry)
 
 	OrderedFlushBarriersEnabled = FALSE;
 
-	RtlInitUnicodeString (&name, L"\\REGISTRY\\MACHINE\\SYSTEM\\CurrentControlSet\\Services\\veracrypt");
+	RtlInitUnicodeString (&name, L"\\REGISTRY\\MACHINE\\SYSTEM\\CurrentControlSet\\Services\\lambcrypt");
 	status = TCReadRegistryKey (&name, TC_DRIVER_CONFIG_REG_VALUE_NAME, &data);
 
 	if (NT_SUCCESS (status))
@@ -5085,7 +5085,7 @@ NTSTATUS ReadRegistryConfigFlags (BOOL driverEntry)
 NTSTATUS WriteRegistryConfigFlags (uint32 flags)
 {
 	UNICODE_STRING name;
-	RtlInitUnicodeString (&name, L"\\REGISTRY\\MACHINE\\SYSTEM\\CurrentControlSet\\Services\\veracrypt");
+	RtlInitUnicodeString (&name, L"\\REGISTRY\\MACHINE\\SYSTEM\\CurrentControlSet\\Services\\lambcrypt");
 
 	return TCWriteRegistryKey (&name, TC_DRIVER_CONFIG_REG_VALUE_NAME, REG_DWORD, &flags, sizeof (flags));
 }

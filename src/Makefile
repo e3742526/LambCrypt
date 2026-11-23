@@ -27,8 +27,6 @@
 # SSE41:		Enable SSE4.1 support in compiler
 # NOSSE2:		Disable SEE2 support in compiler
 # WOLFCRYPT=1:	Build with wolfCrypt as crypto provider (see Crypto/wolfCrypt.md)
-# WITHFUSET:	Build with FUSE-T support on macOS instead of MacFUSE
-# WITHFSKIT:	Build the experimental macOS FSKit variant
 
 #------ Targets ------
 # all
@@ -59,10 +57,7 @@ export LFLAGS :=
 export PKG_CONFIG ?= pkg-config
 export PKG_CONFIG_PATH ?= /usr/local/lib/pkgconfig
 
-export VC_OSX_FUSET ?= 0
-export VC_OSX_FSKIT ?= 0
 export VC_APP_SIGN_IDENTITY
-export VC_INSTALLER_SIGN_IDENTITY
 export VC_FSKIT_PROVISIONING_PROFILE
 
 export WX_CONFIG ?= wx-config
@@ -74,25 +69,16 @@ WX_ROOT ?= $(BASE_DIR)/wxWidgets
 
 export TC_BUILD_CONFIG := Release
 
-ifeq "$(origin WITHFUSET)" "command line"
-	ifneq "$(WITHFUSET)" "0"
-		VC_OSX_FUSET := 1
-	endif
+ifneq ($(strip $(filter-out 0,$(WITHFUSET) $(VC_OSX_FUSET))),)
+$(error WITHFUSET is retired. macOS builds use FSKit)
 endif
 
-ifeq "$(origin WITHFSKIT)" "command line"
-	VC_OSX_FSKIT := $(WITHFSKIT)
+ifeq "$(shell uname -s)" "Darwin"
+ifneq ($(strip $(filter-out 1,$(WITHFSKIT))),)
+$(error FSKit is required on macOS. Remove WITHFSKIT or set it to 1)
 endif
-
-ifeq "$(VC_OSX_FSKIT)" "1"
-	ifneq "$(shell uname -s)" "Darwin"
+else ifneq ($(strip $(filter-out 0,$(WITHFSKIT))),)
 $(error WITHFSKIT requires macOS)
-	endif
-	ifneq "$(VC_OSX_FUSET)" "0"
-$(error WITHFSKIT and WITHFUSET select different backends)
-	endif
-else ifneq "$(VC_OSX_FSKIT)" "0"
-$(error WITHFSKIT must be 0 or 1)
 endif
 
 ifeq "$(origin DEBUG)" "command line"
@@ -329,17 +315,12 @@ endif
 ifeq "$(shell uname -s)" "Darwin"
 
 	PLATFORM := MacOSX
-	APPNAME := LambCrypt
-	export VC_OSX_TARGET ?= 26.0
-	export VC_OSX_NATIVE_BUILD := $(LOCAL_DEVELOPMENT_BUILD)
-
-ifeq "$(VC_OSX_FSKIT)" "1"
 	APPNAME := LambCrypt-FSKit
+	export VC_OSX_TARGET ?= 26.0
 	# Match the native Swift extension and wxWidgets architecture for both signing modes.
-	VC_OSX_NATIVE_BUILD := true
+	export VC_OSX_NATIVE_BUILD := true
 	C_CXX_FLAGS += -DVC_MACOSX_FSKIT
 	LFLAGS += -framework Foundation -framework FSKit
-endif
 	# use the output of the command "xcrun --show-sdk-version" to set the SDK version if not set
 	export VC_OSX_SDK ?= $(shell xcrun --show-sdk-version)
 
@@ -352,11 +333,6 @@ $(error Specified SDK version was not found, ensure your active developer direct
 		endif
 	endif
 	
-	#----- Legacy build if OSX <= 10.8: we build both 32-bit and 64-bit ----
-	ifneq (,$(filter 10.6 10.7 10.8,$(VC_OSX_TARGET)))
-		export VC_LEGACY_BUILD := 1
-	endif
-
 	CC := gcc
 	CXX := g++
 
@@ -378,18 +354,8 @@ $(error Specified SDK version was not found, ensure your active developer direct
 
 	WX_CONFIGURE_FLAGS += --with-macosx-version-min=$(VC_OSX_TARGET) --with-macosx-sdk=$(VC_OSX_SDK_PATH)
 
-	ifneq "$(VC_OSX_FUSET)" "0"
-		C_CXX_FLAGS += -DVC_MACOSX_FUSET
-	endif
-
 	export CFLAGS_ARM64 := $(CFLAGS) $(C_CXX_FLAGS) -arch arm64 -march=armv8-a+crypto
 	export CFLAGS_X64 := $(CFLAGS) $(C_CXX_FLAGS) -arch x86_64
-
-	# Set x86 assembly flags (-msse2, -mssse3, -msse4.1)
-	# Apply flags if SIMD_SUPPORTED is 1 or if not in local development build (we are creating universal binary in this case)
-	ifneq "$(VC_OSX_NATIVE_BUILD)" "true"
-		SIMD_SUPPORTED = 1
-	endif
 
 	ifeq "$(SIMD_SUPPORTED)" "1"
 		CFLAGS += -msse2
@@ -417,40 +383,15 @@ $(error Specified SDK version was not found, ensure your active developer direct
 		C_CXX_FLAGS := $(subst -MMD,,$(C_CXX_FLAGS)) -gfull
 		LFLAGS += -Wl,-dead_strip
 
-		# Initialize architecture flag
-		ARCH_FLAG := -arch x86_64
-
-		# Set architecture flags based on build type and CPU architecture
-		ifeq "$(VC_OSX_NATIVE_BUILD)" "true"
-			ifeq "$(CPU_ARCH)" "arm64"
-				ARCH_FLAG := -arch arm64
-			endif
-			WX_CONFIGURE_FLAGS += --disable-universal_binary
-		else
-			# Legacy build settings
-			ifdef VC_LEGACY_BUILD
-				ARCH_FLAG += -arch i386
-				WX_CONFIGURE_FLAGS += --enable-universal_binary=i386,x86_64
-			else
-				# Non-development build defaults to universal binary for arm64 and x86_64
-				ARCH_FLAG += -arch arm64
-				WX_CONFIGURE_FLAGS += --enable-universal_binary=arm64,x86_64
-			endif
-		endif
-
-		# Apply architecture flags
+		ARCH_FLAG := -arch $(shell uname -m)
 		C_CXX_FLAGS += $(ARCH_FLAG)
 		LFLAGS += $(ARCH_FLAG)
 
 		WX_CONFIGURE_FLAGS += --without-libpng --disable-gif --disable-pcx --disable-tga --disable-iff --disable-svg
 		WXCONFIG_CFLAGS += -gfull
 		WXCONFIG_CXXFLAGS += -gfull
-
-	else
-
-		WX_CONFIGURE_FLAGS += --disable-universal_binary
-
 	endif
+	WX_CONFIGURE_FLAGS += --disable-universal_binary
 
 endif
 
@@ -590,31 +531,21 @@ ifneq (,$(filter Linux FreeBSD OpenBSD,$(PLATFORM)))
 endif
 
 #------ FUSE selection ------
-ifneq "$(VC_OSX_FSKIT)" "1"
+ifneq "$(PLATFORM)" "MacOSX"
 # User must specify WITHFUSE3 (non-zero) to request fuse3. Otherwise fuse (FUSE2) is used.
-# macOS FUSE-T builds select the fuse-t pkg-config package through WITHFUSET.
-# In all cases, existence is validated and build stops if the selected package is not found.
-ifeq "$(PLATFORM)" "MacOSX"
-	ifneq "$(VC_OSX_FUSET)" "0"
-		VC_FUSE_PACKAGE := fuse-t
+ifeq ($(origin WITHFUSE3),command line)
+	ifneq ($(WITHFUSE3),0)
+		VC_FUSE_PACKAGE := fuse3
 	else
 		VC_FUSE_PACKAGE := fuse
 	endif
 else
-	ifeq ($(origin WITHFUSE3),command line)
-		ifneq ($(WITHFUSE3),0)
-			VC_FUSE_PACKAGE := fuse3
-		else
-			VC_FUSE_PACKAGE := fuse
-		endif
-	else
-		VC_FUSE_PACKAGE := fuse
-	endif
+	VC_FUSE_PACKAGE := fuse
 endif
 
 FUSE_FOUND := $(shell $(PKG_CONFIG) --exists $(VC_FUSE_PACKAGE) >/dev/null 2>&1 && echo 1 || echo 0)
 ifeq ($(FUSE_FOUND),0)
-$(error Requested FUSE package '$(VC_FUSE_PACKAGE)' not found. Install it (or set WITHFUSE3/WITHFUSET appropriately).)
+$(error Requested FUSE package '$(VC_FUSE_PACKAGE)' not found. Install it or set WITHFUSE3 appropriately)
 endif
 
 export VC_FUSE_PACKAGE
@@ -751,16 +682,17 @@ ifeq "$(PLATFORM)" "MacOSX"
 .PHONY: bundle
 bundle: all
 	$(MAKE) -C Main -f Main.make NAME=Main bundle
-ifeq "$(VC_OSX_FSKIT)" "1"
 .PHONY: prepare
 prepare: all
 	$(MAKE) -C Main -f Main.make NAME=Main prepare
-endif
 endif
 
 install:
 	$(MAKE) -C Main -f Main.make NAME=Main install
 
+ifeq "$(PLATFORM)" "MacOSX"
+package: all
+endif
 package:
 	$(MAKE) -C Main -f Main.make NAME=Main package
 

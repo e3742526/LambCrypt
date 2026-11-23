@@ -542,7 +542,7 @@ static void LogSetupEvent (const wstring &message, eMSILogLevel level)
 	if (source)
 	{
 		WORD type = level == MSI_ERROR_LEVEL ? EVENTLOG_ERROR_TYPE : EVENTLOG_WARNING_TYPE;
-		LPCWSTR strings[] = { L"VeraCrypt MSI", message.c_str () };
+		LPCWSTR strings[] = { L"LambCrypt MSI", message.c_str () };
 		ReportEventW (source, type, 0, 0xC0000000 + type, NULL, ARRAYSIZE (strings), 0, strings, NULL);
 		DeregisterEventSource (source);
 	}
@@ -588,7 +588,7 @@ void MSILog(MSIHANDLE hInstall, eMSILogLevel level, const wchar_t* zcFormat, ...
 
     PMSIHANDLE hRecord = MsiCreateRecord(1);
     // field 0 is the template
-    MsiRecordSetString(hRecord, 0, (level == MSI_INFO_LEVEL) ? L"VeraCryptCustomAction_INFO: [1]" : ((level == MSI_WARNING_LEVEL) ? L"VeraCryptCustomAction_WARNING: [1]" : L"VeraCryptCustomAction_ERROR: [1]"));
+    MsiRecordSetString(hRecord, 0, (level == MSI_INFO_LEVEL) ? L"LambCryptCustomAction_INFO: [1]" : ((level == MSI_WARNING_LEVEL) ? L"LambCryptCustomAction_WARNING: [1]" : L"LambCryptCustomAction_ERROR: [1]"));
     // field 1, to be placed in [1] placeholder
     MsiRecordSetString(hRecord, 1, wszMessage.c_str());
     // send message to running installer
@@ -608,14 +608,14 @@ static void MSILogAndShowMessage (MSIHANDLE hInstall, eMSILogLevel level, const 
 #ifdef TEST_HARNESS
     if (!hInstall)
     {
-        MessageBox(NULL, wszMessage.c_str(), L"VeraCrypt", 0);
+        MessageBox(NULL, wszMessage.c_str(), L"LambCrypt", 0);
         return;
     }
 #endif
 
 	PMSIHANDLE hRecord0 = MsiCreateRecord(1);
     // field 0 is the template
-    MsiRecordSetString(hRecord0, 0, (level == MSI_INFO_LEVEL) ? L"VeraCryptCustomAction_INFO: [1]" : ((level == MSI_WARNING_LEVEL) ? L"VeraCryptCustomAction_WARNING: [1]" : L"VeraCryptCustomAction_ERROR: [1]"));
+    MsiRecordSetString(hRecord0, 0, (level == MSI_INFO_LEVEL) ? L"LambCryptCustomAction_INFO: [1]" : ((level == MSI_WARNING_LEVEL) ? L"LambCryptCustomAction_WARNING: [1]" : L"LambCryptCustomAction_ERROR: [1]"));
     // field 1, to be placed in [1] placeholder
     MsiRecordSetString(hRecord0, 1, wszMessage.c_str());
     // send message to running installer
@@ -671,7 +671,7 @@ static void MSILogException (MSIHANDLE hInstaller, const Exception &exception)
 	else if (const ParameterIncorrect *parameterError = dynamic_cast<const ParameterIncorrect *> (&exception))
 		message = AppendSrcPos (L"Parameter incorrect.", parameterError->SrcPos);
 	else
-		message = L"VeraCrypt operation failed with an unexpected exception.";
+		message = L"LambCrypt operation failed with an unexpected exception.";
 	MSILog (hInstaller, MSI_WARNING_LEVEL, L"%s", message.c_str ());
 }
 
@@ -1297,9 +1297,9 @@ BOOL DoDriverInstall_Dll (MSIHANDLE hInstaller)
 	MSILog (hInstaller, MSI_INFO_LEVEL, GetString("INSTALLING_DRIVER"));
 #endif
 
-	hService = CreateService (hManager, L"veracrypt", L"veracrypt",
+	hService = CreateService (hManager, L"lambcrypt", L"lambcrypt",
 		SERVICE_ALL_ACCESS, SERVICE_KERNEL_DRIVER, SERVICE_SYSTEM_START, SERVICE_ERROR_NORMAL,
-		L"System32\\drivers\\veracrypt.sys",
+		L"System32\\drivers\\lambcrypt.sys",
 		NULL, NULL, NULL, NULL, NULL);
 
 	if (hService == NULL)
@@ -1307,7 +1307,7 @@ BOOL DoDriverInstall_Dll (MSIHANDLE hInstaller)
 	else
 		CloseServiceHandle (hService);
 
-	hService = OpenService (hManager, L"veracrypt", SERVICE_ALL_ACCESS);
+	hService = OpenService (hManager, L"lambcrypt", SERVICE_ALL_ACCESS);
 	if (hService == NULL)
 		goto error;
 
@@ -1426,7 +1426,7 @@ static void SetSystemRestorePoint_Dll (MSIHANDLE hInstaller, BOOL finalize)
 		RestPtInfo.dwEventType = BEGIN_SYSTEM_CHANGE;
 		RestPtInfo.dwRestorePtType = bUninstall ? APPLICATION_UNINSTALL : APPLICATION_INSTALL | DEVICE_DRIVER_INSTALL;
 		RestPtInfo.llSequenceNumber = 0;
-		StringCbCopyW (RestPtInfo.szDescription, sizeof(RestPtInfo.szDescription), bUninstall ? L"VeraCrypt uninstallation" : L"VeraCrypt installation");
+		StringCbCopyW (RestPtInfo.szDescription, sizeof(RestPtInfo.szDescription), bUninstall ? L"LambCrypt uninstallation" : L"LambCrypt installation");
 
 		if(!_SRSetRestorePoint (&RestPtInfo, &SMgrStatus))
 		{
@@ -1665,7 +1665,7 @@ retry:
 	if (hService == NULL)
 		goto error;
 
-	if (wcscmp (L"veracrypt", lpszService) == 0)
+	if (wcscmp (L"lambcrypt", lpszService) == 0)
 	{
 		try
 		{
@@ -1724,7 +1724,7 @@ retry:
 
 try_delete:
 
-	if (wcscmp (L"veracrypt", lpszService) == 0)
+	if (wcscmp (L"lambcrypt", lpszService) == 0)
 		MSILog (hInstaller, MSI_INFO_LEVEL, GetString("REMOVING_DRIVER"));
 	else
 		MSILog (hInstaller, MSI_INFO_LEVEL, L"REMOVING %s", lpszService);
@@ -1838,17 +1838,17 @@ BOOL DoRegUninstall_Dll (MSIHANDLE hInstaller, BOOL bRemoveDeprecated)
 	*/
 
 	BootEncryption::ClearEfiBootLoaderDiagnosticsRegistry ();
-	RegDeleteKeyExW (HKEY_LOCAL_MACHINE, L"Software\\VeraCrypt\\Diagnostics", KEY_WOW64_64KEY, 0);
+	RegDeleteKeyExW (HKEY_LOCAL_MACHINE, L"Software\\LambCrypt\\Diagnostics", KEY_WOW64_64KEY, 0);
 	// Also remove diagnostics written to the redirected view by older installers.
-	DeleteRegistryKey (HKEY_LOCAL_MACHINE, L"Software\\VeraCrypt\\Diagnostics\\EfiBootLoader");
-	RegDeleteKey (HKEY_LOCAL_MACHINE, L"Software\\VeraCrypt\\Diagnostics");
+	DeleteRegistryKey (HKEY_LOCAL_MACHINE, L"Software\\LambCrypt\\Diagnostics\\EfiBootLoader");
+	RegDeleteKey (HKEY_LOCAL_MACHINE, L"Software\\LambCrypt\\Diagnostics");
 
 	if (!bRemoveDeprecated)
 	{
 		HKEY hKey;
 
 		GetStartupRegKeyName (regk, sizeof(regk));
-		DeleteRegistryValue (regk, L"VeraCrypt");
+		DeleteRegistryValue (regk, L"LambCrypt");
 
 		// The following is done by MSI, so we skip it
 		// DeleteRegistryKey (HKEY_LOCAL_MACHINE, L"Software\\Classes\\.hc");
@@ -1857,17 +1857,17 @@ BOOL DoRegUninstall_Dll (MSIHANDLE hInstaller, BOOL bRemoveDeprecated)
 		SetPrivilege (SE_TAKE_OWNERSHIP_NAME, TRUE);
 
 		// clean MuiCache list from VeraCrypt entries
-		SearchAndDeleteRegistrySubString (HKEY_CLASSES_ROOT, L"Local Settings\\Software\\Microsoft\\Windows\\Shell\\MuiCache", L"VeraCrypt", FALSE, NULL);
+		SearchAndDeleteRegistrySubString (HKEY_CLASSES_ROOT, L"Local Settings\\Software\\Microsoft\\Windows\\Shell\\MuiCache", L"LambCrypt", FALSE, NULL);
 
 		// clean other VeraCrypt entries from all users
 		SearchAndDeleteRegistrySubString (HKEY_USERS, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.hc", NULL, TRUE, NULL);
-		SearchAndDeleteRegistrySubString (HKEY_USERS, L"Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Compatibility Assistant\\Persisted", L"VeraCrypt", TRUE, NULL);
-		SearchAndDeleteRegistrySubString (HKEY_USERS, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartPage\\NewShortcuts", L"VeraCrypt", TRUE, NULL);
+		SearchAndDeleteRegistrySubString (HKEY_USERS, L"Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Compatibility Assistant\\Persisted", L"LambCrypt", TRUE, NULL);
+		SearchAndDeleteRegistrySubString (HKEY_USERS, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartPage\\NewShortcuts", L"LambCrypt", TRUE, NULL);
 
 		if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, L"SYSTEM", 0, KEY_ALL_ACCESS | WRITE_DAC | WRITE_OWNER, &hKey) == ERROR_SUCCESS)
 		{
-			SearchAndDeleteRegistrySubString (hKey, L"Enum\\Root\\LEGACY_VERACRYPT", NULL, TRUE, L"ControlSet");
-			SearchAndDeleteRegistrySubString (hKey, L"services\\veracrypt", NULL, TRUE, L"ControlSet");
+			SearchAndDeleteRegistrySubString (hKey, L"Enum\\Root\\LEGACY_LAMBCRYPT", NULL, TRUE, L"ControlSet");
+			SearchAndDeleteRegistrySubString (hKey, L"services\\lambcrypt", NULL, TRUE, L"ControlSet");
 			RegCloseKey(hKey);
 		}
 
@@ -1933,7 +1933,7 @@ BOOL DoApplicationDataUninstall_Dll (MSIHANDLE hInstaller)
 	MSILog(hInstaller, MSI_INFO_LEVEL, GetString("REMOVING_APPDATA"));
 
 	SHGetFolderPath (NULL, CSIDL_APPDATA, NULL, 0, path);
-	StringCbCatW (path, sizeof(path), L"\\VeraCrypt\\");
+	StringCbCatW (path, sizeof(path), L"\\LambCrypt\\");
 
 	// Delete favorite volumes file
 	StringCbPrintfW (path2, sizeof(path2), L"%s%s", path, TC_APPD_FILENAME_FAVORITE_VOLUMES);
@@ -1961,7 +1961,7 @@ BOOL DoApplicationDataUninstall_Dll (MSIHANDLE hInstaller)
 	StatDeleteFile (path2, FALSE);
 
 	SHGetFolderPath (NULL, CSIDL_APPDATA, NULL, 0, path);
-	StringCbCatW (path, sizeof(path), L"\\VeraCrypt");
+	StringCbCatW (path, sizeof(path), L"\\LambCrypt");
 	MSILog(hInstaller, MSI_INFO_LEVEL, L"REMOVING %s", path);
 	if (!StatRemoveDirectory (path))
 	{
@@ -2009,7 +2009,7 @@ BOOL DoUninstall_Dll (MSIHANDLE hInstaller, HWND hwndDlg)
 		if (!Rollback && bSystemRestore && !bTempSkipSysRestore)
 			SetSystemRestorePoint_Dll (hInstaller, FALSE);
 
-		if (DoServiceUninstall_Dll (hInstaller, hwndDlg, L"veracrypt") == FALSE)
+		if (DoServiceUninstall_Dll (hInstaller, hwndDlg, L"lambcrypt") == FALSE)
 		{
 			bOK = FALSE;
 		}
@@ -2035,7 +2035,7 @@ BOOL DoUninstall_Dll (MSIHANDLE hInstaller, HWND hwndDlg)
 		else
 		{
 			// Deprecated service
-			DoServiceUninstall_Dll (hInstaller, hwndDlg, L"VeraCryptService");
+			DoServiceUninstall_Dll (hInstaller, hwndDlg, L"LambCryptService");
 		}
 	}
 
@@ -2220,7 +2220,7 @@ static BOOL JoinPath(wchar_t *szPath, size_t cbPath, const wchar_t *szDirectory,
 
 static BOOL IsVersionedVeraCryptStartMenuFolderName(const wchar_t *szFolderName)
 {
-	const wchar_t szPrefix[] = L"VeraCrypt ";
+	const wchar_t szPrefix[] = L"LambCrypt ";
 	const wchar_t *szVersion = NULL;
 	BOOL bHasDigit = FALSE;
 	BOOL bHasDot = FALSE;
@@ -2294,12 +2294,12 @@ static void CleanupVersionedVeraCryptStartMenuFolder(MSIHANDLE hInstaller, const
 	/* Delete only known VeraCrypt-created shortcuts; keep folders with any other content. */
 	static const wchar_t *szShortcutNames[] =
 	{
-		L"VeraCrypt.lnk",
-		L"VeraCryptExpander.lnk",
-		L"VeraCrypt Website.url",
-		L"VeraCrypt User's Guide.lnk",
-		L"VeraCrypt User Guide.lnk",
-		L"Uninstall VeraCrypt.lnk"
+		L"LambCrypt.lnk",
+		L"LambCryptExpander.lnk",
+		L"LambCrypt Website.url",
+		L"LambCrypt User's Guide.lnk",
+		L"LambCrypt User Guide.lnk",
+		L"Uninstall LambCrypt.lnk"
 	};
 
 	for (size_t i = 0; i < ARRAYSIZE(szShortcutNames); ++i)
@@ -2314,7 +2314,7 @@ static void CleanupVersionedVeraCryptStartMenuFolder(MSIHANDLE hInstaller, const
 		DWORD dwError = GetLastError();
 		if (dwError == ERROR_DIR_NOT_EMPTY)
 		{
-			MSILog(hInstaller, MSI_INFO_LEVEL, L"Obsolete Start Menu folder '%s' was left in place because it contains non-VeraCrypt items", szFolderPath);
+			MSILog(hInstaller, MSI_INFO_LEVEL, L"Obsolete Start Menu folder '%s' was left in place because it contains non-LambCrypt items", szFolderPath);
 		}
 		else if (dwError != ERROR_FILE_NOT_FOUND && dwError != ERROR_PATH_NOT_FOUND)
 		{
@@ -2332,7 +2332,7 @@ static void CleanupVersionedVeraCryptStartMenuFoldersInRoot(MSIHANDLE hInstaller
 	if (!szProgramMenuFolder || szProgramMenuFolder[0] == L'\0')
 		return;
 
-	if (!JoinPath(szSearchPath, sizeof(szSearchPath), szProgramMenuFolder, L"VeraCrypt *"))
+	if (!JoinPath(szSearchPath, sizeof(szSearchPath), szProgramMenuFolder, L"LambCrypt *"))
 	{
 		MSILog(hInstaller, MSI_WARNING_LEVEL, L"Could not build obsolete Start Menu folder search path for '%s'", szProgramMenuFolder);
 		return;
@@ -2545,14 +2545,14 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_PreInstall(MSIHANDLE hInstaller)
 	}
 
 	// Remove deprecated
-	DoServiceUninstall_Dll (hInstaller, hwndDlg, L"VeraCryptService");
+	DoServiceUninstall_Dll (hInstaller, hwndDlg, L"LambCryptService");
 	
 	if (!SystemEncryptionUpdate)
 		DoRegUninstall_Dll (hInstaller, TRUE);
 
-	if (UnloadDriver && DoServiceUninstall_Dll(hInstaller, hwndDlg, L"veracrypt") == FALSE)
+	if (UnloadDriver && DoServiceUninstall_Dll(hInstaller, hwndDlg, L"lambcrypt") == FALSE)
 	{
-		MSILog(hInstaller, MSI_ERROR_LEVEL, L"VC_CustomAction_PreInstall: DoServiceUninstall_Dll(veracrypt) failed");
+		MSILog(hInstaller, MSI_ERROR_LEVEL, L"VC_CustomAction_PreInstall: DoServiceUninstall_Dll(lambcrypt) failed");
 		bOK = FALSE;
 	}
 
@@ -2564,7 +2564,7 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_PreInstall(MSIHANDLE hInstaller)
 	//		Therefore, we set the values in RegKeys that are volatile.
 	if (bOK)
 	{
-		if (RegCreateKeyEx (HKEY_LOCAL_MACHINE, L"Software\\.VeraCrypt\\Values", 0, NULL, REG_OPTION_VOLATILE, KEY_WRITE, NULL, &hkey, &dw) == ERROR_SUCCESS)
+		if (RegCreateKeyEx (HKEY_LOCAL_MACHINE, L"Software\\.LambCrypt\\Values", 0, NULL, REG_OPTION_VOLATILE, KEY_WRITE, NULL, &hkey, &dw) == ERROR_SUCCESS)
 		{
 			RegSetValueEx (hkey, L"Silent", 0, REG_DWORD, (const BYTE*)(&Silent), sizeof(BOOL));
 			RegSetValueEx (hkey, L"bUninstall", 0, REG_DWORD, (const BYTE*)(&bUninstall), sizeof(BOOL));
@@ -2611,7 +2611,7 @@ end:
  */
 static BOOL RecordInstallationPath (const wchar_t *path, BOOL bOnlyIfServiceExists)
 {
-	const wchar_t *key = L"SYSTEM\\CurrentControlSet\\Services\\veracrypt";
+	const wchar_t *key = L"SYSTEM\\CurrentControlSet\\Services\\lambcrypt";
 	// Never replace a recorded path with an invalid one.
 	if (!path || wcslen (path) < 3 || path[1] != L':' || path[2] != L'\\')
 	{
@@ -2734,7 +2734,7 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_PostInstall(MSIHANDLE hInstaller)
 	}
 
 	//	Read RegKeys previously setup by PreInstall
-	if (RegOpenKeyExW (HKEY_LOCAL_MACHINE, L"Software\\.VeraCrypt\\Values", 0, KEY_READ, &hkey) == ERROR_SUCCESS)
+	if (RegOpenKeyExW (HKEY_LOCAL_MACHINE, L"Software\\.LambCrypt\\Values", 0, KEY_READ, &hkey) == ERROR_SUCCESS)
 	{
 		DWORD cbValue = sizeof(DWORD);
 		DWORD dwValue = 0;
@@ -2832,7 +2832,7 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_PostInstall(MSIHANDLE hInstaller)
 		size_t i;
 
 		// delete "VeraCrypt Setup.exe" if it exists
-		StringCbPrintfW (szTmp, sizeof(szTmp), L"%s%s", szInstallDir.c_str(), L"VeraCrypt Setup.exe");
+		StringCbPrintfW (szTmp, sizeof(szTmp), L"%s%s", szInstallDir.c_str(), L"LambCrypt Setup.exe");
 		if (FileExists(szTmp))
 		{
 			ForceDeleteFile(szTmp);
@@ -2848,7 +2848,7 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_PostInstall(MSIHANDLE hInstaller)
 			}
 		}
 
-		StringCbPrintfW (szTmp, sizeof(szTmp), L"%s%s", szInstallDir.c_str(), L"VeraCrypt.exe");
+		StringCbPrintfW (szTmp, sizeof(szTmp), L"%s%s", szInstallDir.c_str(), L"LambCrypt.exe");
 
 		EnableWow64FsRedirection (FALSE);
 
@@ -3030,7 +3030,7 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_PostInstall(MSIHANDLE hInstaller)
 			SetCurrentDirectory (szInstallDir.c_str());
 
 			// remove PDF from previous version if any
-			h = FindFirstFile (L"VeraCrypt User Guide*.pdf", &f);
+			h = FindFirstFile (L"LambCrypt User Guide*.pdf", &f);
 
 			if (h != INVALID_HANDLE_VALUE)
 			{
@@ -3230,7 +3230,7 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_PostInstall(MSIHANDLE hInstaller)
 		}
 		bPromptTutorial = FALSE;
 
-		if (RegCreateKeyEx (HKEY_LOCAL_MACHINE, L"Software\\.VeraCrypt\\Values", 0, NULL, REG_OPTION_VOLATILE, KEY_WRITE, NULL, &hkey, &dw) == ERROR_SUCCESS)
+		if (RegCreateKeyEx (HKEY_LOCAL_MACHINE, L"Software\\.LambCrypt\\Values", 0, NULL, REG_OPTION_VOLATILE, KEY_WRITE, NULL, &hkey, &dw) == ERROR_SUCCESS)
 		{
 			RegSetValueEx (hkey, L"Silent", 0, REG_DWORD, (const BYTE*)(&Silent), sizeof(BOOL));
 			RegSetValueEx (hkey, L"bUninstall", 0, REG_DWORD, (const BYTE*)(&bUninstall), sizeof(BOOL));
@@ -3265,7 +3265,7 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_PostInstall(MSIHANDLE hInstaller)
 		}
 		
 		// delete entry of EXE installation if it exists
-		RegDeleteKeyExW (HKEY_LOCAL_MACHINE, L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\VeraCrypt", KEY_WOW64_32KEY, 0);
+		RegDeleteKeyExW (HKEY_LOCAL_MACHINE, L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\LambCrypt", KEY_WOW64_32KEY, 0);
 	}
 end:
 
@@ -3446,9 +3446,9 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_PreUninstall(MSIHANDLE hInstaller)
 		if (!Rollback && bSystemRestore && !bTempSkipSysRestore)
 			SetSystemRestorePoint_Dll (hInstaller, FALSE);
 
-		if (DoServiceUninstall_Dll (hInstaller, hwndDlg, L"veracrypt") == FALSE)
+		if (DoServiceUninstall_Dll (hInstaller, hwndDlg, L"lambcrypt") == FALSE)
 		{
-			MSILog(hInstaller, MSI_ERROR_LEVEL, L"VC_CustomAction_PreUninstall: DoServiceUninstall_Dll(veracrypt) failed");
+			MSILog(hInstaller, MSI_ERROR_LEVEL, L"VC_CustomAction_PreUninstall: DoServiceUninstall_Dll(lambcrypt) failed");
 			bOK = FALSE;
 		}
 		//	DoRegUninstall_Dll removes regkeys that are not linked to MSI
@@ -3469,7 +3469,7 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_PreUninstall(MSIHANDLE hInstaller)
 		//		which do not have access to the active .msi database and do not recognize any Windows Installer properties. 
 		//		They can access only the information that has been written into the execution script (CustomActionData).
 		//		Therefore, we set the values in RegKeys that are volatile.
-		if (RegCreateKeyEx (HKEY_LOCAL_MACHINE, L"Software\\.VeraCrypt\\Values", 0, NULL, REG_OPTION_VOLATILE, KEY_WRITE, NULL, &hkey, &dw) == ERROR_SUCCESS)
+		if (RegCreateKeyEx (HKEY_LOCAL_MACHINE, L"Software\\.LambCrypt\\Values", 0, NULL, REG_OPTION_VOLATILE, KEY_WRITE, NULL, &hkey, &dw) == ERROR_SUCCESS)
 		{
 			RegSetValueEx (hkey, L"Silent", 0, REG_DWORD, (const BYTE*)(&Silent), sizeof(BOOL));
 			RegSetValueEx (hkey, L"bUninstall", 0, REG_DWORD, (const BYTE*)(&bUninstall), sizeof(BOOL));
@@ -3620,7 +3620,7 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_PostUninstall(MSIHANDLE hInstaller)
 	}
 
 	//	Read RegKeys previously setup by PreInstall
-	if (RegOpenKeyExW (HKEY_LOCAL_MACHINE, L"Software\\.VeraCrypt\\Values", 0, KEY_READ, &hkey) == ERROR_SUCCESS)
+	if (RegOpenKeyExW (HKEY_LOCAL_MACHINE, L"Software\\.LambCrypt\\Values", 0, KEY_READ, &hkey) == ERROR_SUCCESS)
 	{
 		DWORD cbValue = sizeof(DWORD);
 		DWORD dwValue = 0;
@@ -3705,7 +3705,7 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_PostUninstall(MSIHANDLE hInstaller)
 	else
 	{
 		// Deprecated service
-		DoServiceUninstall_Dll (hInstaller, hwndDlg, L"VeraCryptService");
+		DoServiceUninstall_Dll (hInstaller, hwndDlg, L"LambCryptService");
 	}
 
 	//	Last part of DoFilesInstall()
@@ -3790,7 +3790,7 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_PostUninstall(MSIHANDLE hInstaller)
 		//		which do not have access to the active .msi database and do not recognize any Windows Installer properties. 
 		//		They can access only the information that has been written into the execution script (CustomActionData).
 		//		Therefore, we set the values in RegKeys that are volatile.
-		if (RegCreateKeyEx (HKEY_LOCAL_MACHINE, L"Software\\.VeraCrypt\\Values", 0, NULL, REG_OPTION_VOLATILE, KEY_WRITE, NULL, &hkey, &dw) == ERROR_SUCCESS)
+		if (RegCreateKeyEx (HKEY_LOCAL_MACHINE, L"Software\\.LambCrypt\\Values", 0, NULL, REG_OPTION_VOLATILE, KEY_WRITE, NULL, &hkey, &dw) == ERROR_SUCCESS)
 		{
 			RegSetValueEx (hkey, L"Silent", 0, REG_DWORD, (const BYTE*)(&Silent), sizeof(BOOL));
 			RegSetValueEx (hkey, L"bUninstall", 0, REG_DWORD, (const BYTE*)(&bUninstall), sizeof(BOOL));
@@ -3897,7 +3897,7 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_DoChecks(MSIHANDLE hInstaller)
 	}
 
 	//	Read RegKeys previously setup by Pre/Post-Install
-	if (RegOpenKeyExW (HKEY_LOCAL_MACHINE, L"Software\\.VeraCrypt\\Values", 0, KEY_READ, &hkey) == ERROR_SUCCESS)
+	if (RegOpenKeyExW (HKEY_LOCAL_MACHINE, L"Software\\.LambCrypt\\Values", 0, KEY_READ, &hkey) == ERROR_SUCCESS)
 	{
 		DWORD cbValue = sizeof(DWORD);
 		DWORD dwValue = 0;
@@ -3991,7 +3991,7 @@ EXTERN_C UINT STDAPICALLTYPE VC_CustomAction_DoChecks(MSIHANDLE hInstaller)
 	}
 
 	//	Remove volatile regkeys
-	SHDeleteKey(HKEY_LOCAL_MACHINE, L"Software\\.VeraCrypt");
+	SHDeleteKey(HKEY_LOCAL_MACHINE, L"Software\\.LambCrypt");
 
 end:
 	MSILog(hInstaller, MSI_INFO_LEVEL, L"End VC_CustomAction_DoChecks");

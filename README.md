@@ -95,10 +95,10 @@ LambCrypt started from upstream commit
 | Area | VeraCrypt | LambCrypt |
 | --- | --- | --- |
 | Primary platform | Windows, Linux, macOS and BSD | Apple silicon Macs on macOS 26 (Tahoe) and later. Linux and BSD build from source. |
-| macOS mount backends | macFUSE or FUSE-T | macFUSE (default) or FUSE-T, plus an experimental opt-in **FSKit** build that needs no third-party file system driver |
+| macOS mount backends | macFUSE or FUSE-T | Apple **FSKit**, built into macOS |
 | macOS build target | macOS 12 and later, universal binary | macOS 26.0 deployment target |
 | Languages | Many translations | English only |
-| Names | `veracrypt`, `VeraCrypt.app`, `mount.veracrypt` | `lambcrypt`, `LambCrypt.app`, `mount.lambcrypt`, and `LambCrypt-FSKit.app` for the FSKit build |
+| Names | `veracrypt`, `VeraCrypt.app`, `mount.veracrypt` | `lambcrypt`, `LambCrypt-FSKit.app`, `mount.lambcrypt` |
 | Preferences | `VeraCrypt` folder | Separate `LambCrypt` folder |
 | Windows | Maintained and released | Inherited source only. No Windows release. |
 | Fixes | VeraCrypt releases | VeraCrypt's code at the fork point, plus the durability and security fixes in [BUGLOG.md](BUGLOG.md) |
@@ -112,13 +112,11 @@ image through a sandboxed FSKit module. macOS attaches that image with Disk
 Images and mounts it without macFUSE or FUSE-T. Unpartitioned FAT volumes use
 Apple's own `msdos` driver.
 
-The FSKit build is a separate app, `LambCrypt-FSKit.app`, with its own bundle
-identifier. It requires an Apple Developer signing identity and a provisioning
-profile with the FSKit Module capability. Signed development builds have
-passed read-only and read-write trials with HFS+ and FAT12/16/32 volumes on
-macOS 26 (arm64). Notarized release packaging and the macFUSE performance
-comparison are still open. The [FSKit migration plan](FSKIT-MIGRATION.md)
-records each stage and its evidence.
+The macOS app, `LambCrypt-FSKit.app`, requires an Apple Developer signing
+identity and a provisioning profile with the FSKit Module capability. Signed
+development builds have passed read-only and read-write trials with HFS+ and
+FAT12/16/32 volumes on macOS 26 (arm64). Activation can vary by host. The
+[FSKit migration notes](FSKIT-MIGRATION.md) record the remaining checks.
 
 ## Fixes beyond upstream
 
@@ -136,8 +134,7 @@ Fixes made in LambCrypt so far include:
 - **Key derivation and input:** an out-of-range PIM is rejected instead of
   overflowing, a cancelled key derivation is reported as cancelled, and the
   text-mode password prompt has a length limit.
-- **macOS mount lifecycle:** fixes to mount discovery, dismount and cleanup
-  for all three backends.
+- **macOS mount lifecycle:** fixes to mount discovery, dismount and cleanup.
 
 Most of these defects are also present in upstream VeraCrypt. Each entry in
 [BUGLOG.md](BUGLOG.md) names the location, the symptom, the fix and its
@@ -147,8 +144,8 @@ regression check.
 
 - **There are no LambCrypt binary releases yet.** Build LambCrypt from source
   as described below.
-- macFUSE remains the default macOS backend. The FSKit build is experimental:
-  use it with disposable volumes and keep backups.
+- FSKit is the macOS backend. Verify activation and a disposable-volume
+  mount on your Mac before relying on it.
 - LambCrypt does not build or test the inherited Windows code. Windows
   changes in [BUGLOG.md](BUGLOG.md) are marked as not compiled. On Windows,
   use [VeraCrypt](https://veracrypt.io/).
@@ -166,60 +163,38 @@ You need an Apple silicon Mac running macOS 26 or later.
 
    ```sh
    xcode-select --install
-   brew install pkg-config yasm wxwidgets
+   brew install wxwidgets
    ```
 
-2. Install one FUSE backend:
-
-   - **macFUSE** (default): `brew install --cask macfuse`, then follow
-     macFUSE's prompts to allow its system extension in System Settings.
-   - **FUSE-T**: install it from [fuse-t.org](https://www.fuse-t.org/). FUSE-T
-     does not need a system extension.
-
-   The experimental FSKit build needs neither. See
-   [The FSKit build](#the-fskit-build).
-
-3. Build the app:
+2. Configure an Apple Development identity and the FSKit Module provisioning
+   profile for your Mac using the
+   [integrator checklist](FSKIT-MIGRATION.md#integrator-checklist). Source your
+   private signing environment and build the signed app:
 
    ```sh
    git clone https://github.com/e3742526/LambCrypt.git
    cd LambCrypt
-   ./src/Build/build_lambcrypt_macosx.sh -b      # macFUSE
-   ./src/Build/build_lambcrypt_macosx.sh -b -f   # or FUSE-T
+   ./src/Build/build_lambcrypt_macosx.sh -b -s
    ```
 
-   The app is written to `src/Main/LambCrypt.app`. A `-b` build links to
+   The app is written to `src/Main/LambCrypt-FSKit.app`. A `-b` build links to
    Homebrew's wxWidgets, so keep that package installed.
 
-4. Install the app and the `lambcrypt` command:
+3. On a first install, copy the app to `/Applications` and launch it:
 
    ```sh
-   cp -R src/Main/LambCrypt.app /Applications/
-   chmod -R go-w /Applications/LambCrypt.app
-   sudo mkdir -p /usr/local/bin
-   sudo ln -s /Applications/LambCrypt.app/Contents/MacOS/LambCrypt /usr/local/bin/lambcrypt
+   cp -R src/Main/LambCrypt-FSKit.app /Applications/
+   open /Applications/LambCrypt-FSKit.app
    ```
 
-   To build an installer package instead, install
-   [Packages](https://github.com/idrassi/packages/releases)
-   (`brew install --cask packages`) and add `-p` to the build command. The
-   package installs the app and the `lambcrypt` link.
+4. In System Settings → General → Login Items & Extensions → By Category →
+   File System Extensions, enable **LambCrypt FSKit**. Run the
+   [activation and disposable-volume checks](Tests/README-macos-lifecycle.md#signed-fskit-gui-preflight).
 
-5. Check the build: `lambcrypt --text --test` runs the built-in algorithm
-   self-tests.
-
-### The FSKit build
-
-The FSKit build needs a paid Apple Developer Program membership, an App ID
-with the FSKit Module capability and a matching provisioning profile.
-Follow the [integrator checklist](FSKIT-MIGRATION.md#integrator-checklist) to
-sign it, then:
-
-1. Copy `src/Main/LambCrypt-FSKit.app` to `/Applications`.
-2. Open System Settings → General → Login Items & Extensions → By Category →
-   File System Extensions, and turn on **LambCrypt FSKit**.
-
-`LambCrypt-FSKit.app` and `LambCrypt.app` can be installed side by side.
+   The installed executable is
+   `/Applications/LambCrypt-FSKit.app/Contents/MacOS/LambCrypt-FSKit`.
+   Use that path for `--text --test` or to set up a `lambcrypt` command link.
+   Earlier `LambCrypt.app` installations can coexist during verification.
 
 ## Linux
 
@@ -250,13 +225,16 @@ FreeBSD 14 and later and OpenBSD 7.8 and later build as Linux does, with
 
 ## Windows
 
-LambCrypt has no Windows release. The Windows source keeps VeraCrypt's
-driver, installer and boot loader identities, so a Windows build from this
-tree would collide with an installed VeraCrypt. Use VeraCrypt on Windows.
-Volumes are compatible either way.
+LambCrypt has no Windows release. Use VeraCrypt on Windows; volumes are
+compatible either way.
 
-Don't distribute Windows binaries built from this tree. They still carry the
-VeraCrypt name, which the license does not allow on a modified version.
+The Windows source now builds LambCrypt-named programs (`LambCrypt.exe`,
+`lambcrypt.sys`, `LambCrypt Setup`) with their own driver service, device
+names, registry keys, COM identities and installer codes, so they don't
+collide with an installed VeraCrypt. It has not been compiled or tested since
+the rename. A Windows release would also need a driver signed for LambCrypt,
+a release certificate fingerprint in `src/Common/Dlgcode.c`, and EFI boot
+loader binaries rebuilt under the LambCrypt name (see below).
 
 ## Moving from VeraCrypt
 
@@ -283,10 +261,9 @@ Your volumes stay as they are, and VeraCrypt can still open them.
 
 Uninstalling LambCrypt leaves your volumes untouched.
 
-- **macOS:** dismount all volumes and quit LambCrypt. Delete
-  `/Applications/LambCrypt.app` and run `sudo rm /usr/local/bin/lambcrypt`.
-  For the FSKit build, turn off LambCrypt FSKit in System Settings, then
-  delete `/Applications/LambCrypt-FSKit.app`. Preferences are in
+- **macOS:** dismount all volumes and quit LambCrypt. Turn off LambCrypt
+  FSKit in System Settings, then delete `/Applications/LambCrypt-FSKit.app`.
+  Remove `/usr/local/bin/lambcrypt` if it points to that app. Preferences are in
   `~/Library/Application Support/LambCrypt`.
 - **Linux:** remove the package with your package manager, or run
   `sudo lambcrypt-uninstall.sh` if you used the standalone installer.
@@ -295,45 +272,31 @@ Uninstalling LambCrypt leaves your volumes untouched.
 
 ## macOS
 
-Build with the macOS SDK from the active Xcode installation. macFUSE,
-FUSE-T and FSKit builds default to a macOS 26.0 deployment target even when
-Xcode provides a newer SDK.
+Build with the macOS SDK from the active Xcode installation. The native
+FSKit build defaults to a macOS 26.0 deployment target even when Xcode
+provides a newer SDK. Clean an existing build tree before switching from an
+earlier version of LambCrypt.
 
 [build_lambcrypt_macosx.sh](./src/Build/build_lambcrypt_macosx.sh) options:
 
 | Option | Effect |
 | --- | --- |
 | `-b` | Use Homebrew's wxWidgets and build for the local architecture |
-| `-f` | Build for FUSE-T instead of macFUSE |
-| `-p` | Also build the installer package (needs Packages) |
-| `-l` | Use a local wxWidgets build and skip universal binaries |
+| `-s` | Sign the app and extension with the local development identity and profile |
+| `-p` | Sign the app and create a local installer package with `productbuild` |
 | `-t <target>` | Set the deployment target (default 26.0) |
 | `-v <version>` | Set the wxWidgets version |
 
-Without `-b` or `-l`, the script builds wxWidgets statically from source. It
+Without `-b`, the script builds wxWidgets statically from source. It
 expects the wxWidgets sources next to the checkout: if `src` is
 `/Users/joe/Projects/LambCrypt/src`, wxWidgets goes in
 `/Users/joe/Projects/wxWidgets-3.2.10` by default.
 
-To build without Homebrew, install pkg-config from
-https://pkgconfig.freedesktop.org/releases/pkg-config-0.29.2.tar.gz:
-
-`$ CFLAGS="-Wno-int-conversion" CXXFLAGS="-Wno-int-conversion" ./configure --with-internal-glib`
-
-`$ make`
-
-`$ sudo make install`
-
-Then install macFUSE from https://macfuse.github.io/ or FUSE-T from
-https://www.fuse-t.org/.
-
 Use the [local signing template](src/Setup/MacOSX/signing.env.example) to set
 signing values outside the checkout. Keep certificates and their private keys
-in Keychain. The experimental FSKit build supports Apple Development signing
+in Keychain. FSKit supports Apple Development signing
 with a matching FSKit Module provisioning profile. The [FSKit migration
 plan](FSKIT-MIGRATION.md#integrator-checklist) covers setup and verification.
-
-The macOS package build uses the upstream-maintained [Packages tool](https://github.com/idrassi/packages/releases).
 
 Test instructions are in [Tests/README-macos-lifecycle.md](Tests/README-macos-lifecycle.md).
 
@@ -488,17 +451,17 @@ When packaging a GUI built with `make INDICATOR=1` through CMake directly, pass
 
 ## Windows (inherited, not maintained)
 
-LambCrypt does not build, sign or release the Windows code. Binaries built
-from it are named VeraCrypt, so they must not be distributed until the Windows
-code is renamed. These notes come from upstream VeraCrypt and are kept for
+LambCrypt does not build, sign or release the Windows code. It was renamed
+from VeraCrypt but has not been compiled since. The solution is
+`src/LambCrypt.sln`. These notes come from upstream VeraCrypt and are kept for
 reference. See the
 [upstream Windows build guide](./doc/html/en/CompilingGuidelineWin.html) for
 the toolchain.
 
 The 64-bit editions of Windows require a digital signature on kernel drivers.
-Official VeraCrypt `.sys` files are signed with IDRIX's certificate, so a
-locally built, unsigned driver differs from the official binaries and will
-not load on a standard Windows installation.
+The repository no longer includes VeraCrypt's signed drivers. Build
+`lambcrypt.sys` and sign it with your own certificate (and Microsoft
+attestation signing for release) before packaging.
 
 The folder "Signing" contains a batch file (sign.bat) that signs all
 components with a code signing certificate from the certificate store and
@@ -513,9 +476,14 @@ different release certificate, update the fingerprint and verify the final
 signed packages in Windows.
 
 The repository contains upstream pre-built EFI boot loader binaries under
-`src\Boot\EFI`. The EFI boot loader source is licensed under LGPL and is
-available at https://github.com/veracrypt/VeraCrypt-DCS. For build
-instructions, see `src\Boot\EFI\Readme.txt`.
+`src\Boot\EFI`. They still display the VeraCrypt name and install to
+`\EFI\VeraCrypt`, and the legacy BIOS boot loader in `src\Boot\Windows`
+keeps its VeraCrypt text, because LambCrypt detects existing boot loaders by
+that name. Rebuild both under the LambCrypt name, with a Microsoft-signed EFI
+loader, before offering Windows system encryption. The EFI boot loader source
+is licensed under LGPL and is available at
+https://github.com/veracrypt/VeraCrypt-DCS. For build instructions, see
+`src\Boot\EFI\Readme.txt`.
 
 # Contributing
 
@@ -545,6 +513,10 @@ the TrueCrypt License 3.0, together with the third-party licenses it contains.
   repository. The About window links to it.
 - **Names and logos:** LambCrypt doesn't use the VeraCrypt or TrueCrypt names
   or logos to identify itself, and isn't endorsed by their authors.
+- **License acceptance:** the first run asks each user to accept the license
+  terms, as the TrueCrypt License requires. `lambcrypt --text --accept-license`
+  accepts them for scripts and `/etc/fstab` mounts (run it once as `root`), and
+  `LAMBCRYPT_LICENSE_ACCEPTED=1` accepts them for a single process.
 - **Before distributing binaries:** keep `License.txt`, `NOTICE`, the
   "Based on TrueCrypt" line in the About window and the source code link
   intact.

@@ -36,6 +36,8 @@
 #include "Application.h"
 #include "FavoriteVolume.h"
 #include "UserInterface.h"
+#include "Resources.h"
+#include <wx/file.h>
 
 namespace VeraCrypt
 {
@@ -683,6 +685,75 @@ namespace VeraCrypt
 		return L"";
 	}
 
+	// The TrueCrypt License 3.0 (section VI.4) requires users to accept the
+	// license before using the software. Acceptance is recorded per user and
+	// is asked for again when the license text changes.
+	static wstring LicenseAcceptanceRecord ()
+	{
+		string text = Resources::GetLegalNotices ();
+		uint64 hash = 1469598103934665603ULL;
+		for (size_t i = 0; i < text.size(); ++i)
+		{
+			hash ^= (uint8) text[i];
+			hash *= 1099511628211ULL;
+		}
+
+		wstringstream record;
+		record << L"LambCrypt license accepted: " << hex << hash;
+		return record.str();
+	}
+
+	static bool LicenseAcceptedByEnvironment ()
+	{
+		const char *value = getenv ("LAMBCRYPT_LICENSE_ACCEPTED");
+		return value && strcmp (value, "1") == 0;
+	}
+
+	bool UserInterface::IsLicenseAccepted ()
+	{
+		if (LicenseAcceptedByEnvironment ())
+			return true;
+
+		try
+		{
+			wxString path = wstring (Application::GetConfigFilePath (L"License Accepted.txt"));
+			if (!wxFile::Exists (path))
+				return false;
+
+			wxFile file (path);
+			wxString content;
+			if (!file.IsOpened() || !file.ReadAll (&content))
+				return false;
+
+			content.Trim ().Trim (false);
+			return wstring (content.wc_str()) == LicenseAcceptanceRecord ();
+		}
+		catch (...)
+		{
+			return false;
+		}
+	}
+
+	void UserInterface::RecordLicenseAcceptance ()
+	{
+		wxString path = wstring (Application::GetConfigFilePath (L"License Accepted.txt", true));
+		wxFile file;
+		if (!file.Create (path, true, wxS_IRUSR | wxS_IWUSR)
+			|| !file.Write (wxString (LicenseAcceptanceRecord () + L"\n")))
+			throw_err (wxString (L"Unable to record license acceptance in ") + path);
+	}
+
+	bool UserInterface::AskLicenseAcceptance () const
+	{
+		ShowString (Application::GetName () + L" is distributed under the LambCrypt License, which includes the\n"
+			L"TrueCrypt License 3.0 and the Apache License 2.0. You must accept the license terms to use it.\n\n");
+
+		if (AskYesNo (L"Display the license terms now?", true))
+			ShowString (StringConverter::ToWide (Resources::GetLegalNotices ()) + L"\n");
+
+		return AskYesNo (L"Do you accept and agree to be bound by the license terms?", false);
+	}
+
 	void UserInterface::Init ()
 	{
 		SetAppName (Application::GetName());
@@ -693,6 +764,21 @@ namespace VeraCrypt
 
 		CmdLine.reset (new CommandLineInterface (argc, argv, InterfaceType));
 		SetPreferences (CmdLine->Preferences);
+
+		// Help, version and the algorithm self-test (run by the build) work before acceptance.
+		if (CmdLine->ArgCommand != CommandId::Help && CmdLine->ArgCommand != CommandId::DisplayVersion
+			&& CmdLine->ArgCommand != CommandId::Test && !IsLicenseAccepted ())
+		{
+			if (CmdLine->ArgAcceptLicense)
+				RecordLicenseAcceptance ();
+			else if (Preferences.NonInteractive)
+				throw_err (L"The license terms have not been accepted. Run " + Application::GetName ()
+					+ L" once interactively, or add --accept-license to accept them.");
+			else if (AskLicenseAcceptance ())
+				RecordLicenseAcceptance ();
+			else
+				throw_err (L"You must accept the license terms to use " + Application::GetName () + L".");
+		}
 
 		Core->SetApplicationExecutablePath (Application::GetExecutablePath());
 		Core->SetUserEnvPATH (getenv ("PATH"));
@@ -1243,7 +1329,14 @@ const FileManager fileManagers[] = {
 		});
 
 		if (cmdLine.ArgCommand == CommandId::None)
+		{
+			if (cmdLine.ArgAcceptLicense && InterfaceType == UserInterfaceType::Text)
+			{
+				ShowString (L"License terms accepted.\n");
+				return true;
+			}
 			return false;
+		}
 
 		if (Preferences.UseStandardInput)
 		{
@@ -1577,6 +1670,12 @@ const FileManager fileManagers[] = {
 					"\n"
 					"\n"
 					"Options:\n"
+					"\n"
+					"--accept-license\n"
+					" Accept the license terms in License.txt and record the acceptance for the\n"
+					" current user. Without a prior acceptance, the first interactive run asks for\n"
+					" it and non-interactive commands fail. Setting LAMBCRYPT_LICENSE_ACCEPTED=1\n"
+					" in the environment accepts the terms for that process only.\n"
 					"\n"
 					"--cache-favorites\n"
 					" Temporarily reuse passwords and PIMs while mounting favorite volumes.\n"

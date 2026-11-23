@@ -35,13 +35,12 @@ class MacOSBuildTargetTests(unittest.TestCase):
         self.bin = self.root / "bin"
         self.bin.mkdir()
         self.stub("xcrun", "printf '%s\\n' 27.2\n")
-        self.stub("brew", 'case "$1" in\n'
-                  '  --cellar) printf "%s\\n" /local/Cellar/wxwidgets ;;\n'
-                  '  list) printf "%s\\n" "wxwidgets 3.2.10" ;;\n'
-                  '  *) exit 2 ;;\nesac\n')
-        self.stub("yasm", "exit 0\n")
-        self.stub("make", 'printf "build-settings %s %s %s\\n" '
-                  '"$VC_OSX_TARGET" "$VC_OSX_SDK" "$VC_OSX_FUSET"\n')
+        self.stub("wx-config", "exit 0\n")
+        self.stub("brew", '[ "$1" = --prefix ] && [ "$2" = wxwidgets ]\n'
+                  'dirname "$(dirname "$0")"\n')
+        self.stub("make", 'for target do :; done\n'
+                  'printf "build-settings %s %s %s %s\\n" '
+                  '"$VC_OSX_TARGET" "$VC_OSX_SDK" "$LOCAL_DEVELOPMENT_BUILD" "$target"\n')
 
     def stub(self, name, command):
         path = self.bin / name
@@ -59,26 +58,48 @@ class MacOSBuildTargetTests(unittest.TestCase):
         return settings
 
     def test_homebrew_build_uses_tahoe_on_a_newer_sdk(self):
-        for settings in self.build_settings("-b"):
-            self.assertEqual(settings, ["26.0", "27.2", "0"])
+        self.assertEqual(self.build_settings("-b"),
+                         [["26.0", "27.2", "true", target] for target in ("clean", "bundle")])
 
     def test_source_build_uses_the_same_default(self):
-        for settings in self.build_settings("-l", "-f"):
-            self.assertEqual(settings, ["26.0", "27.2", "1"])
+        self.assertEqual(self.build_settings(),
+                         [["26.0", "27.2", "true", target] for target in ("clean", "bundle")])
 
     def test_explicit_homebrew_target_is_preserved(self):
-        for settings in self.build_settings("-b", "-t", "26.4"):
-            self.assertEqual(settings, ["26.4", "27.2", "0"])
+        self.assertEqual(self.build_settings("-b", "-t", "26.4", "-s"),
+                         [["26.4", "27.2", "true", target] for target in ("clean", "prepare")])
+
+    def test_local_package_uses_signed_app(self):
+        self.assertEqual(self.build_settings("-b", "-p")[-1][-1], "package")
 
     @unittest.skipUnless(sys.platform == "darwin", "FSKit requires macOS")
-    def test_fskit_and_fuse_t_cannot_be_selected_together(self):
-        result = subprocess.run(["/usr/bin/make", "-C", BUILD.parent, "-n", "WITHFSKIT=1", "WITHFUSET=1"],
-                                capture_output=True, text=True, timeout=10)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("WITHFSKIT and WITHFUSET select different backends", result.stderr)
+    def test_legacy_backends_cannot_be_selected(self):
+        for option, diagnostic in (("WITHFUSET=1", "WITHFUSET is retired"),
+                                   ("WITHFSKIT=0", "FSKit is required on macOS")):
+            with self.subTest(option=option):
+                result = subprocess.run(["/usr/bin/make", "-C", BUILD.parent, "-n", option],
+                                        capture_output=True, text=True, timeout=10)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(diagnostic, result.stderr)
+
+    @unittest.skipUnless(sys.platform == "darwin", "FSKit requires macOS")
+    def test_default_make_does_not_query_fuse_packages(self):
+        self.stub("pkg-config", 'case "$*" in *fuse*) touch "$PKG_CONFIG_FUSE_PROBE" ;; esac\nexit 1\n')
+        probe = self.root / "fuse-probe"
+        target = self.root / "backend.mk"
+        target.write_text("report-backend:\n\t@printf '%s\\n' '$(APPNAME)' '$(C_CXX_FLAGS)' '$(LFLAGS)'\n")
+        result = subprocess.run(["/usr/bin/make", "-C", BUILD.parent, "-f", "Makefile", "-f", target,
+                                 f"PKG_CONFIG={self.bin / 'pkg-config'}", "report-backend"],
+                                env=dict(os.environ, PKG_CONFIG_FUSE_PROBE=str(probe)),
+                                capture_output=True, text=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("LambCrypt-FSKit", result.stdout)
+        self.assertIn("-DVC_MACOSX_FSKIT", result.stdout)
+        self.assertIn("-framework FSKit", result.stdout)
+        self.assertFalse(probe.exists(), "macOS Makefile queried a FUSE package")
 
     @unittest.skipUnless(sys.platform == "darwin", "requires the macOS plutil command")
-    def test_fskit_bundle_metadata_keeps_the_standard_app_preferred(self):
+    def test_native_bundle_metadata_supports_side_by_side_installation(self):
         build = self.script.parent
         src = build.parent
         main = src / "Main"
@@ -95,22 +116,13 @@ class MacOSBuildTargetTests(unittest.TestCase):
         icons.mkdir(parents=True)
         for name in ("LambCrypt.icns", "LambCrypt_Volume.icns"):
             (icons / name).touch()
-        for name in ("LambCrypt-FSKit", "LambCrypt"):
-            (main / name).touch()
+        (main / "LambCrypt-FSKit").touch()
         self.stub("xcrun", 'for last do :; done\n: > "$last"\n')
         command = ["/usr/bin/make", "-f", "Main.make", "bundle", "PLATFORM=MacOSX", "OBJS=", "PCH=",
                    "TC_BUILD_CONFIG=Release", f"BASE_DIR={src}", f"BUILD_INC={build}",
                    "WX_CONFIG=true", "CC=false", "VC_OSX_TARGET=26.0", "VC_OSX_SDK=27.2"]
         env = dict(os.environ, PATH=f"{self.bin}:/usr/bin:/bin")
         env.pop("VC_FSKIT_BUILD_VERSION", None)
-        standard = subprocess.run([*command, "APPNAME=LambCrypt", "VC_OSX_FSKIT=0"], cwd=main,
-                                  env=dict(env, VC_FSKIT_BUILD_VERSION="42"), capture_output=True,
-                                  text=True, timeout=15)
-        self.assertEqual(standard.returncode, 0, standard.stdout + standard.stderr)
-        info = plistlib.loads((main / "LambCrypt.app/Contents/Info.plist").read_bytes())
-        version = info["CFBundleShortVersionString"]
-        self.assertEqual(info["CFBundleVersion"], version)
-        self.assertEqual(info["CFBundleDocumentTypes"][0]["LSHandlerRank"], "Owner")
         contents = main / "LambCrypt-FSKit.app/Contents"
         plists = (contents / "Info.plist",
                   contents / "Extensions/LambCryptFSKit.appex/Contents/Info.plist")
@@ -118,16 +130,17 @@ class MacOSBuildTargetTests(unittest.TestCase):
             with self.subTest(build_version=value):
                 if value is not None:
                     env["VC_FSKIT_BUILD_VERSION"] = value
-                result = subprocess.run([*command, "APPNAME=LambCrypt-FSKit", "VC_OSX_FSKIT=1"],
+                result = subprocess.run([*command, "APPNAME=LambCrypt-FSKit"],
                                         cwd=main, env=env, capture_output=True,
                                         text=True, timeout=15)
                 if value in (None, "42", "42.7.1"):
                     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    app = plistlib.loads(plists[0].read_bytes())
+                    version = app["CFBundleShortVersionString"]
                     for path in plists:
                         info = plistlib.loads(path.read_bytes())
                         self.assertEqual(info["CFBundleShortVersionString"], version)
                         self.assertEqual(info["CFBundleVersion"], value or version)
-                    app = plistlib.loads(plists[0].read_bytes())
                     self.assertEqual(app["CFBundleDocumentTypes"][0]["LSHandlerRank"], "Alternate")
                 else:
                     self.assertNotEqual(result.returncode, 0)

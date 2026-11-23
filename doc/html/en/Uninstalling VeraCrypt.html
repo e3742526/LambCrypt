@@ -36,11 +36,11 @@
 <div>
 <h1>Uninstalling LambCrypt</h1>
 <h2>macOS</h2>
-<p>Dismount all volumes and quit LambCrypt. Delete <code>/Applications/LambCrypt.app</code>, then run
-<code>sudo rm /usr/local/bin/lambcrypt</code> in Terminal.</p>
-<p>For the FSKit build, turn off <strong>LambCrypt FSKit</strong> in <em>System Settings &gt; General &gt;
+<p>Dismount all volumes and quit LambCrypt. Turn off <strong>LambCrypt FSKit</strong> in
+<em>System Settings &gt; General &gt;
 Login Items &amp; Extensions &gt; By Category &gt; File System Extensions</em>, then delete
-<code>/Applications/LambCrypt-FSKit.app</code>.</p>
+<code>/Applications/LambCrypt-FSKit.app</code>. Remove <code>/usr/local/bin/lambcrypt</code> if it
+points to that app.</p>
 <p>Preferences are in <code>~/Library/Application Support/LambCrypt</code>. Delete that folder to
 remove them.</p>
 <h2>Linux</h2>

@@ -56,10 +56,10 @@
 using namespace VeraCrypt;
 
 const wchar_t szExpandVolumeInfo[] =
-L":: VeraCrypt Expander ::\n\nExpand a VeraCrypt volume on the fly without reformatting\n\n\n\
+L":: LambCrypt Expander ::\n\nExpand a LambCrypt volume on the fly without reformatting\n\n\n\
 All kind of volumes (container files, disks and partitions) formatted with \
 NTFS are supported. The only condition is that there must be enough free \
-space on the host drive or host device of the VeraCrypt volume.\n\n\
+space on the host drive or host device of the LambCrypt volume.\n\n\
 Do not use this software to expand an outer volume containing a hidden \
 volume, because this destroys the hidden volume!\n\
 ";
@@ -1066,7 +1066,7 @@ BOOL CALLBACK MainDialogProc (HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPa
 		if (lw == IDM_HOMEPAGE )
 		{
 			ArrowWaitCursor ();
-			SafeOpenURL (L"https://veracrypt.jp");
+			SafeOpenURL (TC_HOMEPAGE);
 			Sleep (200);
 			NormalCursor ();
 
@@ -1162,7 +1162,7 @@ int WINAPI wWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, wchar_t *lpsz
 	InitApp (hInstance, lpszCommandLine);
 
 	/* application title */
-	lpszTitle = L"VeraCrypt Expander";
+	lpszTitle = L"LambCrypt Expander";
 
 #ifndef _M_ARM64
 	DetectX86Features();

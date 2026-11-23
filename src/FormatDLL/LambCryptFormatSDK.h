@@ -1,6 +1,6 @@
 /* Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. */
 /*
- * VeraCrypt Format SDK
+ * LambCrypt Format SDK
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * This file provides a C-style DLL interface for creating VeraCrypt file containers
+ * This file provides a C-style DLL interface for creating LambCrypt file containers
  * and formatting non-system partitions. It serves as a headless, thread-safe wrapper
- * around the core logic from Tcformat.c and related VeraCrypt source files.
+ * around the core logic from Tcformat.c and related LambCrypt source files.
  *
  * First created by Mounir IDRASSI (mounir.idrassi@amcrypto.jp)
  *
@@ -42,9 +42,9 @@ extern "C" {
 // --- Public Data Structures and Callbacks ---
 
 /**
- * @brief Defines the parameters for creating a VeraCrypt volume.
+ * @brief Defines the parameters for creating a LambCrypt volume.
  */
-typedef struct _VeraCryptFormatOptions
+typedef struct _LambCryptFormatOptions
 {
 	/** The full path to the file container to be created, or the device path (e.g., "\Device\Harddisk1\Partition1").
 	 *  A file container must not exist yet (VCF_ERROR_ALREADY_EXISTS); if formatting fails, the new file is deleted.
@@ -93,15 +93,15 @@ typedef struct _VeraCryptFormatOptions
 	/** User-defined data to be passed to the progress callback. */
 	void* progressUserData;
 
-} VeraCryptFormatOptions;
+} LambCryptFormatOptions;
 
 /**
  * @brief Progress callback function pointer type.
  * @param percentComplete The percentage of the format operation that is complete (0-100).
- * @param userData The user-defined data pointer passed in VeraCryptFormatOptions.
+ * @param userData The user-defined data pointer passed in LambCryptFormatOptions.
  * @return Returns TRUE to continue the operation, or FALSE to abort it.
  */
-typedef BOOL (CALLBACK *VeraCrypt_Progress_Callback)(int percentComplete, void* userData);
+typedef BOOL (CALLBACK *LambCrypt_Progress_Callback)(int percentComplete, void* userData);
 
 
 // --- Public Error Codes ---
@@ -119,7 +119,7 @@ typedef BOOL (CALLBACK *VeraCrypt_Progress_Callback)(int percentComplete, void* 
 #define VCF_ERROR_CANNOT_GET_DEVICE_SIZE        11
 #define VCF_ERROR_VOLUME_SIZE_TOO_SMALL         12
 #define VCF_ERROR_RNG_INIT_FAILED               13
-#define VCF_ERROR_NO_DRIVER                     14  // VeraCrypt driver is not running.
+#define VCF_ERROR_NO_DRIVER                     14  // LambCrypt driver is not running.
 #define VCF_ERROR_SELF_TEST_FAILED              15
 #define VCF_ERROR_USER_ABORT                    16  // Should not occur in SDK, but mapped for completeness.
 #define VCF_ERROR_INITIALIZATION_FAILED         17
@@ -134,34 +134,34 @@ typedef BOOL (CALLBACK *VeraCrypt_Progress_Callback)(int percentComplete, void* 
 // --- Public API Functions ---
 
 /**
- * @brief Initializes the VeraCrypt Format SDK.
+ * @brief Initializes the LambCrypt Format SDK.
  * This function must be called once per process before any other SDK functions.
- * It attaches to the VeraCrypt driver, runs self-tests, and seeds the RNG.
+ * It attaches to the LambCrypt driver, runs self-tests, and seeds the RNG.
  * This function is thread-safe.
  *
  * @return Returns VCF_SUCCESS (0) on success, or a non-zero VCF_ERROR_* code on failure.
  */
-VCF_API int __cdecl VeraCryptFormat_Initialize();
+VCF_API int __cdecl LambCryptFormat_Initialize();
 
 /**
- * @brief Shuts down the VeraCrypt Format SDK.
+ * @brief Shuts down the LambCrypt Format SDK.
  * Call this function when the SDK is no longer needed to release resources.
  * Call it before FreeLibrary: while the SDK is initialized it holds a reference
  * to its own DLL, so FreeLibrary alone does not unload it.
  */
-VCF_API void __cdecl VeraCryptFormat_Shutdown();
+VCF_API void __cdecl LambCryptFormat_Shutdown();
 
 /**
- * @brief Creates a VeraCrypt volume (file container or formatted partition).
- * This is the main entry point for the VeraCrypt Format SDK.
+ * @brief Creates a LambCrypt volume (file container or formatted partition).
+ * This is the main entry point for the LambCrypt Format SDK.
  * This function is synchronous and will block until the format operation is complete.
  * It is thread-safe, but operations are serialized internally.
- * VeraCryptFormat_Initialize() must be called successfully before using this function.
+ * LambCryptFormat_Initialize() must be called successfully before using this function.
  *
- * @param options A pointer to a VeraCryptFormatOptions struct containing all parameters for the operation.
+ * @param options A pointer to a LambCryptFormatOptions struct containing all parameters for the operation.
  * @return Returns VCF_SUCCESS (0) on success, or a non-zero VCF_ERROR_* code on failure.
  */
-VCF_API int __cdecl VeraCryptFormat(const VeraCryptFormatOptions* options);
+VCF_API int __cdecl LambCryptFormat(const LambCryptFormatOptions* options);
 
 #ifdef __cplusplus
 }

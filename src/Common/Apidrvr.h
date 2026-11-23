@@ -1,3 +1,4 @@
+/* Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. */
 /*
  Legal Notice: Some portions of the source code contained in this file were
  derived from the source code of TrueCrypt 7.1a, which is
@@ -410,28 +411,28 @@ typedef struct
 
 #define DRIVER_STR WIDE
 
-#define TC_UNIQUE_ID_PREFIX "VeraCryptVolume"
-#define TC_MOUNT_PREFIX L"\\Device\\VeraCryptVolume"
+#define TC_UNIQUE_ID_PREFIX "LambCryptVolume"
+#define TC_MOUNT_PREFIX L"\\Device\\LambCryptVolume"
 
-#define NT_MOUNT_PREFIX DRIVER_STR("\\Device\\VeraCryptVolume")
-#define NT_ROOT_PREFIX DRIVER_STR("\\Device\\VeraCrypt")
+#define NT_MOUNT_PREFIX DRIVER_STR("\\Device\\LambCryptVolume")
+#define NT_ROOT_PREFIX DRIVER_STR("\\Device\\LambCrypt")
 #define DOS_MOUNT_PREFIX_DEFAULT DRIVER_STR("\\DosDevices\\")
 #define DOS_MOUNT_PREFIX_GLOBAL DRIVER_STR("\\GLOBAL??\\") // Use Global MS-DOS device names for sanity checks on drive letters
-#define DOS_ROOT_PREFIX DRIVER_STR("\\DosDevices\\VeraCrypt")
-#define WIN32_ROOT_PREFIX DRIVER_STR("\\\\.\\VeraCrypt")
+#define DOS_ROOT_PREFIX DRIVER_STR("\\DosDevices\\LambCrypt")
+#define WIN32_ROOT_PREFIX DRIVER_STR("\\\\.\\LambCrypt")
 
-#define TC_DRIVER_CONFIG_REG_VALUE_NAME DRIVER_STR("VeraCryptConfig")
-#define TC_ENCRYPTION_FREE_CPU_COUNT_REG_VALUE_NAME DRIVER_STR("VeraCryptEncryptionFreeCpuCount")
+#define TC_DRIVER_CONFIG_REG_VALUE_NAME DRIVER_STR("LambCryptConfig")
+#define TC_ENCRYPTION_FREE_CPU_COUNT_REG_VALUE_NAME DRIVER_STR("LambCryptEncryptionFreeCpuCount")
 
-#define VC_ENCRYPTION_IO_REQUEST_COUNT DRIVER_STR("VeraCryptEncryptionIoRequestCount")
-#define VC_ENCRYPTION_ITEM_COUNT DRIVER_STR("VeraCryptEncryptionItemCount")
-#define VC_ENCRYPTION_FRAGMENT_SIZE DRIVER_STR("VeraCryptEncryptionFragmentSize")
-#define VC_ENCRYPTION_MAX_WORK_ITEMS DRIVER_STR("VeraCryptEncryptionMaxWorkItems")
+#define VC_ENCRYPTION_IO_REQUEST_COUNT DRIVER_STR("LambCryptEncryptionIoRequestCount")
+#define VC_ENCRYPTION_ITEM_COUNT DRIVER_STR("LambCryptEncryptionItemCount")
+#define VC_ENCRYPTION_FRAGMENT_SIZE DRIVER_STR("LambCryptEncryptionFragmentSize")
+#define VC_ENCRYPTION_MAX_WORK_ITEMS DRIVER_STR("LambCryptEncryptionMaxWorkItems")
 
-#define VC_ERASE_KEYS_SHUTDOWN DRIVER_STR("VeraCryptEraseKeysShutdown")
+#define VC_ERASE_KEYS_SHUTDOWN DRIVER_STR("LambCryptEraseKeysShutdown")
 
-#define VC_ENABLE_MEMORY_PROTECTION DRIVER_STR("VeraCryptEnableMemoryProtection")
-#define VC_ENABLE_SCREEN_PROTECTION DRIVER_STR("VeraCryptEnableScreenProtection")
+#define VC_ENABLE_MEMORY_PROTECTION DRIVER_STR("LambCryptEnableMemoryProtection")
+#define VC_ENABLE_SCREEN_PROTECTION DRIVER_STR("LambCryptEnableScreenProtection")
 
 // WARNING: Modifying the following values can introduce incompatibility with previous versions.
 #define TC_DRIVER_CONFIG_CACHE_BOOT_PASSWORD						0x1

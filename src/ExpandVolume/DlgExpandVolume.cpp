@@ -1,3 +1,4 @@
+/* Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. */
 /*
  Legal Notice: Some portions of the source code contained in this file were
  derived from the source code of TrueCrypt 7.1a, which is
@@ -698,7 +699,7 @@ void ExpandVolumeWizard (HWND hwndDlg, wchar_t *lpszVolume)
 		MessageBoxW (hwndDlg,
 			L"Expanding a device hosted legacy volume with no NTFS file system\n"
 			L"is unsupported.\n"
-			L"Note that expanding the VeraCrypt volume itself is not neccessary\n"
+			L"Note that expanding the LambCrypt volume itself is not neccessary\n"
 			L"for legacy volumes.\n",
 			lpszTitle, MB_OK|MB_ICONEXCLAMATION);
 		goto ret;

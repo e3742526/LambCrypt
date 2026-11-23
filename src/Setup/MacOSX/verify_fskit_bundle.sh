@@ -41,7 +41,7 @@ extension_id="$app_id.module"
    "$(plist_value CFBundleIdentifier "$extension_info")" == "$extension_id" ]] ||
     fail "Unexpected FSKit app or extension bundle identifier."
 [[ "$(plist_value CFBundleDocumentTypes.0.LSHandlerRank "$app_info")" == Alternate ]] ||
-    fail "The opt-in FSKit bundle must use the Alternate document handler rank."
+    fail "The FSKit bundle must use the Alternate document handler rank for side-by-side installs."
 [[ "$(plist_value EXAppExtensionAttributes.EXExtensionPointIdentifier "$extension_info")" == com.apple.fskit.fsmodule &&
    "$(plist_value EXAppExtensionAttributes.FSShortName "$extension_info")" == lambcryptfs &&
    "$(plist_value EXAppExtensionAttributes.FSSupportsPathURLs "$extension_info")" == true &&
@@ -64,6 +64,10 @@ for executable in "$bundle/Contents/MacOS/LambCrypt-FSKit" "$extension/Contents/
         awk '$1 == "platform" {platform = $2} $1 == "minos" && platform == "MACOS" {print $2}')
     [[ "$target" == "$minimum" || "$target.0" == "$minimum" || "$target" == "$minimum.0" ]] ||
         fail "The FSKit executable deployment target differs from its bundle metadata."
+    dependencies=$(otool -L "$executable")
+    if grep -Eiq '/(lib(fuse|osxfuse|macfuse)[^/[:space:]]*\.dylib|(fuse-t|macfuse|osxfuse)\.framework/)' <<< "$dependencies"; then
+        fail "The FSKit executable links a third-party FUSE library: $executable"
+    fi
 done
 
 codesign --verify --deep --strict "$bundle"
@@ -94,4 +98,4 @@ done
    "$(plist_value LambCryptFSKitIPCGroup "$app_info")" == "$team.lambcrypt-fskit" ]] ||
     fail "The app or extension FSKit metadata and entitlements disagree with its profile."
 
-echo "Verified FSKit arm64 bundle metadata, signatures, App Group and provisioning."
+echo "Verified FSKit arm64 bundle metadata, FUSE-free linkage, signatures, App Group and provisioning."

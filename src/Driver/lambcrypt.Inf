@@ -1,5 +1,5 @@
 ;;;
-;;; VeraCrypt
+;;; LambCrypt
 ;;;
 ;;;
 ;;; Copyright (c) 2026, IDRIX
@@ -11,12 +11,12 @@ Class       = "Encryption"                              ;This is determined by t
 ClassGuid   = {a0a701c0-a511-42ff-aa6c-06dc0395576f}    ;This value is determined by the Class
 Provider    = %ProviderString%
 DriverVer   = ;
-CatalogFile = veracrypt.cat
+CatalogFile = lambcrypt.cat
 PnpLockdown = 1
 
 [DestinationDirs]
 DefaultDestDir          = 12
-veracrypt.DriverFiles  = 12            ;%windir%\system32\drivers
+lambcrypt.DriverFiles  = 12            ;%windir%\system32\drivers
 
 ;;
 ;; Default install sections
@@ -24,36 +24,36 @@ veracrypt.DriverFiles  = 12            ;%windir%\system32\drivers
 
 [DefaultInstall.NTx86]
 OptionDesc          = %ServiceDescription%
-CopyFiles           = veracrypt.DriverFiles
-AddReg              = veracrypt.AddReg
+CopyFiles           = lambcrypt.DriverFiles
+AddReg              = lambcrypt.AddReg
 
 [DefaultInstall.NTamd64]
 OptionDesc          = %ServiceDescription%
-CopyFiles           = veracrypt.DriverFiles
-AddReg              = veracrypt.AddReg
+CopyFiles           = lambcrypt.DriverFiles
+AddReg              = lambcrypt.AddReg
 
 [DefaultInstall.NTarm64]
 OptionDesc          = %ServiceDescription%
-CopyFiles           = veracrypt.DriverFiles
-AddReg              = veracrypt.AddReg
+CopyFiles           = lambcrypt.DriverFiles
+AddReg              = lambcrypt.AddReg
 
 [DefaultInstall.NTx86.Services]
-AddService          = veracrypt,,veracrypt.Service
+AddService          = lambcrypt,,lambcrypt.Service
 
 [DefaultInstall.NTamd64.Services]
-AddService          = veracrypt,,veracrypt.Service
+AddService          = lambcrypt,,lambcrypt.Service
 
 [DefaultInstall.NTarm64.Services]
-AddService          = veracrypt,,veracrypt.Service
+AddService          = lambcrypt,,lambcrypt.Service
 
 ;
 ; Services Section
 ;
 
-[veracrypt.Service]
+[lambcrypt.Service]
 DisplayName      = %ServiceDescription%
 Description      = %ServiceDescription%
-ServiceBinary    = %12%\veracrypt.sys        ;%windir%\system32\drivers\
+ServiceBinary    = %12%\lambcrypt.sys        ;%windir%\system32\drivers\
 ServiceType      = 2                            ;SERVICE_FILE_SYSTEM_DRIVER
 StartType        = 0                           ;SERVICE_BOOT_START
 ErrorControl     = 1                            ;SERVICE_ERROR_NORMAL
@@ -63,11 +63,11 @@ LoadOrderGroup   = "Filter"
 ; Copy Files
 ;
 
-[veracrypt.DriverFiles]
-veracrypt.sys
+[lambcrypt.DriverFiles]
+lambcrypt.sys
 
 [SourceDisksFiles]
-veracrypt.sys = 1,,
+lambcrypt.sys = 1,,
 
 [SourceDisksNames]
 1 = %DiskId1%,,,
@@ -76,8 +76,8 @@ veracrypt.sys = 1,,
 ; Registry Entries
 ;
 
-[veracrypt.AddReg]
-HKLM, System\CurrentControlSet\Control\Class\{4d36e967-e325-11ce-bfc1-08002be10318}, UpperFilters, 0x00010008, veracrypt
+[lambcrypt.AddReg]
+HKLM, System\CurrentControlSet\Control\Class\{4d36e967-e325-11ce-bfc1-08002be10318}, UpperFilters, 0x00010008, lambcrypt
 HKLM, System\CurrentControlSet\Control\Class\{4d36e967-e325-11ce-bfc1-08002be10318}, UpperFilters, 0x00010008, PartMgr
 
 ;;
@@ -85,7 +85,7 @@ HKLM, System\CurrentControlSet\Control\Class\{4d36e967-e325-11ce-bfc1-08002be103
 ;;
 
 [Strings]
-ProviderString          = "IDRIX"
-ServiceDescription      = "veracrypt"
-DiskId1                 = "VeraCrypt Device Installation Disk"
+ProviderString          = "LambCrypt contributors"
+ServiceDescription      = "lambcrypt"
+DiskId1                 = "LambCrypt Device Installation Disk"
 

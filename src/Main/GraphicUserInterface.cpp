@@ -34,6 +34,7 @@
 #include "Platform/SystemLog.h"
 #include "Application.h"
 #include "GraphicUserInterface.h"
+#include "Resources.h"
 #include "FatalErrorHandler.h"
 #ifdef TC_MACOSX
 #include "MacOSXSecureTextFieldHotkeys.h"
@@ -216,6 +217,33 @@ namespace VeraCrypt
 			handler->Connect (item->GetId(), wxEVT_COMMAND_MENU_SELECTED, handlerFunction);
 
 		return item;
+	}
+
+	bool GraphicUserInterface::AskLicenseAcceptance () const
+	{
+		wxDialog dialog (nullptr, wxID_ANY, Application::GetName() + L" License", wxDefaultPosition, wxDefaultSize,
+			wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
+		wxBoxSizer *sizer = new wxBoxSizer (wxVERTICAL);
+
+		wxStaticText *intro = new wxStaticText (&dialog, wxID_ANY,
+			Application::GetName() + L" is distributed under the LambCrypt License, which includes the TrueCrypt License 3.0\n"
+			L"and the Apache License 2.0. Read the terms below. You must accept them to use " + Application::GetName() + L".");
+		sizer->Add (intro, 0, wxALL, 12);
+
+		wxTextCtrl *text = new wxTextCtrl (&dialog, wxID_ANY, StringConverter::ToWide (Resources::GetLegalNotices()),
+			wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
+		text->SetMinSize (wxSize (GetCharWidth (text) * 88, GetCharHeight (text) * 24));
+		sizer->Add (text, 1, wxEXPAND | wxLEFT | wxRIGHT, 12);
+
+		wxBoxSizer *buttons = new wxBoxSizer (wxHORIZONTAL);
+		buttons->Add (new wxButton (&dialog, wxID_CANCEL, L"I Do Not Accept"), 0, wxRIGHT, 8);
+		buttons->Add (new wxButton (&dialog, wxID_OK, L"I Accept and Agree to Be Bound by the License Terms"));
+		sizer->Add (buttons, 0, wxALIGN_RIGHT | wxALL, 12);
+
+		dialog.SetSizerAndFit (sizer);
+		dialog.CentreOnScreen();
+		text->SetFocus();
+		return dialog.ShowModal() == wxID_OK;
 	}
 
 	bool GraphicUserInterface::AskYesNo (const wxString &message, bool defaultYes, bool warning) const

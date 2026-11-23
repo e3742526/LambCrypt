@@ -1,3 +1,4 @@
+/* Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. */
 #include "PCSCException.h"
 
 #if !defined(TC_WINDOWS) || defined(TC_PROTOTYPE)
@@ -170,7 +171,7 @@ namespace VeraCrypt
 	void CommandAPDUNotValid::Show(HWND parent) const
 	{
 		string msgBody = "Command APDU invalid.\n\n\n(If you report a bug in connection with this, please include the following technical information in the bug report:\n" + SrcPos + "\nLast Error = " + ErrorStr + ")";
-		MessageBoxA (parent, msgBody.c_str(), "VeraCrypt", MB_ICONERROR | MB_SETFOREGROUND);
+		MessageBoxA (parent, msgBody.c_str(), "LambCrypt", MB_ICONERROR | MB_SETFOREGROUND);
 	}
 #endif // TC_HEADER_Common_Exception
 

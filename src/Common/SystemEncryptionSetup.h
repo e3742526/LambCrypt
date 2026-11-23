@@ -1,3 +1,4 @@
+/* Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. */
 /*
  Copyright (c) 2026 AM Crypto. All rights reserved.
  Governed by the Apache License 2.0; see License.txt.
@@ -45,7 +46,7 @@ namespace VeraCrypt { namespace SystemEncryptionSetup
 		// a cmd process without a console, on which chcp could not operate.
 		if (!ascii)
 			command += L"\"%SystemRoot%\\System32\\chcp.com\" 65001 >nul\r\nif errorlevel 1 exit /b 1\r\n";
-		command += L"\"" + path + L"\\VeraCrypt.exe\" /PostOOBE\r\n";
+		command += L"\"" + path + L"\\LambCrypt.exe\" /PostOOBE\r\n";
 
 		int length = WideCharToMultiByte (CP_UTF8, WC_ERR_INVALID_CHARS, command.c_str (), (int) command.size (), NULL, 0, NULL, NULL);
 		if (length <= 0)

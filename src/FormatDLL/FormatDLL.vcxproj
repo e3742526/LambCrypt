@@ -101,10 +101,10 @@
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">CompileAsCpp</CompileAs>
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">CompileAsCpp</CompileAs>
     </ClCompile>
-    <ClCompile Include="VeraCryptFormatSDK.cpp" />
+    <ClCompile Include="LambCryptFormatSDK.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="VeraCryptFormatSDK.h" />
+    <ClInclude Include="LambCryptFormatSDK.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="FormatDLL.rc" />
@@ -166,16 +166,16 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <TargetName>VeraCryptFormat</TargetName>
+    <TargetName>LambCryptFormat</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
-    <TargetName>VeraCryptFormat</TargetName>
+    <TargetName>LambCryptFormat</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <TargetName>VeraCryptFormat</TargetName>
+    <TargetName>LambCryptFormat</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
-    <TargetName>VeraCryptFormat</TargetName>
+    <TargetName>LambCryptFormat</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -198,9 +198,9 @@
     </Link>
     <PostBuildEvent>
       <Command>md "..\Debug\SDK Files\x64" 2&gt;NUL:
-copy $(TargetPath) "..\Debug\SDK Files\x64\VeraCryptFormat.dll"
-copy $(TargetDir)$(TargetName).lib "..\Debug\SDK Files\x64\VeraCryptFormat.lib"
-copy VeraCryptFormatSDK.h "..\Debug\SDK Files\VeraCryptFormatSDK.h"</Command>
+copy $(TargetPath) "..\Debug\SDK Files\x64\LambCryptFormat.dll"
+copy $(TargetDir)$(TargetName).lib "..\Debug\SDK Files\x64\LambCryptFormat.lib"
+copy LambCryptFormatSDK.h "..\Debug\SDK Files\LambCryptFormatSDK.h"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
@@ -224,9 +224,9 @@ copy VeraCryptFormatSDK.h "..\Debug\SDK Files\VeraCryptFormatSDK.h"</Command>
     </Link>
     <PostBuildEvent>
       <Command>md "..\Debug\SDK Files\arm64" 2&gt;NUL:
-copy $(TargetPath) "..\Debug\SDK Files\arm64\VeraCryptFormat.dll"
-copy $(TargetDir)$(TargetName).lib "..\Debug\SDK Files\arm64\VeraCryptFormat.lib"
-copy VeraCryptFormatSDK.h "..\Debug\SDK Files\VeraCryptFormatSDK.h"</Command>
+copy $(TargetPath) "..\Debug\SDK Files\arm64\LambCryptFormat.dll"
+copy $(TargetDir)$(TargetName).lib "..\Debug\SDK Files\arm64\LambCryptFormat.lib"
+copy LambCryptFormatSDK.h "..\Debug\SDK Files\LambCryptFormatSDK.h"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -253,9 +253,9 @@ copy VeraCryptFormatSDK.h "..\Debug\SDK Files\VeraCryptFormatSDK.h"</Command>
     </Link>
     <PostBuildEvent>
       <Command>md "..\Release\SDK Files\x64" 2&gt;NUL:
-copy $(TargetPath) "..\Release\SDK Files\x64\VeraCryptFormat.dll"
-copy $(TargetDir)$(TargetName).lib "..\Release\SDK Files\x64\VeraCryptFormat.lib"
-copy VeraCryptFormatSDK.h "..\Release\SDK Files\VeraCryptFormatSDK.h"
+copy $(TargetPath) "..\Release\SDK Files\x64\LambCryptFormat.dll"
+copy $(TargetDir)$(TargetName).lib "..\Release\SDK Files\x64\LambCryptFormat.lib"
+copy LambCryptFormatSDK.h "..\Release\SDK Files\LambCryptFormatSDK.h"
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -283,9 +283,9 @@ copy VeraCryptFormatSDK.h "..\Release\SDK Files\VeraCryptFormatSDK.h"
     </Link>
     <PostBuildEvent>
       <Command>md "..\Release\SDK Files\arm64" 2&gt;NUL:
-copy $(TargetPath) "..\Release\SDK Files\arm64\VeraCryptFormat.dll"
-copy $(TargetDir)$(TargetName).lib "..\Release\SDK Files\arm64\VeraCryptFormat.lib"
-copy VeraCryptFormatSDK.h "..\Release\SDK Files\VeraCryptFormatSDK.h"</Command>
+copy $(TargetPath) "..\Release\SDK Files\arm64\LambCryptFormat.dll"
+copy $(TargetDir)$(TargetName).lib "..\Release\SDK Files\arm64\LambCryptFormat.lib"
+copy LambCryptFormatSDK.h "..\Release\SDK Files\LambCryptFormatSDK.h"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -1,3 +1,4 @@
+/* Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. */
 // Microsoft Visual C++ generated resource script.
 //
 #define APSTUDIO_READONLY_SYMBOLS
@@ -41,12 +42,12 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "CompanyName", "AM Crypto"
-            VALUE "FileDescription", "VeraCrypt Format SDK"
+            VALUE "CompanyName", "LambCrypt contributors"
+            VALUE "FileDescription", "LambCrypt Format SDK"
             VALUE "FileVersion", "1.27.0"
-            VALUE "LegalTrademarks", "VeraCrypt"
-            VALUE "OriginalFilename", "VeraCryptFormat.dll"
-            VALUE "ProductName", "VeraCrypt"
+            VALUE "LegalTrademarks", "LambCrypt"
+            VALUE "OriginalFilename", "LambCryptFormat.dll"
+            VALUE "ProductName", "LambCrypt"
             VALUE "ProductVersion", "1.27.0"
         END
     END

@@ -303,13 +303,13 @@
     <None Include="Format.tlb">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="..\Common\VeraCrypt_mounted.ico">
+    <None Include="..\Common\LambCrypt_mounted.ico">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="..\Common\VeraCrypt_Volume.ico">
+    <None Include="..\Common\LambCrypt_Volume.ico">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="VeraCrypt_wizard.bmp">
+    <None Include="LambCrypt_wizard.bmp">
       <Filter>Resource Files</Filter>
     </None>
     <None Include="..\Boot\Windows\Release_AES\BootLoader.com.gz">
@@ -378,7 +378,7 @@
     <None Include="..\Common\Textual_logo_background.bmp">
       <Filter>Resource Files\Common</Filter>
     </None>
-    <None Include="..\Common\VeraCrypt.ico">
+    <None Include="..\Common\LambCrypt.ico">
       <Filter>Resource Files\Common</Filter>
     </None>
     <None Include="..\Boot\Windows\Release_Camellia\BootSector.bin">

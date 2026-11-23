@@ -33,9 +33,8 @@ The rebrand changed the documentation, project links, interface, Unix build
 and packaging names, and macOS bundle and installer identities. The Unix
 command is now `lambcrypt`, and the Linux mount helper is `mount.lambcrypt`.
 Update scripts and any `fstab` entries that use the old helper name.
-The macOS app is `LambCrypt.app`, and the experimental FSKit build is
-`LambCrypt-FSKit.app`. Bundle identifiers use the `io.github.e3742526`
-prefix.
+The macOS app is `LambCrypt-FSKit.app`. Bundle identifiers use the
+`io.github.e3742526` prefix.
 
 The app keeps its preferences in its own folder:
 `~/Library/Application Support/LambCrypt` on macOS and `~/.config/LambCrypt`
@@ -59,12 +58,15 @@ These identifiers keep the `veracrypt` name on purpose:
 | macOS type identifier `org.idrix.veracrypt.hc` and MIME type `application/veracrypt` | Preserves the existing `.hc` file association |
 | Unix mount backend device, mount-tracking and lock identifiers (for example `veracrypt_aux_mnt`) | Both programs recognize existing mounts |
 | Linux and BSD default mount path and `VERACRYPT_MOUNT_PREFIX` | Existing mount points and scripts keep working |
-| Windows installer, driver, boot loader and recovery identities | Existing Windows system encryption keeps booting |
+| Boot loader text `VeraCrypt` (`TC_BOOT_LOADER_SIGNATURE`) and the EFI directory `\EFI\VeraCrypt` | The boot loaders are prebuilt VeraCrypt binaries, and LambCrypt detects existing boot loaders by this text |
+| `<VeraCrypt>` root element of configuration and `DcsProp` XML files | Existing configuration files and the EFI loader read this element |
 
-The Windows source retains its inherited installer, driver, boot and recovery
-identities. Its documentation describes the upstream Windows build.
-LambCrypt does not build or release Windows binaries. Binaries built from
-this tree are still named VeraCrypt, which the license does not allow on a
-modified version, so they must not be distributed. The fork's renamed Unix
-packages and macOS app do not apply to an existing Windows system encryption
-installation.
+The Windows source was renamed to LambCrypt: program and driver file names,
+the driver service and device names, registry keys, mutexes, the COM type
+libraries and classes, the MSI product and upgrade codes, the installer and
+uninstaller entries, and the user-visible text. A LambCrypt Windows build
+therefore installs beside VeraCrypt rather than replacing it, and it does not
+take over an existing VeraCrypt system encryption installation. The rename has
+not been compiled or tested. LambCrypt does not build or release Windows
+binaries, and the repository no longer includes VeraCrypt's signed drivers or
+compiled help file.

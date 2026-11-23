@@ -13,7 +13,7 @@
 
 NAME := Driver
 
-ifeq "$(VC_OSX_FSKIT)" "1"
+ifeq "$(PLATFORM)" "MacOSX"
 OBJS := ../FSKit/FSKitService.o ../FSKit/VolumeProtocol.o
 else
 OBJS := FuseService.o

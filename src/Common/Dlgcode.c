@@ -358,8 +358,8 @@ static BOOL IsKnownMSWHQLCertFingerprint (const unsigned char hashVal[64])
 #define WINDOWS_DIALOG_CLASS L"#32770"
 
 /* Custom class names */
-#define TC_DLG_CLASS L"VeraCryptCustomDlg"
-#define TC_SPLASH_CLASS L"VeraCryptSplashDlg"
+#define TC_DLG_CLASS L"LambCryptCustomDlg"
+#define TC_SPLASH_CLASS L"LambCryptSplashDlg"
 
 /* constant used by ChangeWindowMessageFilter calls */
 #ifndef MSGFLT_ADD
@@ -1595,7 +1595,7 @@ void CreateFullVolumePath (wchar_t *lpszDiskFile, size_t cbDiskFile, const wchar
 int FakeDosNameForDevice (const wchar_t *lpszDiskFile , wchar_t *lpszDosDevice , size_t cbDosDevice, wchar_t *lpszCFDevice , size_t cbCFDevice, BOOL bNameOnly)
 {
 	BOOL bDosLinkCreated = TRUE;
-	StringCbPrintfW (lpszDosDevice, cbDosDevice,L"veracrypt%lu", GetCurrentProcessId ());
+	StringCbPrintfW (lpszDosDevice, cbDosDevice,L"lambcrypt%lu", GetCurrentProcessId ());
 
 	if (bNameOnly == FALSE)
 		bDosLinkCreated = DefineDosDevice (DDD_RAW_TARGET_PATH, lpszDosDevice, lpszDiskFile);
@@ -2285,7 +2285,7 @@ BOOL CALLBACK AboutDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lParam
 			StringCbCatW (szTmp, sizeof(szTmp), L"  (debug)");
 #endif
 			SetDlgItemText (hwndDlg, IDT_ABOUT_VERSION, szTmp);
-			SetDlgItemText (hwndDlg, IDT_ABOUT_RELEASE, L"Based on VeraCrypt");
+			SetDlgItemText (hwndDlg, IDT_ABOUT_RELEASE, L"Based on LambCrypt");
 
 			// Credits
 			SendMessage (GetDlgItem (hwndDlg, IDC_ABOUT_CREDITS), WM_SETFONT, (WPARAM) hUserFont, (LPARAM) 0);
@@ -2314,7 +2314,7 @@ BOOL CALLBACK AboutDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lParam
 			L"This software as a whole:\r\n"
 			L"Copyright \xA9 2026 AM Crypto. All rights reserved.\r\n\r\n"
 
-			L"Independently maintained fork of VeraCrypt");
+			L"Independently maintained fork of LambCrypt");
 
 		return 1;
 
@@ -3298,12 +3298,12 @@ BOOL LaunchElevatedProcess (HWND hwndDlg, const wchar_t* szModPath, const wchar_
 	wcex.cbSize = sizeof(WNDCLASSEX); 
 	wcex.lpfnWndProc = (WNDPROC) NonInstallUacWndProc;
 	wcex.hInstance = hInst;
-	wcex.lpszClassName = L"VeraCrypt";
+	wcex.lpszClassName = L"LambCrypt";
 	RegisterClassExW (&wcex);
 
 	// A small transparent window is necessary to bring the new instance to foreground
 	hWnd = CreateWindowExW (WS_EX_TOOLWINDOW | WS_EX_LAYERED,
-		L"VeraCrypt", L"VeraCrypt", 0,
+		L"LambCrypt", L"LambCrypt", 0,
 		GetSystemMetrics (SM_CXSCREEN)/2,
 		GetSystemMetrics (SM_CYSCREEN)/2,
 		1, 1, NULL, NULL, hInst, NULL);
@@ -3478,7 +3478,7 @@ uint32 ReadDriverConfigurationFlags ()
 {
 	DWORD configMap;
 
-	if (!ReadLocalMachineRegistryDword (L"SYSTEM\\CurrentControlSet\\Services\\veracrypt", TC_DRIVER_CONFIG_REG_VALUE_NAME, &configMap))
+	if (!ReadLocalMachineRegistryDword (L"SYSTEM\\CurrentControlSet\\Services\\lambcrypt", TC_DRIVER_CONFIG_REG_VALUE_NAME, &configMap))
 		configMap = 0;
 
 	return configMap;
@@ -3499,7 +3499,7 @@ uint32 ReadEncryptionThreadPoolFreeCpuCountLimit ()
 {
 	DWORD count;
 
-	if (!ReadLocalMachineRegistryDword (L"SYSTEM\\CurrentControlSet\\Services\\veracrypt", TC_ENCRYPTION_FREE_CPU_COUNT_REG_VALUE_NAME, &count))
+	if (!ReadLocalMachineRegistryDword (L"SYSTEM\\CurrentControlSet\\Services\\lambcrypt", TC_ENCRYPTION_FREE_CPU_COUNT_REG_VALUE_NAME, &count))
 		count = 0;
 
 	return count;
@@ -3509,7 +3509,7 @@ BOOL ReadMemoryProtectionConfig ()
 {
 	DWORD config;
 
-	if (!ReadLocalMachineRegistryDword (L"SYSTEM\\CurrentControlSet\\Services\\veracrypt", VC_ENABLE_MEMORY_PROTECTION, &config))
+	if (!ReadLocalMachineRegistryDword (L"SYSTEM\\CurrentControlSet\\Services\\lambcrypt", VC_ENABLE_MEMORY_PROTECTION, &config))
 	{
 		// enabled by default
 		config = 1;
@@ -3521,14 +3521,14 @@ BOOL WriteMemoryProtectionConfig (BOOL bEnable)
 {
 	DWORD config = bEnable? 1: 0;
 
-	return WriteLocalMachineRegistryDword (L"SYSTEM\\CurrentControlSet\\Services\\veracrypt", VC_ENABLE_MEMORY_PROTECTION, config);
+	return WriteLocalMachineRegistryDword (L"SYSTEM\\CurrentControlSet\\Services\\lambcrypt", VC_ENABLE_MEMORY_PROTECTION, config);
 }
 
 BOOL ReadScreenProtectionConfig()
 {
 	DWORD config;
 
-	if (!ReadLocalMachineRegistryDword(L"SYSTEM\\CurrentControlSet\\Services\\veracrypt", VC_ENABLE_SCREEN_PROTECTION, &config))
+	if (!ReadLocalMachineRegistryDword(L"SYSTEM\\CurrentControlSet\\Services\\lambcrypt", VC_ENABLE_SCREEN_PROTECTION, &config))
 	{
 		// enabled by default
 		config = 1;
@@ -3540,7 +3540,7 @@ BOOL WriteScreenProtectionConfig(BOOL bEnable)
 {
 	DWORD config = bEnable ? 1 : 0;
 
-	return WriteLocalMachineRegistryDword(L"SYSTEM\\CurrentControlSet\\Services\\veracrypt", VC_ENABLE_SCREEN_PROTECTION, config);
+	return WriteLocalMachineRegistryDword(L"SYSTEM\\CurrentControlSet\\Services\\lambcrypt", VC_ENABLE_SCREEN_PROTECTION, config);
 }
 
 BOOL LoadSysEncSettings ()
@@ -3597,7 +3597,7 @@ static BOOL CALLBACK BroadcastSysEncCfgUpdateCommonCallb (HWND hwnd, LPARAM lPar
 	{
 		wchar_t name[1024] = { 0 };
 		GetWindowText (hwnd, name, ARRAYSIZE (name) - 1);
-		if (hwnd != MainDlg && wcsstr (name, L"VeraCrypt"))
+		if (hwnd != MainDlg && wcsstr (name, L"LambCrypt"))
 		{
 			PostMessage (hwnd, TC_APPMSG_SYSENC_CONFIG_UPDATE, 0, 0);
 		}
@@ -3902,7 +3902,7 @@ void ShowSetupNotifications (HWND hwndDlg)
 
 	GUID acknowledged = {};
 	HKEY key;
-	if (RegOpenKeyExW (HKEY_CURRENT_USER, L"Software\\VeraCrypt", 0, KEY_QUERY_VALUE, &key) == ERROR_SUCCESS)
+	if (RegOpenKeyExW (HKEY_CURRENT_USER, L"Software\\LambCrypt", 0, KEY_QUERY_VALUE, &key) == ERROR_SUCCESS)
 	{
 		DWORD size = sizeof (acknowledged);
 		DWORD error = RegGetValueW (key, NULL, L"SetupNotificationAcknowledged", RRF_RT_REG_BINARY, NULL, &acknowledged, &size);
@@ -3933,7 +3933,7 @@ void ShowSetupNotifications (HWND hwndDlg)
 				Applink ("releasenotes");
 		}
 	}
-	if (RegCreateKeyExW (HKEY_CURRENT_USER, L"Software\\VeraCrypt", 0, NULL,
+	if (RegCreateKeyExW (HKEY_CURRENT_USER, L"Software\\LambCrypt", 0, NULL,
 		REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, NULL, &key, NULL) == ERROR_SUCCESS)
 	{
 		RegSetValueExW (key, L"SetupNotificationAcknowledged", 0, REG_BINARY,
@@ -4116,20 +4116,20 @@ void InitApp (HINSTANCE hInstance, wchar_t *lpszCommandLine)
 	if (!IsWin10BuildAtLeast(WIN_10_1809_BUILD))
 	{
 		// abort using a message that says that VeraCrypt can run only on Windows 10 version 1809 or later
-		AbortProcessDirect(L"VeraCrypt requires at least Windows 10 version 1809 (October 2018 Update) to run.");
+		AbortProcessDirect(L"LambCrypt requires at least Windows 10 version 1809 (October 2018 Update) to run.");
 	}
 
 	if (!Is64BitOs())
 	{
 		// abort using a message that says that VeraCrypt can run only on 64-bit Windows
-		AbortProcessDirect(L"VeraCrypt requires a 64-bit version of Windows to run.");
+		AbortProcessDirect(L"LambCrypt requires a 64-bit version of Windows to run.");
 	}
 
 	SetDefaultDllDirectoriesFn = (SetDefaultDllDirectoriesPtr) GetProcAddress (GetModuleHandle(L"kernel32.dll"), "SetDefaultDllDirectories");
 	if (!SetDefaultDllDirectoriesFn)
 	{
 		// This can happen only if KB2533623 is missing from Windows 7
-		AbortProcessDirect(L"VeraCrypt requires KB2533623 to be installed on Windows 7 and Windows Server 2008 R2 in order to run.");
+		AbortProcessDirect(L"LambCrypt requires KB2533623 to be installed on Windows 7 and Windows Server 2008 R2 in order to run.");
 	}
 #endif
 
@@ -4210,7 +4210,7 @@ void InitApp (HINSTANCE hInstance, wchar_t *lpszCommandLine)
 #endif
 		)
 	{
-		MessageBoxW (NULL, L"TESTSIGNING version of VeraCrypt targets only Windows Vista, Windows 7 and Windows 8/8.1.\n\nPlease use the standard version of VeraCrypt instead.", lpszTitle, MB_ICONSTOP);
+		MessageBoxW (NULL, L"TESTSIGNING version of LambCrypt targets only Windows Vista, Windows 7 and Windows 8/8.1.\n\nPlease use the standard version of LambCrypt instead.", lpszTitle, MB_ICONSTOP);
 		exit (1);
 	}
 	else if (  !IsTestSigningModeEnabled()
@@ -4219,7 +4219,7 @@ void InitApp (HINSTANCE hInstance, wchar_t *lpszCommandLine)
 #endif
 		)
 	{
-		MessageBoxW (NULL, L"Test-Signing Mode, which is required to run VeraCrypt TESTSIGNING binaries, is not enabled in Windows.\n\nExecution aborted!", lpszTitle, MB_ICONSTOP);
+		MessageBoxW (NULL, L"Test-Signing Mode, which is required to run LambCrypt TESTSIGNING binaries, is not enabled in Windows.\n\nExecution aborted!", lpszTitle, MB_ICONSTOP);
 		exit (1);
 	}
 #endif
@@ -4293,7 +4293,7 @@ void InitHelpFileName (void)
 	if (lpszTmp)
 	{
 		lpszTmp[1] = 0;
-		StringCbCatW (szHelpFile, sizeof (szHelpFile), L"docs\\VeraCrypt User Guide.chm");
+		StringCbCatW (szHelpFile, sizeof (szHelpFile), L"docs\\LambCrypt User Guide.chm");
 	}
 }
 
@@ -4787,7 +4787,7 @@ BOOL CALLBACK TextInfoDialogBoxDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, L
 				break;
 
 			case TC_TBXID_SYS_ENC_RESCUE_DISK:
-				PrintHardCopyTextUTF16 ((wchar_t *) GetRescueDiskHelpString ().c_str(), L"VeraCrypt Rescue Disk Help", GetRescueDiskHelpString ().length () * 2);
+				PrintHardCopyTextUTF16 ((wchar_t *) GetRescueDiskHelpString ().c_str(), L"LambCrypt Rescue Disk Help", GetRescueDiskHelpString ().length () * 2);
 				break;
 
 			case TC_TBXID_DECOY_OS_INSTRUCTIONS:
@@ -5266,9 +5266,9 @@ BOOL DoDriverInstall (HWND hwndDlg)
 	StatusMessage (hwndDlg, "INSTALLING_DRIVER");
 #endif
 
-	hService = CreateService (hManager, L"veracrypt", L"veracrypt",
+	hService = CreateService (hManager, L"lambcrypt", L"lambcrypt",
 		SERVICE_ALL_ACCESS, SERVICE_KERNEL_DRIVER, SERVICE_SYSTEM_START, SERVICE_ERROR_NORMAL,
-		L"System32\\drivers\\veracrypt.sys",
+		L"System32\\drivers\\lambcrypt.sys",
 		NULL, NULL, NULL, NULL, NULL);
 
 	if (hService == NULL)
@@ -5276,7 +5276,7 @@ BOOL DoDriverInstall (HWND hwndDlg)
 	else
 		CloseServiceHandle (hService);
 
-	hService = OpenService (hManager, L"veracrypt", SERVICE_ALL_ACCESS);
+	hService = OpenService (hManager, L"lambcrypt", SERVICE_ALL_ACCESS);
 	if (hService == NULL)
 		goto error;
 
@@ -5321,7 +5321,7 @@ static int DriverLoad ()
 	wchar_t *tmp;
 	DWORD startType;
 
-	if (ReadLocalMachineRegistryDword (L"SYSTEM\\CurrentControlSet\\Services\\veracrypt", L"Start", &startType) && startType == SERVICE_BOOT_START)
+	if (ReadLocalMachineRegistryDword (L"SYSTEM\\CurrentControlSet\\Services\\lambcrypt", L"Start", &startType) && startType == SERVICE_BOOT_START)
 		return ERR_PARAMETER_INCORRECT;
 
 	GetModuleFileName (NULL, driverPath, ARRAYSIZE (driverPath));
@@ -5334,7 +5334,7 @@ static int DriverLoad ()
 	else
 		*tmp = 0;
 
-	StringCbCatW (driverPath, sizeof(driverPath), IsARM()? L"\\veracrypt-arm64.sys" : L"\\veracrypt-x64.sys");
+	StringCbCatW (driverPath, sizeof(driverPath), IsARM()? L"\\lambcrypt-arm64.sys" : L"\\lambcrypt-x64.sys");
 
 	file = FindFirstFile (driverPath, &find);
 
@@ -5374,7 +5374,7 @@ static int DriverLoad ()
 		return ERR_OS_ERROR;
 	}
 
-	hService = OpenService (hManager, L"veracrypt", SERVICE_ALL_ACCESS);
+	hService = OpenService (hManager, L"lambcrypt", SERVICE_ALL_ACCESS);
 	if (hService != NULL)
 	{
 		// Remove stale service (driver is not loaded but service exists)
@@ -5383,7 +5383,7 @@ static int DriverLoad ()
 		Sleep (500);
 	}
 
-	hService = CreateService (hManager, L"veracrypt", L"veracrypt",
+	hService = CreateService (hManager, L"lambcrypt", L"lambcrypt",
 		SERVICE_ALL_ACCESS, SERVICE_KERNEL_DRIVER, SERVICE_DEMAND_START, SERVICE_ERROR_NORMAL,
 		driverPath, NULL, NULL, NULL, NULL, NULL);
 
@@ -5454,7 +5454,7 @@ BOOL DriverUnload ()
 	if (hManager == NULL)
 		goto error;
 
-	hService = OpenService (hManager, L"veracrypt", SERVICE_ALL_ACCESS);
+	hService = OpenService (hManager, L"lambcrypt", SERVICE_ALL_ACCESS);
 	if (hService == NULL)
 		goto error;
 
@@ -6171,7 +6171,7 @@ void LocalizeDialog (HWND hwnd, char *stringId)
 	SendMessageW (hwnd, WM_SETFONT, (WPARAM) hUserFont, 0);
 
 	if (stringId == NULL)
-		SetWindowTextW (hwnd, L"VeraCrypt");
+		SetWindowTextW (hwnd, L"LambCrypt");
 	else
 		SetWindowTextW (hwnd, GetString (stringId));
 	
@@ -9119,7 +9119,7 @@ BOOL GetPhysicalDriveStorageInformation(UINT nDriveNumber, STORAGE_ACCESS_ALIGNM
 
 // implementation of the generic wait dialog mechanism
 
-static UINT g_wmWaitDlg = ::RegisterWindowMessage(L"VeraCryptWaitDlgMessage");
+static UINT g_wmWaitDlg = ::RegisterWindowMessage(L"LambCryptWaitDlgMessage");
 #define WAIT_DLG_CANCEL_RETRY_TIMER_ID 1
 #define WAIT_DLG_CANCEL_RETRY_INTERVAL 250
 
@@ -9342,7 +9342,7 @@ void ShowWaitDialogEx(HWND hwnd, BOOL bUseHwndAsParent, WaitThreadProc callback,
 	}
 	else
 	{
-		const wchar_t *className = L"VeraCryptShowWaitDialogParent";
+		const wchar_t *className = L"LambCryptShowWaitDialogParent";
 		BOOL bIsForeground = FALSE;
 		HWND creatorWnd = hwnd? hwnd : MainDlg;
 		WaitDialogDisplaying = TRUE;
@@ -9378,7 +9378,7 @@ void ShowWaitDialogEx(HWND hwnd, BOOL bUseHwndAsParent, WaitThreadProc callback,
 			    (0, 0) when the creator window is unavailable, hidden or minimized. */
 			GetWindowMonitorWorkAreaCenter (creatorWnd, &parentPos);
 
-			hParent = CreateWindowExW (WS_EX_TOOLWINDOW | WS_EX_LAYERED, className, L"VeraCrypt ShowWaitDialog Parent", 0, parentPos.x, parentPos.y, 1, 1, NULL, NULL, hInst, NULL);
+			hParent = CreateWindowExW (WS_EX_TOOLWINDOW | WS_EX_LAYERED, className, L"LambCrypt ShowWaitDialog Parent", 0, parentPos.x, parentPos.y, 1, 1, NULL, NULL, hInst, NULL);
 			if (hParent)
 			{
 				SetLayeredWindowAttributes (hParent, 0, 1, LWA_ALPHA);
@@ -10755,7 +10755,7 @@ BOOL IsNonInstallMode ()
 			// We can't use GetConfigPath() here because it would call us back (indirect recursion)
 			if (SUCCEEDED(SHGetFolderPath (NULL, CSIDL_APPDATA, NULL, 0, path)))
 			{
-				StringCbCatW (path, MAX_PATH * 2, L"\\VeraCrypt\\");
+				StringCbCatW (path, MAX_PATH * 2, L"\\LambCrypt\\");
 				StringCbCatW (path, MAX_PATH * 2, TC_APPD_FILENAME_SYSTEM_ENCRYPTION);
 
 				if (FileExists (path))
@@ -10781,8 +10781,8 @@ BOOL IsNonInstallMode ()
 
 	// The following test checks whether the MSI is installed, which means we're not in portable mode.
 	// The ProductGUID is read from registry.
-    if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, L"Software\\VeraCrypt_MSI", 0, KEY_QUERY_VALUE | KEY_WOW64_32KEY, &hkey) == ERROR_SUCCESS ||
-        RegOpenKeyEx(HKEY_LOCAL_MACHINE, L"Software\\VeraCrypt_MSI", 0, KEY_QUERY_VALUE, &hkey) == ERROR_SUCCESS)
+    if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, L"Software\\LambCrypt_MSI", 0, KEY_QUERY_VALUE | KEY_WOW64_32KEY, &hkey) == ERROR_SUCCESS ||
+        RegOpenKeyEx(HKEY_LOCAL_MACHINE, L"Software\\LambCrypt_MSI", 0, KEY_QUERY_VALUE, &hkey) == ERROR_SUCCESS)
     {
         if (ERROR_SUCCESS == RegQueryValueExW(hkey, L"ProductGuid", 0, NULL, (LPBYTE)szBuffer, &dwBufferSize))
         {
@@ -10804,7 +10804,7 @@ BOOL IsNonInstallMode ()
 
 	// The following test may be unreliable in some cases (e.g. after the user selects restore "Last Known Good
 	// Configuration" from the Windows boot menu).
-	if (RegOpenKeyEx (HKEY_LOCAL_MACHINE, L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\VeraCrypt", 0, KEY_READ | KEY_WOW64_32KEY, &hkey) == ERROR_SUCCESS)
+	if (RegOpenKeyEx (HKEY_LOCAL_MACHINE, L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\LambCrypt", 0, KEY_READ | KEY_WOW64_32KEY, &hkey) == ERROR_SUCCESS)
 	{
 		RegCloseKey (hkey);
 		return FALSE;
@@ -10861,7 +10861,7 @@ void ManageStartupSeq (void)
 				if (tmp = wcsrchr (exe, L'\\'))
 				{
 					*tmp = 0;
-					StringCbCatW (exe, MAX_PATH * 2, L"\\VeraCrypt.exe");
+					StringCbCatW (exe, MAX_PATH * 2, L"\\LambCrypt.exe");
 				}
 			}
 #endif
@@ -10870,10 +10870,10 @@ void ManageStartupSeq (void)
 			if (bMountDevicesOnLogon) StringCbCatW (exe, MAX_PATH * 2, L" /a devices");
 			if (bMountFavoritesOnLogon) StringCbCatW (exe, MAX_PATH * 2, L" /a favorites");
 
-			WriteRegistryString (regk, L"VeraCrypt", exe);
+			WriteRegistryString (regk, L"LambCrypt", exe);
 		}
 		else
-			DeleteRegistryValue (regk, L"VeraCrypt");
+			DeleteRegistryValue (regk, L"LambCrypt");
 	}
 }
 
@@ -10900,7 +10900,7 @@ void ManageStartupSeqWiz (BOOL bRemove, const wchar_t *arg)
 				{
 					*tmp = 0;
 
-					StringCchCatW (exe, exeSize, L"\\VeraCrypt Format.exe");
+					StringCchCatW (exe, exeSize, L"\\LambCrypt Format.exe");
 				}
 			}
 #endif
@@ -10911,12 +10911,12 @@ void ManageStartupSeqWiz (BOOL bRemove, const wchar_t *arg)
 			StringCchCatW (exe, exeSize, arg);
 		}
 
-		WriteRegistryString (regk, L"VeraCrypt Format", exe);
+		WriteRegistryString (regk, L"LambCrypt Format", exe);
 
 		free(exe);
 	}
 	else
-		DeleteRegistryValue (regk, L"VeraCrypt Format");
+		DeleteRegistryValue (regk, L"LambCrypt Format");
 }
 
 
@@ -11082,7 +11082,7 @@ wchar_t *GetConfigPath (wchar_t *fileName)
 
 	if (SUCCEEDED(SHGetFolderPath (NULL, CSIDL_APPDATA | CSIDL_FLAG_CREATE, NULL, 0, path)))
 	{
-		StringCchCatW (path, (MAX_PATH * 2), L"\\VeraCrypt\\");
+		StringCchCatW (path, (MAX_PATH * 2), L"\\LambCrypt\\");
 		CreateDirectory (path, NULL);
 		StringCchCatW (path, (MAX_PATH * 2), fileName);
 	}
@@ -11099,7 +11099,7 @@ wchar_t *GetProgramConfigPath (wchar_t *fileName)
 
 	if (SUCCEEDED (SHGetFolderPath (NULL, CSIDL_COMMON_APPDATA | CSIDL_FLAG_CREATE, NULL, 0, path)))
 	{
-		StringCchCatW (path, (MAX_PATH * 2), L"\\VeraCrypt\\");
+		StringCchCatW (path, (MAX_PATH * 2), L"\\LambCrypt\\");
 		CreateDirectory (path, NULL);
 		StringCchCatW (path, (MAX_PATH * 2), fileName);
 	}
@@ -11171,7 +11171,7 @@ void InfoBalloon (char *headingStringId, char *textStringId, HWND hwnd)
 		return;
 
 	TaskBarIconDisplayBalloonTooltip (hwnd,
-		headingStringId == NULL ? L"VeraCrypt" : GetString (headingStringId),
+		headingStringId == NULL ? L"LambCrypt" : GetString (headingStringId),
 		textStringId == NULL ? L" " : GetString (textStringId),
 		FALSE);
 }
@@ -11184,7 +11184,7 @@ void InfoBalloonDirect (wchar_t *headingString, wchar_t *textString, HWND hwnd)
 		return;
 
 	TaskBarIconDisplayBalloonTooltip (hwnd,
-		headingString == NULL ? L"VeraCrypt" : headingString,
+		headingString == NULL ? L"LambCrypt" : headingString,
 		textString == NULL ? L" " : textString,
 		FALSE);
 }
@@ -11197,7 +11197,7 @@ void WarningBalloon (char *headingStringId, char *textStringId, HWND hwnd)
 		return;
 
 	TaskBarIconDisplayBalloonTooltip (hwnd,
-		headingStringId == NULL ? L"VeraCrypt" : GetString (headingStringId),
+		headingStringId == NULL ? L"LambCrypt" : GetString (headingStringId),
 		textStringId == NULL ? L" " : GetString (textStringId),
 		TRUE);
 }
@@ -11210,7 +11210,7 @@ void WarningBalloonDirect (wchar_t *headingString, wchar_t *textString, HWND hwn
 		return;
 
 	TaskBarIconDisplayBalloonTooltip (hwnd,
-		headingString == NULL ? L"VeraCrypt" : headingString,
+		headingString == NULL ? L"LambCrypt" : headingString,
 		textString == NULL ? L" " : textString,
 		TRUE);
 }
@@ -11724,7 +11724,7 @@ void DebugMsgBox (char *format, ...)
 	StringCbVPrintfA (buf, sizeof (buf), format, val);
 	va_end(val);
 
-	MessageBoxA (MainDlg, buf, "VeraCrypt debug", 0);
+	MessageBoxA (MainDlg, buf, "LambCrypt debug", 0);
 }
 
 BOOL IsSupportedOS ()
@@ -12277,7 +12277,7 @@ BOOL CALLBACK CloseTCWindowsEnum (HWND hwnd, LPARAM lParam)
 		wchar_t name[1024] = { 0 };
 		GetWindowText (hwnd, name, ARRAYSIZE (name) - 1);
 		// check if the window is a VeraCrypt window, excluding current process main dialog and VeraCrypt Setup window
-		if (hwnd != MainDlg && wcsstr (name, L"VeraCrypt") && !wcsstr (name, L"VeraCrypt Setup"))
+		if (hwnd != MainDlg && wcsstr (name, L"LambCrypt") && !wcsstr (name, L"LambCrypt Setup"))
 		{
 			PostMessage (hwnd, TC_APPMSG_CLOSE_BKG_TASK, 0, 0);
 
@@ -12300,7 +12300,7 @@ BOOL CALLBACK FindTCWindowEnum (HWND hwnd, LPARAM lParam)
 	{
 		wchar_t name[32] = { 0 };
 		GetWindowText (hwnd, name, ARRAYSIZE (name) - 1);
-		if (hwnd != MainDlg && wcscmp (name, L"VeraCrypt") == 0)
+		if (hwnd != MainDlg && wcscmp (name, L"LambCrypt") == 0)
 		{
 			if (lParam != 0)
 				*((HWND *)lParam) = hwnd;
@@ -14118,7 +14118,7 @@ void EnableElevatedCursorChange (HWND parent)
 	// Create a transparent window to work around a UAC issue preventing change of the cursor
 	if (UacElevated)
 	{
-		const wchar_t *className = L"VeraCryptEnableElevatedCursorChange";
+		const wchar_t *className = L"LambCryptEnableElevatedCursorChange";
 		WNDCLASSEXW winClass;
 		HWND hWnd;
 
@@ -14129,7 +14129,7 @@ void EnableElevatedCursorChange (HWND parent)
 		winClass.lpszClassName = className;
 		RegisterClassExW (&winClass);
 
-		hWnd = CreateWindowExW (WS_EX_TOOLWINDOW | WS_EX_LAYERED, className, L"VeraCrypt UAC", 0, 0, 0, GetSystemMetrics (SM_CXSCREEN), GetSystemMetrics (SM_CYSCREEN), parent, NULL, hInst, NULL);
+		hWnd = CreateWindowExW (WS_EX_TOOLWINDOW | WS_EX_LAYERED, className, L"LambCrypt UAC", 0, 0, 0, GetSystemMetrics (SM_CXSCREEN), GetSystemMetrics (SM_CYSCREEN), parent, NULL, hInst, NULL);
 		if (hWnd)
 		{
 			SetLayeredWindowAttributes (hWnd, 0, 1, LWA_ALPHA);
@@ -14832,7 +14832,7 @@ static unsigned int __stdcall SecureDesktopThread( LPVOID lpThreadParameter )
 	BOOL bNewDesktopSet = FALSE;
 	HDESK hSecureDesk;
 	DWORD desktopAccess = DESKTOP_CREATEMENU | DESKTOP_CREATEWINDOW | DESKTOP_READOBJECTS | DESKTOP_SWITCHDESKTOP | DESKTOP_WRITEOBJECTS;
-	const wchar_t *ownerClassName = L"VeraCryptSecureDesktopOwner";
+	const wchar_t *ownerClassName = L"LambCryptSecureDesktopOwner";
 	HWND hOwner = NULL;
 
 	hSecureDesk = CreateDesktop (pParam->szDesktopName, NULL, NULL, 0, desktopAccess, NULL);
@@ -14901,7 +14901,7 @@ static unsigned int __stdcall SecureDesktopThread( LPVOID lpThreadParameter )
 			winClass.lpszClassName = ownerClassName;
 			RegisterClassExW (&winClass);
 
-			hOwner = CreateWindowExW (WS_EX_TOOLWINDOW, ownerClassName, L"VeraCrypt Secure Desktop Owner", WS_POPUP,
+			hOwner = CreateWindowExW (WS_EX_TOOLWINDOW, ownerClassName, L"LambCrypt Secure Desktop Owner", WS_POPUP,
 				pParam->ownerPos.x, pParam->ownerPos.y, 1, 1, NULL, NULL, hInst, NULL);
 		}
 
@@ -15123,7 +15123,7 @@ void GetInstallationPath (HWND hwndDlg, wchar_t* szInstallPath, DWORD cchSize, B
 	// Both installers record this in the driver's service key. SYSTEM has a
 	// shared registry view, so the native service and 32-bit COM agree, including
 	// MSI installations whose EXE uninstall entry has been removed.
-	if (RegOpenKeyEx (HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Services\\veracrypt", 0, KEY_QUERY_VALUE, &hkey) == ERROR_SUCCESS)
+	if (RegOpenKeyEx (HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Services\\lambcrypt", 0, KEY_QUERY_VALUE, &hkey) == ERROR_SUCCESS)
 	{
 		DWORD size = sizeof (path), type = 0;
 		if (RegQueryValueEx (hkey, L"InstallationPath", NULL, &type, (LPBYTE) path, &size) == ERROR_SUCCESS
@@ -15138,7 +15138,7 @@ void GetInstallationPath (HWND hwndDlg, wchar_t* szInstallPath, DWORD cchSize, B
 	}
 
 	// Determine if VeraCrypt is already installed and try to determine its "Program Files" location
-	if (!bInstallPathDetermined && RegOpenKeyEx (HKEY_LOCAL_MACHINE, L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\VeraCrypt", 0, KEY_READ | KEY_WOW64_32KEY, &hkey) == ERROR_SUCCESS)
+	if (!bInstallPathDetermined && RegOpenKeyEx (HKEY_LOCAL_MACHINE, L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\LambCrypt", 0, KEY_READ | KEY_WOW64_32KEY, &hkey) == ERROR_SUCCESS)
 	{
 		/* Default 'UninstallString' registry strings written by VeraCrypt:
 		------------------------------------------------------------------------------------
@@ -15187,7 +15187,7 @@ void GetInstallationPath (HWND hwndDlg, wchar_t* szInstallPath, DWORD cchSize, B
 				StringCbCopyW (path, sizeof (path), s.c_str());
 		}
 
-		StringCbCatW (path, sizeof(path), L"\\VeraCrypt\\");
+		StringCbCatW (path, sizeof(path), L"\\LambCrypt\\");
 		StringCchCopyW (szInstallPath, cchSize, path);
 	}
 

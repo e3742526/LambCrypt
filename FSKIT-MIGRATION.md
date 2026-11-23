@@ -1,9 +1,10 @@
 # LambCrypt FSKit migration
 
 LambCrypt is a VeraCrypt derivative for Apple Silicon Macs running macOS 26
-(Tahoe) or later. The FSKit experiment uses the existing VeraCrypt volume
-format and LambCrypt crypto code. MacFUSE remains the default, FUSE-T remains
-available, and the application ships in English.
+(Tahoe) or later. The macOS build now uses Apple FSKit with the existing
+VeraCrypt volume format and LambCrypt crypto code. The macFUSE and FUSE-T
+trials below record earlier builds. An existing installation can stay in use
+while its FSKit replacement is verified on the host.
 
 ## Integrator checklist
 
@@ -38,8 +39,9 @@ available, and the application ships in English.
 - [ ] Run `codesign --verify --deep --strict src/Main/LambCrypt-FSKit.app`.
   Run `bash src/Setup/MacOSX/verify_fskit_bundle.sh src/Main/LambCrypt-FSKit.app`
   to check arm64, deployment target, bundle versions, signature and embedded
-  profile agreement, App Group entitlements, and the opt-in document handler
-  rank. The same verifier accepts the app extracted from a development package.
+  profile agreement, App Group entitlements, and the document handler
+  rank for side-by-side installs. The same verifier accepts the app extracted
+  from a development package.
   In System Settings, go to General
   → Login Items & Extensions → By Category → File System Extensions and
   enable LambCrypt FSKit. Verify it on disposable internal-drive containers.
@@ -62,8 +64,8 @@ available, and the application ships in English.
 
 ## Stage gates
 
-Work in a separate scratch tree on disposable internal-drive containers. Leave
-installed apps alone and collect evidence before advancing each gate.
+These gates record the original opt-in rollout. For new trials, use a separate
+scratch tree and disposable internal-drive containers.
 
 | Stage | Required evidence | Status |
 | --- | --- | --- |
@@ -1060,18 +1062,23 @@ election for the module identifier. Host policy was left as found.
 
 ## Remaining migration gates
 
-1. On a physical Mac that already has the matching macFUSE kernel
-   driver enabled, perform the same HFS+ workload and verify rollback
-   by opening a disposable VeraCrypt-format container after the FSKit app closes. Record the
-   driver and workload with the results. Recent macOS guests cannot load
-   this third-party kernel driver. [macFUSE setup notes](https://github.com/macfuse/macfuse/wiki/Getting-Started)
-2. Use the release credentials from the integrator checklist to verify
-   the Developer ID installer locally. For the distribution trial, install
-   the notarized package in a clean Tahoe guest and repeat extension
-   enablement, Finder eject and standard volume discovery. Confirm that
-   clean install and upgrade resolve the physical-host registration
-   discrepancy before promoting the backend.
-3. With the signed FSKit bundle enabled, run the two-mount FAT12 smoke
+The FSKit-only macOS build and local installer passed on the physical arm64
+macOS 26.6.2 host. The build ran with a package-config guard that rejects FUSE
+lookups. The signed app and extension passed linkage and signature checks both
+before and after installer extraction.
+
+At 15:39 EST on November 23, 2026, PlugInKit listed the newly installed app
+with a positive election. FSClient found the exact installed module at
+`/Applications/LambCrypt-FSKit.app` and reported `enabled=false`. A fresh
+disposable container opened far enough to reject the mount with the disabled
+module diagnostic. Disk Images inventory and the fixture's open file handles
+were clear afterward. The earlier local app remains available while activation
+is resolved.
+
+1. Verify that FSClient sees the intended signed FSKit module as enabled.
+   Complete a disposable mount, write, sync, dismount and read-only remount
+   before replacing an existing local installation.
+2. With the signed FSKit bundle enabled, run the two-mount FAT12 smoke
    trial and the physical Finder matrix. Run an isolated auxiliary-loss
    drill with a test build that can inject the observer's missing-mount
    result without forcibly unmounting the backing filesystem. Record the
@@ -1080,8 +1087,5 @@ election for the module identifier. Host policy was left as found.
    test a timed-out attachment that publishes after startup reports
    incomplete cleanup.
 
-The current build selects a backend at compile time. An automatic retry
-across backends could attach a container twice while the first backend
-still owns a worker or image. A future fallback must follow confirmed
-teardown and a fresh reservation. Keep macFUSE as the default until the
-native and release gates pass.
+The macOS build uses FSKit. To return to an earlier app, confirm teardown of
+any active worker and decrypted image before opening the same container again.

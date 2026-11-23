@@ -43,13 +43,13 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <TargetName>VeraCryptCOMRegBase</TargetName>
+    <TargetName>LambCryptCOMRegBase</TargetName>
     <OutDir>$(ProjectDir)$(Configuration)\</OutDir>
     <IntDir>$(ProjectDir)$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <TargetName>VeraCryptCOMRegBase</TargetName>
+    <TargetName>LambCryptCOMRegBase</TargetName>
     <OutDir>$(ProjectDir)$(Configuration)\</OutDir>
     <IntDir>$(ProjectDir)$(Configuration)\</IntDir>
   </PropertyGroup>
@@ -68,7 +68,7 @@
       <AdditionalDependencies>..\Common\Debug\Zip.lib;..\Common\Debug\lzma.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy Debug\VeraCryptCOMRegBase.exe "..\Debug\Setup Files\VeraCryptCOMRegBase.exe"</Command>
+      <Command>copy Debug\LambCryptCOMRegBase.exe "..\Debug\Setup Files\LambCryptCOMRegBase.exe"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -93,7 +93,7 @@
       <DelayLoadDLLs>bcrypt.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>copy Release\VeraCryptCOMRegBase.exe "..\Release\Setup Files\VeraCryptCOMRegBase.exe"</Command>
+      <Command>copy Release\LambCryptCOMRegBase.exe "..\Release\Setup Files\LambCryptCOMRegBase.exe"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

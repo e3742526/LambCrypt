@@ -584,7 +584,7 @@ static void FreeMountFavoriteVolumeThreadParam (mountFavoriteVolumeThreadParam* 
 }
 
 
-const wchar_t* MainInitMutexName = L"Local\\VeraCryptMainInit_02B831C5_401D_4A0D_8CC5_98D2C4CEB5F2";
+const wchar_t* MainInitMutexName = L"Local\\LambCryptMainInit_02B831C5_401D_4A0D_8CC5_98D2C4CEB5F2";
 static HANDLE MainInitMutex = NULL;		/* Mutex for main dialog WM_INITDIALOG */
 static BOOL MainInitMutexAcquired = FALSE;	/* TRUE if the main window mutex has been acquired */
 static HANDLE TaskBarIconMutex = NULL;
@@ -2126,7 +2126,7 @@ static void LaunchVolCreationWizard (HWND hwndDlg, const wchar_t *arg, BOOL bEle
 		wchar_t* suffix = NULL;
 		ZeroMemory (&si, sizeof (si));
 
-		StringCbCopyW (formatExeName, sizeof (formatExeName), L"\\VeraCrypt Format");
+		StringCbCopyW (formatExeName, sizeof (formatExeName), L"\\LambCrypt Format");
 
 		// check if there is a suffix in VeraCrypt file name
 		// in order to use the same for "VeraCrypt Format"
@@ -2189,7 +2189,7 @@ static void LaunchVolExpander (HWND hwndDlg)
 		wchar_t expanderExeName[64];
 		wchar_t* suffix = NULL;
 
-		StringCbCopyW (expanderExeName, sizeof (expanderExeName), L"\\VeraCryptExpander");
+		StringCbCopyW (expanderExeName, sizeof (expanderExeName), L"\\LambCryptExpander");
 
 		// check if there is a suffix in VeraCrypt file name
 		// in order to use the same for "VeraCrypt Format"
@@ -4970,7 +4970,7 @@ BOOL CALLBACK VolumePropertiesDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LP
 			if (!bSysEnc && prop.mountDisabled)
 			{
 				// Virtual Device
-				StringCbPrintfW (szTmp, sizeof(szTmp), L"\\Device\\VeraCryptVolume%c", (wchar_t) prop.driveNo + L'A');
+				StringCbPrintfW (szTmp, sizeof(szTmp), L"\\Device\\LambCryptVolume%c", (wchar_t) prop.driveNo + L'A');
 				ListItemAdd (list, i, GetString ("VIRTUAL_DEVICE"));
 				ListSubItemSet (list, i++, 1, szTmp);
 			}
@@ -5414,7 +5414,7 @@ BOOL CALLBACK TravelerDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lPa
 
 			WaitCursor ();
 
-			StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\VeraCrypt", dstDir);
+			StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\LambCrypt", dstDir);
 			if (!CreateDirectoryW (dstPath, NULL))
 			{
 				handleWin32Error (hwndDlg, SRC_POS);
@@ -5424,8 +5424,8 @@ BOOL CALLBACK TravelerDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lPa
 			if (IsNonInstallMode ())
 			{
 				// Main app 32-bit
-				StringCbPrintfW (srcPath, sizeof(srcPath), L"%s\\VeraCrypt.exe", appDir);
-				StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\VeraCrypt.exe", dstDir);
+				StringCbPrintfW (srcPath, sizeof(srcPath), L"%s\\LambCrypt.exe", appDir);
+				StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\LambCrypt\\LambCrypt.exe", dstDir);
 				if (!VerifyModuleSignature (srcPath))
 				{
 					Error ("DIST_PACKAGE_CORRUPTED", hwndDlg);
@@ -5438,8 +5438,8 @@ BOOL CALLBACK TravelerDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lPa
 				}
 
 				// Main app 64-bit
-				StringCbPrintfW (srcPath, sizeof(srcPath), L"%s\\VeraCrypt-x64.exe", appDir);
-				StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\VeraCrypt-x64.exe", dstDir);
+				StringCbPrintfW (srcPath, sizeof(srcPath), L"%s\\LambCrypt-x64.exe", appDir);
+				StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\LambCrypt\\LambCrypt-x64.exe", dstDir);
 				if (!VerifyModuleSignature (srcPath))
 				{
 					Error ("DIST_PACKAGE_CORRUPTED", hwndDlg);
@@ -5452,8 +5452,8 @@ BOOL CALLBACK TravelerDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lPa
 				}
 
 				// Main app ARM 64-bit
-				StringCbPrintfW(srcPath, sizeof(srcPath), L"%s\\VeraCrypt-arm64.exe", appDir);
-				StringCbPrintfW(dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\VeraCrypt-arm64.exe", dstDir);
+				StringCbPrintfW(srcPath, sizeof(srcPath), L"%s\\LambCrypt-arm64.exe", appDir);
+				StringCbPrintfW(dstPath, sizeof(dstPath), L"%s\\LambCrypt\\LambCrypt-arm64.exe", dstDir);
 				if (!VerifyModuleSignature(srcPath))
 				{
 					Error("DIST_PACKAGE_CORRUPTED", hwndDlg);
@@ -5469,8 +5469,8 @@ BOOL CALLBACK TravelerDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lPa
 				if (copyWizard)
 				{
 					// Wizard 32-bit
-					StringCbPrintfW (srcPath, sizeof(srcPath), L"%s\\VeraCrypt Format.exe", appDir);
-					StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\VeraCrypt Format.exe", dstDir);
+					StringCbPrintfW (srcPath, sizeof(srcPath), L"%s\\LambCrypt Format.exe", appDir);
+					StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\LambCrypt\\LambCrypt Format.exe", dstDir);
 					if (!VerifyModuleSignature (srcPath))
 					{
 						Error ("DIST_PACKAGE_CORRUPTED", hwndDlg);
@@ -5483,8 +5483,8 @@ BOOL CALLBACK TravelerDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lPa
 					}
 
 					// Wizard 64-bit
-					StringCbPrintfW (srcPath, sizeof(srcPath), L"%s\\VeraCrypt Format-x64.exe", appDir);
-					StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\VeraCrypt Format-x64.exe", dstDir);
+					StringCbPrintfW (srcPath, sizeof(srcPath), L"%s\\LambCrypt Format-x64.exe", appDir);
+					StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\LambCrypt\\LambCrypt Format-x64.exe", dstDir);
 					if (!VerifyModuleSignature (srcPath))
 					{
 						Error ("DIST_PACKAGE_CORRUPTED", hwndDlg);
@@ -5497,8 +5497,8 @@ BOOL CALLBACK TravelerDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lPa
 					}
 
 					// Wizard ARM 64-bit
-					StringCbPrintfW(srcPath, sizeof(srcPath), L"%s\\VeraCrypt Format-arm64.exe", appDir);
-					StringCbPrintfW(dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\VeraCrypt Format-arm64.exe", dstDir);
+					StringCbPrintfW(srcPath, sizeof(srcPath), L"%s\\LambCrypt Format-arm64.exe", appDir);
+					StringCbPrintfW(dstPath, sizeof(dstPath), L"%s\\LambCrypt\\LambCrypt Format-arm64.exe", dstDir);
 					if (!VerifyModuleSignature(srcPath))
 					{
 						Error("DIST_PACKAGE_CORRUPTED", hwndDlg);
@@ -5515,8 +5515,8 @@ BOOL CALLBACK TravelerDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lPa
 				if (copyExpander)
 				{
 					// Expander 32-bit
-					StringCbPrintfW (srcPath, sizeof(srcPath), L"%s\\VeraCryptExpander.exe", appDir);
-					StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\VeraCryptExpander.exe", dstDir);
+					StringCbPrintfW (srcPath, sizeof(srcPath), L"%s\\LambCryptExpander.exe", appDir);
+					StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\LambCrypt\\LambCryptExpander.exe", dstDir);
 					if (!VerifyModuleSignature (srcPath))
 					{
 						Error ("DIST_PACKAGE_CORRUPTED", hwndDlg);
@@ -5529,8 +5529,8 @@ BOOL CALLBACK TravelerDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lPa
 					}
 
 					// Expander 64-bit
-					StringCbPrintfW (srcPath, sizeof(srcPath), L"%s\\VeraCryptExpander-x64.exe", appDir);
-					StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\VeraCryptExpander-x64.exe", dstDir);
+					StringCbPrintfW (srcPath, sizeof(srcPath), L"%s\\LambCryptExpander-x64.exe", appDir);
+					StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\LambCrypt\\LambCryptExpander-x64.exe", dstDir);
 					if (!VerifyModuleSignature (srcPath))
 					{
 						Error ("DIST_PACKAGE_CORRUPTED", hwndDlg);
@@ -5543,8 +5543,8 @@ BOOL CALLBACK TravelerDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lPa
 					}
 
 					// Expander ARM 64-bit
-					StringCbPrintfW(srcPath, sizeof(srcPath), L"%s\\VeraCryptExpander-arm64.exe", appDir);
-					StringCbPrintfW(dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\VeraCryptExpander-arm64.exe", dstDir);
+					StringCbPrintfW(srcPath, sizeof(srcPath), L"%s\\LambCryptExpander-arm64.exe", appDir);
+					StringCbPrintfW(dstPath, sizeof(dstPath), L"%s\\LambCrypt\\LambCryptExpander-arm64.exe", dstDir);
 					if (!VerifyModuleSignature(srcPath))
 					{
 						Error("DIST_PACKAGE_CORRUPTED", hwndDlg);
@@ -5558,8 +5558,8 @@ BOOL CALLBACK TravelerDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lPa
 				}
 
 				// Driver
-				StringCbPrintfW (srcPath, sizeof(srcPath), L"%s\\veracrypt.sys", appDir);
-				StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\veracrypt.sys", dstDir);
+				StringCbPrintfW (srcPath, sizeof(srcPath), L"%s\\lambcrypt.sys", appDir);
+				StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\LambCrypt\\lambcrypt.sys", dstDir);
 				if (!VerifyModuleSignatureAllowingMicrosoftWHQL (srcPath))
 				{
 					Error ("DIST_PACKAGE_CORRUPTED", hwndDlg);
@@ -5572,8 +5572,8 @@ BOOL CALLBACK TravelerDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lPa
 				}
 
 				// Driver x64
-				StringCbPrintfW (srcPath, sizeof(srcPath), L"%s\\veracrypt-x64.sys", appDir);
-				StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\veracrypt-x64.sys", dstDir);
+				StringCbPrintfW (srcPath, sizeof(srcPath), L"%s\\lambcrypt-x64.sys", appDir);
+				StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\LambCrypt\\lambcrypt-x64.sys", dstDir);
 				if (!VerifyModuleSignatureAllowingMicrosoftWHQL (srcPath))
 				{
 					Error ("DIST_PACKAGE_CORRUPTED", hwndDlg);
@@ -5586,8 +5586,8 @@ BOOL CALLBACK TravelerDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lPa
 				}
 
 				// Driver ARM64
-				StringCbPrintfW(srcPath, sizeof(srcPath), L"%s\\veracrypt-arm64.sys", appDir);
-				StringCbPrintfW(dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\veracrypt-arm64.sys", dstDir);
+				StringCbPrintfW(srcPath, sizeof(srcPath), L"%s\\lambcrypt-arm64.sys", appDir);
+				StringCbPrintfW(dstPath, sizeof(dstPath), L"%s\\LambCrypt\\lambcrypt-arm64.sys", dstDir);
 				if (!VerifyModuleSignatureAllowingMicrosoftWHQL(srcPath))
 				{
 					Error("DIST_PACKAGE_CORRUPTED", hwndDlg);
@@ -5608,13 +5608,13 @@ BOOL CALLBACK TravelerDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lPa
 				BOOL bCopiedX64Wizard = FALSE;
 				BOOL bCopiedX64Expander = FALSE;
 				// Get files from the IDRIX-signed setup or COMReg package after checking its signature and integrity.
-				StringCbPrintfW (srcPath, sizeof(srcPath), L"%s\\VeraCrypt COMReg.exe", appDir); // MSI installation case
+				StringCbPrintfW (srcPath, sizeof(srcPath), L"%s\\LambCrypt COMReg.exe", appDir); // MSI installation case
 				if (FileExists(srcPath))
 				{
 					bMsiPackage = TRUE;
 				}
 				else
-					StringCbPrintfW (srcPath, sizeof(srcPath), L"%s\\VeraCrypt Setup.exe", appDir); // EXE installation case
+					StringCbPrintfW (srcPath, sizeof(srcPath), L"%s\\LambCrypt Setup.exe", appDir); // EXE installation case
 
 				FreeAllFileBuffers ();
 
@@ -5631,53 +5631,53 @@ BOOL CALLBACK TravelerDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lPa
 					// Filename
 					StringCchCopyNW (fileName, ARRAYSIZE(fileName), Decompressed_Files[fileNo].fileName, Decompressed_Files[fileNo].fileNameLength);
 
-					if (wcscmp (fileName, L"VeraCrypt.exe") == 0)
+					if (wcscmp (fileName, L"LambCrypt.exe") == 0)
 					{
-						StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\VeraCrypt.exe", dstDir);
+						StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\LambCrypt\\LambCrypt.exe", dstDir);
 					}
-					else if (wcscmp (fileName, L"VeraCrypt-x64.exe") == 0)
+					else if (wcscmp (fileName, L"LambCrypt-x64.exe") == 0)
 					{
-						StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\VeraCrypt-x64.exe", dstDir);
+						StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\LambCrypt\\LambCrypt-x64.exe", dstDir);
 					}
-					else if (wcscmp(fileName, L"VeraCrypt-arm64.exe") == 0)
+					else if (wcscmp(fileName, L"LambCrypt-arm64.exe") == 0)
 					{
-						StringCbPrintfW(dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\VeraCrypt-arm64.exe", dstDir);
+						StringCbPrintfW(dstPath, sizeof(dstPath), L"%s\\LambCrypt\\LambCrypt-arm64.exe", dstDir);
 					}
-					else if (wcscmp (fileName, L"veracrypt.sys") == 0)
+					else if (wcscmp (fileName, L"lambcrypt.sys") == 0)
 					{
-						StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\veracrypt.sys", dstDir);
+						StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\LambCrypt\\lambcrypt.sys", dstDir);
 					}
-					else if (wcscmp (fileName, L"veracrypt-x64.sys") == 0)
+					else if (wcscmp (fileName, L"lambcrypt-x64.sys") == 0)
 					{
-						StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\veracrypt-x64.sys", dstDir);
+						StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\LambCrypt\\lambcrypt-x64.sys", dstDir);
 					}
-					else if (wcscmp(fileName, L"veracrypt-arm64.sys") == 0)
+					else if (wcscmp(fileName, L"lambcrypt-arm64.sys") == 0)
 					{
-						StringCbPrintfW(dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\veracrypt-arm64.sys", dstDir);
+						StringCbPrintfW(dstPath, sizeof(dstPath), L"%s\\LambCrypt\\lambcrypt-arm64.sys", dstDir);
 					}
-					else if (copyWizard && (wcscmp (fileName, L"VeraCrypt Format.exe") == 0))
+					else if (copyWizard && (wcscmp (fileName, L"LambCrypt Format.exe") == 0))
 					{
-						StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\VeraCrypt Format.exe", dstDir);
+						StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\LambCrypt\\LambCrypt Format.exe", dstDir);
 					}
-					else if (copyWizard && (wcscmp (fileName, L"VeraCrypt Format-x64.exe") == 0))
+					else if (copyWizard && (wcscmp (fileName, L"LambCrypt Format-x64.exe") == 0))
 					{
-						StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\VeraCrypt Format-x64.exe", dstDir);
+						StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\LambCrypt\\LambCrypt Format-x64.exe", dstDir);
 					}
-					else if (copyWizard && (wcscmp(fileName, L"VeraCrypt Format-arm64.exe") == 0))
+					else if (copyWizard && (wcscmp(fileName, L"LambCrypt Format-arm64.exe") == 0))
 					{
-						StringCbPrintfW(dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\VeraCrypt Format-arm64.exe", dstDir);
+						StringCbPrintfW(dstPath, sizeof(dstPath), L"%s\\LambCrypt\\LambCrypt Format-arm64.exe", dstDir);
 					}
-					else if (copyExpander && (wcscmp (fileName, L"VeraCryptExpander.exe") == 0))
+					else if (copyExpander && (wcscmp (fileName, L"LambCryptExpander.exe") == 0))
 					{
-						StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\VeraCryptExpander.exe", dstDir);
+						StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\LambCrypt\\LambCryptExpander.exe", dstDir);
 					}
-					else if (copyExpander && (wcscmp (fileName, L"VeraCryptExpander-x64.exe") == 0))
+					else if (copyExpander && (wcscmp (fileName, L"LambCryptExpander-x64.exe") == 0))
 					{
-						StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\VeraCryptExpander-x64.exe", dstDir);
+						StringCbPrintfW (dstPath, sizeof(dstPath), L"%s\\LambCrypt\\LambCryptExpander-x64.exe", dstDir);
 					}
-					else if (copyExpander && (wcscmp(fileName, L"VeraCryptExpander-arm64.exe") == 0))
+					else if (copyExpander && (wcscmp(fileName, L"LambCryptExpander-arm64.exe") == 0))
 					{
-						StringCbPrintfW(dstPath, sizeof(dstPath), L"%s\\VeraCrypt\\VeraCryptExpander-arm64.exe", dstDir);
+						StringCbPrintfW(dstPath, sizeof(dstPath), L"%s\\LambCrypt\\LambCryptExpander-arm64.exe", dstDir);
 					}
 					else
 						continue;
@@ -5695,13 +5695,13 @@ BOOL CALLBACK TravelerDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lPa
 						goto stop;
 					}
 
-					if (wcscmp (fileName, L"VeraCrypt-x64.exe") == 0)
+					if (wcscmp (fileName, L"LambCrypt-x64.exe") == 0)
 						bCopiedX64App = TRUE;
-					else if (wcscmp (fileName, L"veracrypt-x64.sys") == 0)
+					else if (wcscmp (fileName, L"lambcrypt-x64.sys") == 0)
 						bCopiedX64Driver = TRUE;
-					else if (wcscmp (fileName, L"VeraCrypt Format-x64.exe") == 0)
+					else if (wcscmp (fileName, L"LambCrypt Format-x64.exe") == 0)
 						bCopiedX64Wizard = TRUE;
-					else if (wcscmp (fileName, L"VeraCryptExpander-x64.exe") == 0)
+					else if (wcscmp (fileName, L"LambCryptExpander-x64.exe") == 0)
 						bCopiedX64Expander = TRUE;
 				}
 
@@ -5729,18 +5729,18 @@ BOOL CALLBACK TravelerDlgProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lPa
 					goto stop;
 				}
 
-				StringCbPrintfW (autoMount, sizeof(autoMount), L"VeraCrypt\\VeraCrypt.exe /q background%s%s%s%s /m rm /v %s",
+				StringCbPrintfW (autoMount, sizeof(autoMount), L"LambCrypt\\LambCrypt.exe /q background%s%s%s%s /m rm /v %s",
 					drive > 0 ? driveLetter : L"",
 					openExplorer ? L" /e" : L"",
 					cacheInDriver ? (includePimInCache? L" /c p" : L" /c y") : L"",
 					bMountReadOnly ? L" /m ro" : L"",
 					volName);
 
-				fwprintf (af, L"[autorun]\nlabel=%s\nicon=VeraCrypt\\VeraCrypt.exe\n", GetString ("TC_TRAVELER_DISK"));
+				fwprintf (af, L"[autorun]\nlabel=%s\nicon=LambCrypt\\LambCrypt.exe\n", GetString ("TC_TRAVELER_DISK"));
 				fwprintf (af, L"action=%s\n", bAutoMount ? GetString ("MOUNT_TC_VOLUME") : GetString ("IDC_PREF_LOGON_START"));
-				fwprintf (af, L"open=%s\n", bAutoMount ? autoMount : L"VeraCrypt\\VeraCrypt.exe");
-				fwprintf (af, L"shell\\start=%s\nshell\\start\\command=VeraCrypt\\VeraCrypt.exe\n", GetString ("IDC_PREF_LOGON_START"));
-				fwprintf (af, L"shell\\unmount=%s\nshell\\unmount\\command=VeraCrypt\\VeraCrypt.exe /q /u\n", GetString ("UNMOUNT_ALL_TC_VOLUMES"));
+				fwprintf (af, L"open=%s\n", bAutoMount ? autoMount : L"LambCrypt\\LambCrypt.exe");
+				fwprintf (af, L"shell\\start=%s\nshell\\start\\command=LambCrypt\\LambCrypt.exe\n", GetString ("IDC_PREF_LOGON_START"));
+				fwprintf (af, L"shell\\unmount=%s\nshell\\unmount\\command=LambCrypt\\LambCrypt.exe /q /u\n", GetString ("UNMOUNT_ALL_TC_VOLUMES"));
 
 				CheckFileStreamWriteErrors (hwndDlg, af, dstPath);
 				fclose (af);
@@ -8025,7 +8025,7 @@ static void SignalExitCode (int exitCode)
 		{
 			char szMsg[64];
 			DWORD cbWritten;
-			StringCbPrintfA (szMsg, sizeof (szMsg), "VeraCrypt Exit %d", exitCode);
+			StringCbPrintfA (szMsg, sizeof (szMsg), "LambCrypt Exit %d", exitCode);
 			WriteFile(hFile, szMsg, (DWORD) (strlen (szMsg) +1), &cbWritten, (LPOVERLAPPED) NULL); 
 			CloseHandle (hFile);
 		}
@@ -8197,7 +8197,7 @@ BOOL CALLBACK MainDialogProc (HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPa
 			else
 				StringCbCopyW (szRescueDiskExtension, sizeof (szRescueDiskExtension), L"iso");
 			
-			StringCbCopyW (szDefaultRescueDiskName, sizeof (szDefaultRescueDiskName), L"VeraCrypt Rescue Disk.");		
+			StringCbCopyW (szDefaultRescueDiskName, sizeof (szDefaultRescueDiskName), L"LambCrypt Rescue Disk.");		
 			StringCbCatW  (szDefaultRescueDiskName, sizeof (szDefaultRescueDiskName), szRescueDiskExtension);
 
 			if (UsePreferences)
@@ -9367,7 +9367,7 @@ BOOL CALLBACK MainDialogProc (HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPa
 		if ((lw == IDOK || lw == IDM_MOUNT_VOLUME || lw == IDM_MOUNT_VOLUME_OPTIONS || lw == IDC_MOUNTALL || lw == IDM_MOUNTALL)
 			&& LOWORD (GetSelectedLong (GetDlgItem (hwndDlg, IDC_DRIVELIST))) == 0xffff)
 		{
-			MessageBoxW (hwndDlg, GetString ("SELECT_FREE_DRIVE"), L"VeraCrypt", MB_ICONEXCLAMATION);
+			MessageBoxW (hwndDlg, GetString ("SELECT_FREE_DRIVE"), L"LambCrypt", MB_ICONEXCLAMATION);
 			return 1;
 		}
 
@@ -11008,7 +11008,7 @@ static void SystemFavoritesServiceLogBootLoaderUpdateError (const wchar_t *opera
 		if (!error->ErrMsg.empty ())
 			message += L" " + error->ErrMsg;
 		if (IsUnsupportedEfiSecureBootDbException (*error))
-			message += L" Secure Boot policy could not be validated for a supported loader set. The existing loader was retained. See HKLM\\SOFTWARE\\VeraCrypt\\Diagnostics\\EfiBootLoader for the selection reason.";
+			message += L" Secure Boot policy could not be validated for a supported loader set. The existing loader was retained. See HKLM\\SOFTWARE\\LambCrypt\\Diagnostics\\EfiBootLoader for the selection reason.";
 	}
 	else if (const SystemException *systemError = dynamic_cast<const SystemException *> (&e))
 	{
@@ -11022,7 +11022,7 @@ static void SystemFavoritesServiceLogBootLoaderUpdateError (const wchar_t *opera
 		message += detail;
 	}
 	else
-		message += L": unexpected VeraCrypt exception.";
+		message += L": unexpected LambCrypt exception.";
 	SystemFavoritesServiceLogError (message);
 }
 
@@ -11221,9 +11221,9 @@ static void SystemFavoritesServiceUpdateLoaderProcessing (BOOL bForce, const GUI
 		}
 		// Service startup bypasses the GUI language initialization.
 		if (result.WarningMask & VC_EFI_BOOT_CHAIN_WARNING_VERACRYPT_LOADER)
-			SystemFavoritesServiceLogWarning (L"Secure Boot compatibility check: VeraCrypt could not validate the installed DCS files against an embedded loader set and confirm that its known signing CAs are allowed by db and not listed by dbx. Do not boot with Secure Boot enabled until the policy and loader set have been repaired.");
+			SystemFavoritesServiceLogWarning (L"Secure Boot compatibility check: LambCrypt could not validate the installed DCS files against an embedded loader set and confirm that its known signing CAs are allowed by db and not listed by dbx. Do not boot with Secure Boot enabled until the policy and loader set have been repaired.");
 		if (result.WarningMask & VC_EFI_BOOT_CHAIN_WARNING_WINDOWS_LOADER)
-			SystemFavoritesServiceLogWarning (L"Secure Boot compatibility check: the Windows boot manager used by VeraCrypt (bootmgfw_ms.vc) is missing or unreadable, its embedded signer is unrecognized, or its known signing CA is not allowed by db or is listed by dbx. The handoff to Windows may fail when Secure Boot is enabled.");
+			SystemFavoritesServiceLogWarning (L"Secure Boot compatibility check: the Windows boot manager used by LambCrypt (bootmgfw_ms.vc) is missing or unreadable, its embedded signer is unrecognized, or its known signing CA is not allowed by db or is listed by dbx. The handoff to Windows may fail when Secure Boot is enabled.");
 		else if (result.WarningMask & VC_EFI_BOOT_CHAIN_WARNING_WINDOWS_MIGRATION)
 			SystemFavoritesServiceLogWarning (L"Secure Boot transition check: bootmgfw_ms.vc is still signed by Microsoft Windows Production PCA 2011 although firmware db already contains Windows UEFI CA 2023. Complete the Windows 2023 boot manager update before applying the PCA 2011 dbx revocation. This check covers the active Windows boot manager only. Decryption fallback and rescue-disk backups require separate verification; recreating rescue media can reuse an older stored loader.");
 		SystemFavoritesServiceLastEfiBootChainWarningMask = result.WarningMask;
@@ -11661,7 +11661,7 @@ int WINAPI wWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, wchar_t *lpsz
 	RegisterRedTick(hInstance);
 
 	/* Allocate, dup, then store away the application title */
-	lpszTitle = L"VeraCrypt";
+	lpszTitle = L"LambCrypt";
 
 	status = DriverAttach ();
 	if (status != 0)
@@ -11713,7 +11713,7 @@ BOOL TaskBarIconAdd (HWND hwnd)
 	// Only one icon may be created
 	if (TaskBarIconMutex != NULL) return TRUE;
 
-	TaskBarIconMutex = CreateMutex (NULL, TRUE, L"VeraCryptTaskBarIcon");
+	TaskBarIconMutex = CreateMutex (NULL, TRUE, L"LambCryptTaskBarIcon");
 	if (TaskBarIconMutex == NULL || GetLastError () == ERROR_ALREADY_EXISTS)
 	{
 		if (TaskBarIconMutex != NULL)
@@ -11737,7 +11737,7 @@ BOOL TaskBarIconAdd (HWND hwnd)
 		| LR_SHARED
 		| LR_DEFAULTCOLOR);
 
-	StringCbCopyW (tnid.szTip, sizeof(tnid.szTip), L"VeraCrypt");
+	StringCbCopyW (tnid.szTip, sizeof(tnid.szTip), L"LambCrypt");
 
 	return Shell_NotifyIconW (NIM_ADD, &tnid);
 }
@@ -13326,14 +13326,14 @@ void SetMemoryProtectionConfig (BOOL bEnable)
 {
 	DWORD config = bEnable? 1: 0;
 	if (BootEncObj)
-		BootEncObj->WriteLocalMachineRegistryDwordValue (L"SYSTEM\\CurrentControlSet\\Services\\veracrypt", VC_ENABLE_MEMORY_PROTECTION, config);
+		BootEncObj->WriteLocalMachineRegistryDwordValue (L"SYSTEM\\CurrentControlSet\\Services\\lambcrypt", VC_ENABLE_MEMORY_PROTECTION, config);
 }
 
 void SetScreenProtectionConfig (BOOL bEnable)
 {
 	DWORD config = bEnable? 1: 0;
 	if (BootEncObj)
-		BootEncObj->WriteLocalMachineRegistryDwordValue (L"SYSTEM\\CurrentControlSet\\Services\\veracrypt", VC_ENABLE_SCREEN_PROTECTION, config);
+		BootEncObj->WriteLocalMachineRegistryDwordValue (L"SYSTEM\\CurrentControlSet\\Services\\lambcrypt", VC_ENABLE_SCREEN_PROTECTION, config);
 }
 
 void NotifyService (DWORD dwNotifyCmd)
@@ -13591,7 +13591,7 @@ static BOOL CALLBACK PerformanceSettingsDlgProc (HWND hwndDlg, UINT msg, WPARAM 
 
 					if (ReadEncryptionThreadPoolFreeCpuCountLimit() != cpuFreeCount)
 					{
-						BootEncObj->WriteLocalMachineRegistryDwordValue (L"SYSTEM\\CurrentControlSet\\Services\\veracrypt", TC_ENCRYPTION_FREE_CPU_COUNT_REG_VALUE_NAME, cpuFreeCount);
+						BootEncObj->WriteLocalMachineRegistryDwordValue (L"SYSTEM\\CurrentControlSet\\Services\\lambcrypt", TC_ENCRYPTION_FREE_CPU_COUNT_REG_VALUE_NAME, cpuFreeCount);
 						rebootRequired = true;
 					}
 

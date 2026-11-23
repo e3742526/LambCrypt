@@ -14,17 +14,17 @@ import "wtypes.idl";
 import "..\Common\Password.h";
 
 [
-	uuid(56327DDA-F1A7-4e13-B128-520D129BDEF6),
-	helpstring("VeraCrypt Format UAC Support Library"),
+	uuid(5C8DF3B0-203B-5DA3-8AA9-804371947254),
+	helpstring("LambCrypt Format UAC Support Library"),
 	version(2.12)	// Update ComSetup.cpp when changing version number
 ]
 library TrueCryptFormatCom
 {
 	[
-		uuid(7AB357D9-A17F-466e-BCD6-F49E97C218D8),
+		uuid(01A4FB71-3949-52F3-87F1-F20364348776),
 		object,
 		oleautomation,
-		helpstring("VeraCrypt Format UAC Support Interface")
+		helpstring("LambCrypt Format UAC Support Interface")
 	]
 	interface ITrueCryptFormatCom : IUnknown
 	{
@@ -55,10 +55,10 @@ library TrueCryptFormatCom
 	};
 
 	[
-		uuid(86DF18EF-52CA-45C8-8D1B-C00D92BE9380),
+		uuid(4293700A-7741-52E2-8BF0-A6E8BCCB4E01),
 		object,
 		oleautomation,
-		helpstring("VeraCrypt Format UAC Firmware Policy Interface")
+		helpstring("LambCrypt Format UAC Firmware Policy Interface")
 	]
 	interface ITrueCryptFormatCom2 : ITrueCryptFormatCom
 	{
@@ -66,8 +66,8 @@ library TrueCryptFormatCom
 	};
 
 	[
-		uuid(A96D3797-9F31-49f4-A0CE-9657392CF789),
-		helpstring("VeraCrypt Format UAC Support Coclass")
+		uuid(0FD84FF4-5EB1-5DB5-84CC-6D8B56250592),
+		helpstring("LambCrypt Format UAC Support Coclass")
 	]
 	coclass TrueCryptFormatCom
 	{

@@ -148,7 +148,7 @@ namespace VeraCrypt
 #else
 		static const uint8 VolumeWizardIcon[] =
 		{
-#			include "Format/VeraCrypt_Wizard.bmp.h"
+#			include "Format/LambCrypt_Wizard.bmp.h"
 		};
 
 		wxMemoryInputStream stream (VolumeWizardIcon, sizeof (VolumeWizardIcon));

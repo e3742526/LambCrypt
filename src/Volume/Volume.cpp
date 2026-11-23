@@ -308,7 +308,7 @@ namespace VeraCrypt
 					driveDevice.ReadAt (mbr, 0);
 
 					// Search for the string "VeraCrypt"
-					const char* bootSignature = TC_APP_NAME;
+					const char* bootSignature = TC_BOOT_LOADER_SIGNATURE;
 					size_t nameLen = strlen (bootSignature);
 					for (size_t i = 0; i < mbr.Size() - nameLen; ++i)
 					{

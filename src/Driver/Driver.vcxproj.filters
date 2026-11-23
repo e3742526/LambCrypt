@@ -40,7 +40,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <Inf Include="veracrypt.inf">
+    <Inf Include="lambcrypt.inf">
       <Filter>Driver Files</Filter>
     </Inf>
   </ItemGroup>

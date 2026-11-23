@@ -79,12 +79,10 @@ from VeraCrypt</a>.</p>
 <tr><td>Primary platform</td><td>Windows, Linux, macOS and BSD</td>
 <td>Apple silicon Macs on macOS 26 (Tahoe) and later. Linux and BSD build from source.</td></tr>
 <tr><td>macOS mount backends</td><td>macFUSE or FUSE-T</td>
-<td>macFUSE (default) or FUSE-T, plus an experimental FSKit build that needs no third-party file
-system driver</td></tr>
+<td>Apple FSKit, built into macOS</td></tr>
 <tr><td>Languages</td><td>Many translations</td><td>English only</td></tr>
 <tr><td>Names</td><td><code>veracrypt</code>, VeraCrypt.app, <code>mount.veracrypt</code></td>
-<td><code>lambcrypt</code>, LambCrypt.app, <code>mount.lambcrypt</code>, and LambCrypt-FSKit.app
-for the FSKit build</td></tr>
+<td><code>lambcrypt</code>, LambCrypt-FSKit.app, <code>mount.lambcrypt</code></td></tr>
 <tr><td>Preferences folder</td><td>VeraCrypt</td><td>LambCrypt</td></tr>
 <tr><td>Windows</td><td>Maintained and released</td><td>Inherited source only. No Windows
 release.</td></tr>
@@ -94,10 +92,10 @@ release.</td></tr>
 
 <h3>FSKit</h3>
 <p>FSKit is Apple's framework for file systems that run as app extensions in user space. The FSKit
-build of LambCrypt decrypts the volume in a worker process and serves the decrypted image through a
+macOS build of LambCrypt decrypts the volume in a worker process and serves the decrypted image through a
 sandboxed FSKit module, so macOS mounts it without macFUSE or FUSE-T. Unpartitioned FAT volumes use
-Apple's own <code>msdos</code> driver. The FSKit build is a separate app, LambCrypt-FSKit.app, and is
-experimental: use it with disposable volumes and keep backups.</p>
+Apple's own <code>msdos</code> driver. Enable LambCrypt FSKit in System Settings and verify a
+disposable-volume mount on your Mac before relying on it.</p>
 
 <h3>Additional fixes</h3>
 <ul>
@@ -114,7 +112,7 @@ reported as cancelled.</li>
 <h2>Windows</h2>
 <p>LambCrypt has no Windows release. The Windows chapters of this guide describe VeraCrypt for
 Windows and are kept for reference. On Windows, use <a href="https://veracrypt.io/">VeraCrypt</a>;
-volumes are compatible either way. Windows binaries built from the LambCrypt source still carry the
-VeraCrypt name, so they must not be distributed.</p>
+volumes are compatible either way. The Windows source has been renamed to LambCrypt but has not been
+compiled or tested, and its EFI boot loader binaries still come from VeraCrypt.</p>
 </div>
 <div class="ClearBoth"></div></body></html>

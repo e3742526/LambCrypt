@@ -1,3 +1,4 @@
+/* Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. */
 /*
  Derived from source code of TrueCrypt 7.1a, which is
  Copyright (c) 2008-2012 TrueCrypt Developers Association and which is governed
@@ -31,12 +32,12 @@
 #endif
 
 #ifdef PORTABLE
-#define OutputPackageFile L"VeraCrypt Portable " _T(VERSION_STRING) _T(VERSION_STRING_SUFFIX)L".exe"
+#define OutputPackageFile L"LambCrypt Portable " _T(VERSION_STRING) _T(VERSION_STRING_SUFFIX)L".exe"
 #else
 #ifdef VC_COMREG
-#define OutputPackageFile L"VeraCrypt COMReg.exe"
+#define OutputPackageFile L"LambCrypt COMReg.exe"
 #else
-#define OutputPackageFile L"VeraCrypt Setup " _T(VERSION_STRING) _T(VERSION_STRING_SUFFIX) L".exe"
+#define OutputPackageFile L"LambCrypt Setup " _T(VERSION_STRING) _T(VERSION_STRING_SUFFIX) L".exe"
 #endif
 #endif
 #define MAG_START_MARKER	"VCINSTRT"
@@ -76,19 +77,19 @@ void DeobfuscateMagEndMarker (void)
 
 static void PkgError (wchar_t *msg)
 {
-	MessageBox (NULL, msg, L"VeraCrypt", MB_ICONERROR | MB_SETFOREGROUND | MB_TOPMOST);
+	MessageBox (NULL, msg, L"LambCrypt", MB_ICONERROR | MB_SETFOREGROUND | MB_TOPMOST);
 }
 
 
 static void PkgWarning (wchar_t *msg)
 {
-	MessageBox (NULL, msg, L"VeraCrypt", MB_ICONWARNING | MB_SETFOREGROUND | MB_TOPMOST);
+	MessageBox (NULL, msg, L"LambCrypt", MB_ICONWARNING | MB_SETFOREGROUND | MB_TOPMOST);
 }
 
 
 static void PkgInfo (wchar_t *msg)
 {
-	MessageBox (NULL, msg, L"VeraCrypt", MB_ICONINFORMATION | MB_SETFOREGROUND | MB_TOPMOST);
+	MessageBox (NULL, msg, L"LambCrypt", MB_ICONINFORMATION | MB_SETFOREGROUND | MB_TOPMOST);
 }
 
 
@@ -175,9 +176,9 @@ BOOL MakeSelfExtractingPackage (HWND hwndDlg, wchar_t *szDestDir, BOOL bSkipX64)
 	{
 		handleWin32Error (hwndDlg, SRC_POS);
 #ifdef PORTABLE
-		PkgError (L"Cannot copy 'VeraCrypt Portable.exe' to the package");
+		PkgError (L"Cannot copy 'LambCrypt Portable.exe' to the package");
 #else
-		PkgError (L"Cannot copy 'VeraCrypt Setup.exe' to the package");
+		PkgError (L"Cannot copy 'LambCrypt Setup.exe' to the package");
 #endif
 		goto err;
 	}

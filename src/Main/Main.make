@@ -75,7 +75,7 @@ RESOURCES += ../License.txt.h
 RESOURCES += ../Common/Language.xml.h
 ifndef TC_NO_GUI
 RESOURCES += ../Common/Textual_logo_96dpi.bmp.h
-RESOURCES += ../Format/VeraCrypt_Wizard.bmp.h
+RESOURCES += ../Format/LambCrypt_Wizard.bmp.h
 RESOURCES += ../Mount/Drive_icon_96dpi.bmp.h
 RESOURCES += ../Mount/Drive_icon_mask_96dpi.bmp.h
 RESOURCES += ../Mount/Logo_96dpi.bmp.h
@@ -107,7 +107,7 @@ endif
 
 #------ FUSE configuration ------
 
-ifneq "$(VC_OSX_FSKIT)" "1"
+ifneq "$(PLATFORM)" "MacOSX"
 FUSE_LIBS = $(shell $(PKG_CONFIG) $(VC_FUSE_PACKAGE) --libs)
 endif
 
@@ -227,13 +227,11 @@ endif
 
 ifeq "$(PLATFORM)" "MacOSX"
 .PHONY: bundle prepare
-ifeq "$(VC_OSX_FSKIT)" "1"
 FSKIT_EXTENSION := $(APPNAME).app/Contents/Extensions/LambCryptFSKit.appex
 ifeq "$(LOCAL_DEVELOPMENT_BUILD)" "true"
 FSKIT_SIGN_OPTIONS := --timestamp=none
 else
 FSKIT_SIGN_OPTIONS := --timestamp --options runtime
-endif
 endif
 
 # Keep bundle assembly available to builds that do not have signing credentials.
@@ -268,13 +266,8 @@ endif
 	cp $(BASE_DIR)/License.txt $(BASE_DIR)/NOTICE $(APPNAME).app/Contents/Resources/
 
 	echo -n APPLTRUE >$(APPNAME).app/Contents/PkgInfo
-ifdef VC_LEGACY_BUILD
-	sed -e 's/_VERSION_/$(patsubst %a,%.1,$(patsubst %b,%.2,$(TC_VERSION)))/' ../Build/Resources/MacOSX/Info.plist.legacy.xml >$(APPNAME).app/Contents/Info.plist
-else
 	sed -e 's/_VERSION_/$(patsubst %a,%.1,$(patsubst %b,%.2,$(TC_VERSION)))/' ../Build/Resources/MacOSX/Info.plist.xml >$(APPNAME).app/Contents/Info.plist
-endif
 	plutil -replace LSMinimumSystemVersion -string "$(VC_OSX_TARGET)" $(APPNAME).app/Contents/Info.plist
-ifeq "$(VC_OSX_FSKIT)" "1"
 	plutil -replace CFBundleIdentifier -string io.github.e3742526.LambCrypt.fskit $(APPNAME).app/Contents/Info.plist
 	plutil -replace CFBundleExecutable -string $(APPNAME) $(APPNAME).app/Contents/Info.plist
 	plutil -replace CFBundleName -string "LambCrypt FSKit" $(APPNAME).app/Contents/Info.plist
@@ -297,11 +290,9 @@ ifeq "$(VC_OSX_FSKIT)" "1"
 		-application-extension -parse-as-library -Xlinker -e -Xlinker _NSExtensionMain \
 		../Driver/FSKit/FileSystem.swift ../Driver/FSKit/VolumeConnection.swift \
 		-o "$(FSKIT_EXTENSION)/Contents/MacOS/LambCryptFSKit"
-endif
 	chmod -R go-w $(APPNAME).app
 
 prepare: bundle
-ifeq "$(VC_OSX_FSKIT)" "1"
 	@test -n "$$VC_APP_SIGN_IDENTITY" || { echo "Set VC_APP_SIGN_IDENTITY to sign the FSKit app and extension." >&2; exit 1; }
 	test -f "$$VC_FSKIT_PROVISIONING_PROFILE" || { echo "Set VC_FSKIT_PROVISIONING_PROFILE to the extension's Apple-issued provisioning profile." >&2; exit 1; }
 	@set -eu; \
@@ -340,52 +331,13 @@ ifeq "$(VC_OSX_FSKIT)" "1"
 		fi; \
 	done; \
 	codesign --verify --deep --strict "$(APPNAME).app"
-else ifneq ("$(LOCAL_DEVELOPMENT_BUILD)","true")
-	@test -n "$$VC_APP_SIGN_IDENTITY" || { echo "Set VC_APP_SIGN_IDENTITY for a signed build."; exit 1; }
-	codesign -s "$$VC_APP_SIGN_IDENTITY" --timestamp $(APPNAME).app
-endif
-
-ifeq "$(VC_OSX_FSKIT)" "1"
-install package:
-	@echo "Build the experimental FSKit app with make bundle or make prepare to sign it." >&2
-	@exit 1
-else
-install: prepare
-	cp -R $(APPNAME).app /Applications/.
 
 package: prepare
-ifneq ("$(LOCAL_DEVELOPMENT_BUILD)","true")
-	@test -n "$$VC_INSTALLER_SIGN_IDENTITY" || { echo "Set VC_INSTALLER_SIGN_IDENTITY for a signed package."; exit 1; }
-endif
-ifdef VC_LEGACY_BUILD
-	/usr/local/bin/packagesbuild $(BASE_DIR)/Setup/MacOSX/lambcrypt_Legacy.pkgproj
-ifneq ("$(LOCAL_DEVELOPMENT_BUILD)","true")
-	productsign --sign "$$VC_INSTALLER_SIGN_IDENTITY" --timestamp "$(BASE_DIR)/Setup/MacOSX/LambCrypt Legacy $(TC_VERSION).pkg" $(BASE_DIR)/Setup/MacOSX/LambCrypt_$(TC_VERSION).pkg
-else
-	cp "$(BASE_DIR)/Setup/MacOSX/LambCrypt Legacy $(TC_VERSION).pkg" $(BASE_DIR)/Setup/MacOSX/LambCrypt_$(TC_VERSION).pkg
-endif
-	rm -f $(APPNAME)_Legacy_$(TC_VERSION).dmg
-else
-ifeq "$(VC_OSX_FUSET)" "1"
-	/usr/local/bin/packagesbuild $(BASE_DIR)/Setup/MacOSX/lambcrypt_fuse-t.pkgproj
-else
-	/usr/local/bin/packagesbuild $(BASE_DIR)/Setup/MacOSX/lambcrypt.pkgproj
-endif
-ifneq ("$(LOCAL_DEVELOPMENT_BUILD)","true")
-	productsign --sign "$$VC_INSTALLER_SIGN_IDENTITY" --timestamp "$(BASE_DIR)/Setup/MacOSX/LambCrypt $(TC_VERSION).pkg" $(BASE_DIR)/Setup/MacOSX/LambCrypt_$(TC_VERSION).pkg
-else
-	# copy the unsigned package to the expected location
-	cp "$(BASE_DIR)/Setup/MacOSX/LambCrypt $(TC_VERSION).pkg" $(BASE_DIR)/Setup/MacOSX/LambCrypt_$(TC_VERSION).pkg
-endif
-	rm -f $(APPNAME)_$(TC_VERSION).dmg
-endif
-	@set -e; \
-		dmg_stage=$$(mktemp -d); \
-		trap 'rm -rf "$$dmg_stage"' EXIT; \
-		cp "$(BASE_DIR)/Setup/MacOSX/LambCrypt_$(TC_VERSION).pkg" "$$dmg_stage/LambCrypt_Installer.pkg"; \
-		hdiutil create -quiet -format UDZO -imagekey zlib-level=9 -volname LambCrypt \
-			-srcfolder "$$dmg_stage" "$(APPNAME)$(if $(VC_LEGACY_BUILD),_Legacy)_$(TC_VERSION).dmg"
-endif
+	productbuild --component "$(APPNAME).app" /Applications "$(APPNAME)_$(TC_VERSION).pkg"
+
+install:
+	@echo "Build with make prepare, then copy $(APPNAME).app to /Applications." >&2
+	@exit 1
 endif
 
 

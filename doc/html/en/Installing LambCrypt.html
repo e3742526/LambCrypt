@@ -40,37 +40,20 @@ README has the full build reference.</p>
 <li>Install the Xcode Command Line Tools and <a href="https://brew.sh">Homebrew</a>, then the build
 dependencies:
 <pre>xcode-select --install
-brew install pkg-config yasm wxwidgets</pre></li>
-<li>Install one FUSE backend:
-<ul>
-<li><strong>macFUSE</strong> (default): <code>brew install --cask macfuse</code>, then follow
-macFUSE's prompts to allow its system extension in System Settings.</li>
-<li><strong>FUSE-T</strong>: install it from <a href="https://www.fuse-t.org/">fuse-t.org</a>.</li>
-</ul>
-The experimental FSKit build needs neither.</li>
-<li>Build the app:
+brew install wxwidgets</pre></li>
+<li>Configure the Apple Development identity and the FSKit Module provisioning profile for your
+Mac using the integrator checklist in the project's <code>FSKIT-MIGRATION.md</code>. Source your
+private signing environment and build the app:
 <pre>git clone https://github.com/e3742526/LambCrypt.git
 cd LambCrypt
-./src/Build/build_lambcrypt_macosx.sh -b      # macFUSE
-./src/Build/build_lambcrypt_macosx.sh -b -f   # or FUSE-T</pre>
-The app is written to <code>src/Main/LambCrypt.app</code>. A <code>-b</code> build uses Homebrew's
+./src/Build/build_lambcrypt_macosx.sh -b -s</pre>
+The app is written to <code>src/Main/LambCrypt-FSKit.app</code>. A <code>-b</code> build uses Homebrew's
 wxWidgets, so keep that package installed.</li>
-<li>Install the app and the <code>lambcrypt</code> command:
-<pre>cp -R src/Main/LambCrypt.app /Applications/
-chmod -R go-w /Applications/LambCrypt.app
-sudo mkdir -p /usr/local/bin
-sudo ln -s /Applications/LambCrypt.app/Contents/MacOS/LambCrypt /usr/local/bin/lambcrypt</pre></li>
-<li>Check the build with <code>lambcrypt --text --test</code>, which runs the built-in algorithm
-self-tests.</li>
+<li>Copy the signed app to <code>/Applications</code> and open it. In <em>System Settings &gt;
+General &gt; Login Items &amp; Extensions &gt; By Category &gt; File System Extensions</em>, enable
+<strong>LambCrypt FSKit</strong>.</li>
+<li>Run the built-in algorithm self-tests and verify a mount and dismount using a disposable volume.</li>
 </ol>
-
-<h3>The FSKit build</h3>
-<p>The FSKit build needs a paid Apple Developer Program membership and a provisioning profile with
-the FSKit Module capability. Follow the integrator checklist in the project's FSKIT-MIGRATION.md to
-sign it. Then copy <code>LambCrypt-FSKit.app</code> to <code>/Applications</code>, open
-<em>System Settings &gt; General &gt; Login Items &amp; Extensions &gt; By Category &gt; File System
-Extensions</em> and turn on <strong>LambCrypt FSKit</strong>. LambCrypt-FSKit.app and LambCrypt.app
-can be installed side by side.</p>
 
 <h2>Linux</h2>
 <p>Install the dependencies listed in the <a href="CompilingGuidelineLinux.html">Linux build
@@ -90,6 +73,11 @@ of <code>make</code>.</p>
 <p>LambCrypt has no Windows release. Its Windows source keeps VeraCrypt's driver and boot loader
 identities and would collide with an installed VeraCrypt. Use VeraCrypt on Windows; volumes are
 compatible either way.</p>
+
+<h2>First launch</h2>
+<p>The first time you run LambCrypt, it shows the license terms. Choose <strong>I Accept and Agree to Be Bound by the License Terms</strong> to continue. LambCrypt records your acceptance in its preferences folder and asks again only if the license text changes.</p>
+<p><img src="Installing%20LambCrypt_License_Dialog.png" alt="LambCrypt license acceptance window" width="728"></p>
+<p>In Terminal, <code>lambcrypt --text</code> asks the same question. To accept the terms for scripts and other non-interactive use, run <code>lambcrypt --text --accept-license</code> once as each user that runs LambCrypt, including <code>root</code> for <code>/etc/fstab</code> mounts. Setting <code>LAMBCRYPT_LICENSE_ACCEPTED=1</code> accepts the terms for a single process, for example in automated tests.</p>
 
 <h2 id="moving">Moving from VeraCrypt</h2>
 <p>LambCrypt and VeraCrypt can be installed on the same system. They use different command names,

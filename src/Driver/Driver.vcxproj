@@ -25,7 +25,7 @@
     <MinimumVisualStudioVersion>12.0</MinimumVisualStudioVersion>
     <Configuration>Debug</Configuration>
     <Platform Condition="'$(Platform)' == ''">x64</Platform>
-    <RootNamespace>veracrypt</RootNamespace>
+    <RootNamespace>lambcrypt</RootNamespace>
     <ProjectName>Driver</ProjectName>
     <WindowsTargetPlatformVersion>$(LatestTargetPlatformVersion)</WindowsTargetPlatformVersion>
   </PropertyGroup>
@@ -76,23 +76,23 @@
   <PropertyGroup />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
-    <TargetName>veracrypt</TargetName>
+    <TargetName>lambcrypt</TargetName>
     <OutDir>$(ProjectDir)$(Platform)\$(ConfigurationName)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
-    <TargetName>veracrypt</TargetName>
+    <TargetName>lambcrypt</TargetName>
     <OutDir>$(ProjectDir)$(Platform)\$(ConfigurationName)\</OutDir>
     <EnableInf2cat>false</EnableInf2cat>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
-    <TargetName>veracrypt</TargetName>
+    <TargetName>lambcrypt</TargetName>
     <OutDir>$(ProjectDir)$(Platform)\$(ConfigurationName)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
-    <TargetName>veracrypt</TargetName>
+    <TargetName>lambcrypt</TargetName>
     <OutDir>$(ProjectDir)$(Platform)\$(ConfigurationName)\</OutDir>
     <EnableInf2cat>false</EnableInf2cat>
   </PropertyGroup>
@@ -106,7 +106,7 @@
       <TreatWarningAsError>true</TreatWarningAsError>
     </ClCompile>
     <Inf>
-      <CatalogFileName>veracrypt.cat</CatalogFileName>
+      <CatalogFileName>lambcrypt.cat</CatalogFileName>
     </Inf>
     <Inf>
       <ProviderName>
@@ -118,10 +118,10 @@
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies);$(KernelBufferOverflowLib);$(DDK_LIB_PATH)ntoskrnl.lib;$(DDK_LIB_PATH)hal.lib;$(DDK_LIB_PATH)wmilib.lib;$(KMDF_LIB_PATH)$(KMDF_VER_PATH)\WdfLdr.lib;$(KMDF_LIB_PATH)$(KMDF_VER_PATH)\WdfDriverEntry.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy $(OutDir)veracrypt.sys "$(SolutionDir)Debug\Setup Files\veracrypt-x64.sys"
-copy $(OutDir)veracrypt.pdb "$(SolutionDir)Debug\Setup Files\veracrypt-x64.pdb"
+      <Command>copy $(OutDir)lambcrypt.sys "$(SolutionDir)Debug\Setup Files\lambcrypt-x64.sys"
+copy $(OutDir)lambcrypt.pdb "$(SolutionDir)Debug\Setup Files\lambcrypt-x64.pdb"
 copy $(OutDir)vc143.pdb "$(SolutionDir)Debug\Setup Files\vc143-x64.pdb"
-copy $(OutDir)veracrypt.inf "$(SolutionDir)Debug\Setup Files\veracrypt.inf"</Command>
+copy $(OutDir)lambcrypt.inf "$(SolutionDir)Debug\Setup Files\lambcrypt.inf"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -134,7 +134,7 @@ copy $(OutDir)veracrypt.inf "$(SolutionDir)Debug\Setup Files\veracrypt.inf"</Com
       <TreatWarningAsError>true</TreatWarningAsError>
     </ClCompile>
     <Inf>
-      <CatalogFileName>veracrypt.cat</CatalogFileName>
+      <CatalogFileName>lambcrypt.cat</CatalogFileName>
     </Inf>
     <Inf>
       <ProviderName>
@@ -146,10 +146,10 @@ copy $(OutDir)veracrypt.inf "$(SolutionDir)Debug\Setup Files\veracrypt.inf"</Com
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies);$(KernelBufferOverflowLib);$(DDK_LIB_PATH)ntoskrnl.lib;$(DDK_LIB_PATH)hal.lib;$(DDK_LIB_PATH)wmilib.lib;$(KMDF_LIB_PATH)$(KMDF_VER_PATH)\WdfLdr.lib;$(KMDF_LIB_PATH)$(KMDF_VER_PATH)\WdfDriverEntry.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy $(OutDir)veracrypt.sys "$(SolutionDir)Release\Setup Files\veracrypt-x64.sys"
-copy $(OutDir)veracrypt.pdb "$(SolutionDir)Release\Setup Files\veracrypt-x64.pdb"
+      <Command>copy $(OutDir)lambcrypt.sys "$(SolutionDir)Release\Setup Files\lambcrypt-x64.sys"
+copy $(OutDir)lambcrypt.pdb "$(SolutionDir)Release\Setup Files\lambcrypt-x64.pdb"
 copy $(OutDir)vc143.pdb "$(SolutionDir)Release\Setup Files\vc143-x64.pdb"
-copy $(OutDir)veracrypt.inf "$(SolutionDir)Release\Setup Files\veracrypt.inf"</Command>
+copy $(OutDir)lambcrypt.inf "$(SolutionDir)Release\Setup Files\lambcrypt.inf"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
@@ -161,7 +161,7 @@ copy $(OutDir)veracrypt.inf "$(SolutionDir)Release\Setup Files\veracrypt.inf"</C
       <AdditionalIncludeDirectories>$(SolutionDir)Common;$(SolutionDir)Crypto;$(SolutionDir)Crypto\Argon2\src\blake2;$(SolutionDir)Crypto\Argon2\include;$(SolutionDir);%(AdditionalIncludeDirectories);$(IntDir)</AdditionalIncludeDirectories>
     </ClCompile>
     <Inf>
-      <CatalogFileName>veracrypt.cat</CatalogFileName>
+      <CatalogFileName>lambcrypt.cat</CatalogFileName>
     </Inf>
     <Inf>
       <ProviderName>
@@ -173,10 +173,10 @@ copy $(OutDir)veracrypt.inf "$(SolutionDir)Release\Setup Files\veracrypt.inf"</C
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies);$(KernelBufferOverflowLib);$(DDK_LIB_PATH)ntoskrnl.lib;$(DDK_LIB_PATH)hal.lib;$(DDK_LIB_PATH)wmilib.lib;$(KMDF_LIB_PATH)$(KMDF_VER_PATH)\WdfLdr.lib;$(KMDF_LIB_PATH)$(KMDF_VER_PATH)\WdfDriverEntry.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy $(OutDir)veracrypt.sys "$(SolutionDir)Release\Setup Files\veracrypt-arm64.sys"
-copy $(OutDir)veracrypt.pdb "$(SolutionDir)Release\Setup Files\veracrypt-arm64.pdb"
+      <Command>copy $(OutDir)lambcrypt.sys "$(SolutionDir)Release\Setup Files\lambcrypt-arm64.sys"
+copy $(OutDir)lambcrypt.pdb "$(SolutionDir)Release\Setup Files\lambcrypt-arm64.pdb"
 copy $(OutDir)vc143.pdb "$(SolutionDir)Release\Setup Files\vc143-arm64.pdb"
-copy $(OutDir)veracrypt.inf "$(SolutionDir)Release\Setup Files\veracrypt.inf"</Command>
+copy $(OutDir)lambcrypt.inf "$(SolutionDir)Release\Setup Files\lambcrypt.inf"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
@@ -188,7 +188,7 @@ copy $(OutDir)veracrypt.inf "$(SolutionDir)Release\Setup Files\veracrypt.inf"</C
       <AdditionalIncludeDirectories>$(SolutionDir)Common;$(SolutionDir)Crypto;$(SolutionDir)Crypto\Argon2\src\blake2;$(SolutionDir)Crypto\Argon2\include;$(SolutionDir);%(AdditionalIncludeDirectories);$(IntDir)</AdditionalIncludeDirectories>
     </ClCompile>
     <Inf>
-      <CatalogFileName>veracrypt.cat</CatalogFileName>
+      <CatalogFileName>lambcrypt.cat</CatalogFileName>
     </Inf>
     <Inf>
       <ProviderName>
@@ -200,14 +200,14 @@ copy $(OutDir)veracrypt.inf "$(SolutionDir)Release\Setup Files\veracrypt.inf"</C
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies);$(KernelBufferOverflowLib);$(DDK_LIB_PATH)ntoskrnl.lib;$(DDK_LIB_PATH)hal.lib;$(DDK_LIB_PATH)wmilib.lib;$(KMDF_LIB_PATH)$(KMDF_VER_PATH)\WdfLdr.lib;$(KMDF_LIB_PATH)$(KMDF_VER_PATH)\WdfDriverEntry.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy $(OutDir)veracrypt.sys "$(SolutionDir)Debug\Setup Files\veracrypt-arm64.sys"
-copy $(OutDir)veracrypt.pdb "$(SolutionDir)Debug\Setup Files\veracrypt-arm64.pdb"
+      <Command>copy $(OutDir)lambcrypt.sys "$(SolutionDir)Debug\Setup Files\lambcrypt-arm64.sys"
+copy $(OutDir)lambcrypt.pdb "$(SolutionDir)Debug\Setup Files\lambcrypt-arm64.pdb"
 copy $(OutDir)vc143.pdb "$(SolutionDir)Debug\Setup Files\vc143-arm64.pdb"
-copy $(OutDir)veracrypt.inf "$(SolutionDir)Debug\Setup Files\veracrypt.inf"</Command>
+copy $(OutDir)lambcrypt.inf "$(SolutionDir)Debug\Setup Files\lambcrypt.inf"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <Inf Include="veracrypt.inf" />
+    <Inf Include="lambcrypt.inf" />
   </ItemGroup>
   <ItemGroup>
     <FilesToPackage Include="$(TargetPath)" />

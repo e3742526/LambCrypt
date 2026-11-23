@@ -5,18 +5,17 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" # Directory where the script is located
-VARIANT=LambCrypt
+VARIANT=LambCrypt-FSKit
 DRY_RUN=false
 if [[ "${1:-}" == --fskit ]]; then
-    VARIANT=LambCrypt-FSKit
     shift
-    if [[ "${1:-}" == --dry-run ]]; then
-        DRY_RUN=true
-        shift
-    fi
+fi
+if [[ "${1:-}" == --dry-run ]]; then
+    DRY_RUN=true
+    shift
 fi
 if [ "$#" -ne 0 ]; then
-    echo "Usage: ${0##*/} [--fskit [--dry-run]]" >&2
+    echo "Usage: ${0##*/} [--dry-run]" >&2
     exit 2
 fi
 
@@ -69,15 +68,9 @@ FSKIT_PROFILE="$FSKIT_EXTENSION/Contents/embedded.provisionprofile"
 
 verify_app() {
     local bundle="$1"
-    if [[ "$VARIANT" == LambCrypt-FSKit ]]; then
-        /bin/bash "$SCRIPT_DIR/verify_fskit_bundle.sh" --distribution "$bundle"
-    else
-        codesign --verify --deep --strict --verbose=2 "$bundle"
-    fi
+    /bin/bash "$SCRIPT_DIR/verify_fskit_bundle.sh" --distribution "$bundle"
     verify_signature "$bundle" "$VARIANT"
-    if [[ "$VARIANT" == LambCrypt-FSKit ]]; then
-        verify_signature "$bundle/$FSKIT_EXTENSION" LambCryptFSKit
-    fi
+    verify_signature "$bundle/$FSKIT_EXTENSION" LambCryptFSKit
 }
 
 VC_BINARY="$BUNDLE_PATH/Contents/MacOS/$VARIANT"
@@ -87,29 +80,9 @@ VC_BINARY="$BUNDLE_PATH/Contents/MacOS/$VARIANT"
 VC_VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "${BUNDLE_PATH}/Contents/Info.plist")
 [ -n "$VC_VERSION" ] || fail "The app bundle has no version. Rebuild LambCrypt first."
 
-if [[ "$VARIANT" == LambCrypt-FSKit ]]; then
-    # The FSKit build signs the extension and app with different entitlements.
-    # Preserve those signatures when packaging.
-    verify_app "$BUNDLE_PATH"
-    DMG_LABEL="LambCrypt-FSKit_${VC_VERSION}.dmg"
-else
-    DEPENDENCY_OUTPUT=$(otool -L "$VC_BINARY")
-    PKGPROJ_FILE="${SCRIPT_DIR}/lambcrypt.pkgproj"
-    DMG_LABEL="LambCrypt_${VC_VERSION}.dmg"
-    if [[ "$DEPENDENCY_OUTPUT" == *libfuse-t.dylib* ]]; then
-        echo "LambCrypt is linked against FUSE-T."
-        PKGPROJ_FILE="${SCRIPT_DIR}/lambcrypt_fuse-t.pkgproj"
-        DMG_LABEL="LambCrypt_FUSE-T_${VC_VERSION}.dmg"
-    else
-        echo "LambCrypt is linked against standard MacFUSE."
-    fi
-
-    PKG_VERSION=$(/usr/libexec/PlistBuddy -c "Print :PACKAGES:0:PACKAGE_SETTINGS:VERSION" "$PKGPROJ_FILE")
-    PKG_NAME=$(/usr/libexec/PlistBuddy -c "Print :PROJECT:PROJECT_SETTINGS:NAME" "$PKGPROJ_FILE")
-    if [ "$PKG_VERSION" != "$VC_VERSION" ] || [ "$PKG_NAME" != "LambCrypt $VC_VERSION" ]; then
-        fail "Version mismatch: app is $VC_VERSION, package is $PKG_VERSION ($PKG_NAME). Rebuild LambCrypt and update the package project before notarizing."
-    fi
-fi
+# Preserve the distinct signatures of the FSKit app and its extension.
+verify_app "$BUNDLE_PATH"
+DMG_LABEL="${VARIANT}_${VC_VERSION}.dmg"
 
 # Check credentials before modifying the app or building the installer.
 if ! $DRY_RUN; then
@@ -133,16 +106,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if [[ "$VARIANT" == LambCrypt-FSKit ]]; then
-    UNSIGNED_PKG_PATH="$WORK_DIR/unsigned.pkg"
-    productbuild --component "$BUNDLE_PATH" /Applications "$UNSIGNED_PKG_PATH"
-else
-    xattr -rc "$BUNDLE_PATH"
-    codesign --timestamp --options runtime --deep --force --entitlements "${SCRIPT_DIR}/LambCrypt.entitlements.plist" --sign "$SIGNING_ID" "$BUNDLE_PATH"
-    verify_app "$BUNDLE_PATH"
-    /usr/local/bin/packagesbuild --build-folder "$WORK_DIR" "$PKGPROJ_FILE"
-    UNSIGNED_PKG_PATH="$WORK_DIR/$PKG_NAME.pkg"
-fi
+UNSIGNED_PKG_PATH="$WORK_DIR/unsigned.pkg"
+productbuild --component "$BUNDLE_PATH" /Applications "$UNSIGNED_PKG_PATH"
 [ -f "$UNSIGNED_PKG_PATH" ] || fail "Package build did not produce $UNSIGNED_PKG_PATH"
 PKG_PATH="$WORK_DIR/${VARIANT}_${VC_VERSION}.pkg"
 productsign --sign "$INSTALLER_SIGNING_ID" --timestamp "$UNSIGNED_PKG_PATH" "$PKG_PATH"
@@ -150,16 +115,12 @@ pkgutil --check-signature "$PKG_PATH"
 
 # Validate the payload, not just the source bundle or the installer signature.
 pkgutil --expand-full "$PKG_PATH" "$WORK_DIR/expanded"
-if [[ "$VARIANT" == LambCrypt-FSKit ]]; then
-    BUNDLE_ID=$(plutil -extract CFBundleIdentifier raw -o - "$BUNDLE_PATH/Contents/Info.plist")
-    PACKAGED_BUNDLE="$WORK_DIR/expanded/$BUNDLE_ID.pkg/Payload/$VARIANT.app"
-    for file in "$FSKIT_PROFILE" "$FSKIT_EXTENSION/Contents/Info.plist" "$FSKIT_EXTENSION/Contents/MacOS/LambCryptFSKit"; do
-        cmp "$BUNDLE_PATH/$file" "$PACKAGED_BUNDLE/$file" ||
-            fail "The packaged FSKit extension differs from the signed extension at $file."
-    done
-else
-    PACKAGED_BUNDLE="$WORK_DIR/expanded/lambcrypt.pkg/Payload/Applications/LambCrypt.app"
-fi
+BUNDLE_ID=$(plutil -extract CFBundleIdentifier raw -o - "$BUNDLE_PATH/Contents/Info.plist")
+PACKAGED_BUNDLE="$WORK_DIR/expanded/$BUNDLE_ID.pkg/Payload/$VARIANT.app"
+for file in "$FSKIT_PROFILE" "$FSKIT_EXTENSION/Contents/Info.plist" "$FSKIT_EXTENSION/Contents/MacOS/LambCryptFSKit"; do
+    cmp "$BUNDLE_PATH/$file" "$PACKAGED_BUNDLE/$file" ||
+        fail "The packaged FSKit extension differs from the signed extension at $file."
+done
 cmp "$VC_BINARY" "$PACKAGED_BUNDLE/Contents/MacOS/$VARIANT" || fail "The packaged executable differs from the signed app."
 cmp "$BUNDLE_PATH/Contents/Info.plist" "$PACKAGED_BUNDLE/Contents/Info.plist" || fail "The packaged Info.plist differs from the signed app."
 verify_app "$PACKAGED_BUNDLE"

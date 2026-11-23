@@ -1,3 +1,4 @@
+/* Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. */
 /*
  Derived from source code of TrueCrypt 7.1a, which is
  Copyright (c) 2008-2012 TrueCrypt Developers Association and which is governed
@@ -38,8 +39,8 @@ extern "C" BOOL RegisterComServers (wchar_t *modulePath)
 	wchar_t mainModule[1024], formatModule[1024];
 	CComPtr<ITypeLib> tl, tl2;
 
-	wsprintfW (mainModule, L"%sVeraCrypt.exe", modulePath);
-	wsprintfW (formatModule, L"%sVeraCrypt Format.exe", modulePath);
+	wsprintfW (mainModule, L"%sLambCrypt.exe", modulePath);
+	wsprintfW (formatModule, L"%sLambCrypt Format.exe", modulePath);
 
 	UnRegisterTypeLib (LIBID_TrueCryptMainCom, TC_MAIN_COM_VERSION_MAJOR, TC_MAIN_COM_VERSION_MINOR, 0, SYS_WIN32);
 	UnRegisterTypeLib (LIBID_TrueCryptFormatCom, TC_FORMAT_COM_VERSION_MAJOR, TC_FORMAT_COM_VERSION_MINOR, 0, SYS_WIN32);
@@ -92,10 +93,10 @@ extern "C" BOOL UnregisterComServers (wchar_t *modulePath)
 	CRegObject ro;
 	ro.FinalConstruct ();
 
-	wsprintfW (module, L"%sVeraCrypt.exe", modulePath);
+	wsprintfW (module, L"%sLambCrypt.exe", modulePath);
 	ro.AddReplacement (L"MAIN_MODULE", module);
 
-	wsprintfW (module, L"%sVeraCrypt Format.exe", modulePath);
+	wsprintfW (module, L"%sLambCrypt Format.exe", modulePath);
 	ro.AddReplacement (L"FORMAT_MODULE", module);
 
 	wchar_t setupModule[MAX_PATH];

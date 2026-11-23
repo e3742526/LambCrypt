@@ -57,7 +57,11 @@ extern unsigned short _rotl16(unsigned short value, unsigned char shift);
 #include <stddef.h>
 #endif
 
-#define TC_APP_NAME						"VeraCrypt"
+#define TC_APP_NAME						"LambCrypt"
+
+// Text that identifies an installed boot loader. The boot loaders are built from
+// VeraCrypt sources and the prebuilt VeraCrypt-DCS EFI binaries, so they keep this name.
+#define TC_BOOT_LOADER_SIGNATURE		"VeraCrypt"
 
 // Version displayed to user 
 #define VERSION_STRING					"1.27.0"

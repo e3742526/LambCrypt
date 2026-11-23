@@ -382,7 +382,7 @@ Below are the procedure steps. Clicking on any of the link takes directly to the
     <p>
 		<ol>
 			<li>
-				Please open the file "src/VeraCrypt.sln" in Visual Studio <b>2022</b>
+				Please open the file "src/LambCrypt.sln" in Visual Studio <b>2022</b>
 			</li>
 			<li>
 				Please select "Release|x64" as active configuration.
@@ -415,9 +415,9 @@ Below are the procedure steps. Clicking on any of the link takes directly to the
 				If you are using Build Tools for Visual Studio 2022 instead of the Visual Studio IDE, open "Developer Command Prompt for VS 2022" or "Developer PowerShell for VS 2022", change to the VeraCrypt source root, and run the equivalent MSBuild commands (administrator rights are not required for compiling):
 				<br>
 				<code>
-					msbuild src\VeraCrypt.sln /m /p:Configuration=Release /p:Platform=x64 <br>
-					msbuild src\VeraCrypt.sln /m /p:Configuration=Release /p:Platform=ARM64 <br>
-					msbuild src\VeraCrypt.sln /m /p:Configuration=Release /p:Platform=Win32 <br>
+					msbuild src\LambCrypt.sln /m /p:Configuration=Release /p:Platform=x64 <br>
+					msbuild src\LambCrypt.sln /m /p:Configuration=Release /p:Platform=ARM64 <br>
+					msbuild src\LambCrypt.sln /m /p:Configuration=Release /p:Platform=Win32 <br>
 					msbuild src\Driver\Driver.vcxproj /m /p:Configuration=Release /p:Platform=x64 <br>
 					msbuild src\Driver\Driver.vcxproj /m /p:Configuration=Release /p:Platform=ARM64
 				</code>
@@ -425,8 +425,8 @@ Below are the procedure steps. Clicking on any of the link takes directly to the
 				To build the optional custom EFI/bootloader release configurations, also run:
 				<br>
 				<code>
-					msbuild src\VeraCrypt.sln /m /p:Configuration=ReleaseCustomEFI /p:Platform=x64 <br>
-					msbuild src\VeraCrypt.sln /m /p:Configuration=ReleaseCustomEFI /p:Platform=ARM64
+					msbuild src\LambCrypt.sln /m /p:Configuration=ReleaseCustomEFI /p:Platform=x64 <br>
+					msbuild src\LambCrypt.sln /m /p:Configuration=ReleaseCustomEFI /p:Platform=ARM64
 				</code>
 			</li>
 			<li>
@@ -510,7 +510,7 @@ Below are the procedure steps. Clicking on any of the link takes directly to the
 			</li>
 			<li>
 				<b>This distribution package is damaged</b> <br>
-				<img src="CompilingGuidelineWin/DistributionPackageDamaged.jpg" width="20%"> <br>
+				 <br>
 				On Windows 10 or higher you might get the error message above. In order to avoid this, you will need to:<br>
 				<ul>
 					<li>Double-check the installation of the root certificate that issued the test code signing certificate in the "Local Machine Trusted Root Certification Authorities" store.</li>
@@ -545,7 +545,7 @@ Below are the procedure steps. Clicking on any of the link takes directly to the
 			</li>
 			<li>
 				<b>Driver Installation Failure during VeraCrypt Setup from Custom Builds</b> <br>
-				<img src="CompilingGuidelineWin/CertVerifyFails.jpg" width="20%"> <br>
+				 <br>
 				Windows validates the signature for every driver which is going to be installed.<br>
 				For security reasons, Windows allows only drivers signed by Microsoft to load.<br>
 				So, when using a custom build:<br>
@@ -570,7 +570,7 @@ Below are the procedure steps. Clicking on any of the link takes directly to the
 							</li>
 								Check both by double clicking on it. If the headline says "The certificate in the signature cannot be verified", the corresponding signing certificate was not imported correctly.<br>
 								Click on "View Certificate" and then on "Install Certificate..." to import the certificate to Local Machine certificate storage. For the Root certificates, you may need to choose "Place all certificates in the following store", and select the "Trusted Root Certification Authorities" store.<br>
-								<img src="CompilingGuidelineWin/CertificateCannotBeVerified.jpg" width="40%"> <br>
+								 <br>
 							<li>
 						</ol>
 					</li>

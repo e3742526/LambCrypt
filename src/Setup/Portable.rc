@@ -43,12 +43,12 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "CompanyName", "AM Crypto"
-            VALUE "FileDescription", "VeraCrypt Portable"
+            VALUE "CompanyName", "LambCrypt contributors"
+            VALUE "FileDescription", "LambCrypt Portable"
             VALUE "FileVersion", "1.27.0"
-            VALUE "LegalTrademarks", "VeraCrypt"
-            VALUE "OriginalFilename", "VeraCrypt Portable.exe"
-            VALUE "ProductName", "VeraCrypt"
+            VALUE "LegalTrademarks", "LambCrypt"
+            VALUE "OriginalFilename", "LambCrypt Portable.exe"
+            VALUE "ProductName", "LambCrypt"
             VALUE "ProductVersion", "1.27.0"
         END
     END
@@ -97,8 +97,8 @@ END
 
 IDD_INSTL_DLG DIALOGEX 0, 0, 374, 231
 STYLE DS_SETFONT | DS_SETFOREGROUND | DS_FIXEDSYS | DS_CENTER | WS_MINIMIZEBOX | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "VeraCrypt Portable Wizard"
-CLASS "VeraCryptCustomDlg"
+CAPTION "LambCrypt Portable Wizard"
+CLASS "LambCryptCustomDlg"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
     PUSHBUTTON      "&Help",IDHELP,150,211,50,14
@@ -111,7 +111,7 @@ BEGIN
     CONTROL         "",IDC_SETUP_WIZARD_GFX_AREA,"Static",SS_GRAYRECT | NOT WS_VISIBLE,0,0,378,36,WS_EX_TRANSPARENT | WS_EX_STATICEDGE
     CONTROL         "",IDC_HR_BOTTOM,"Static",SS_ETCHEDHORZ,67,204,306,1,WS_EX_STATICEDGE
     CONTROL         "",IDC_HR,"Static",SS_ETCHEDHORZ,0,35,399,1,WS_EX_STATICEDGE
-    LTEXT           "VeraCrypt Portable",IDC_STATIC,4,200,62,8,WS_DISABLED
+    LTEXT           "LambCrypt Portable",IDC_STATIC,4,200,62,8,WS_DISABLED
     LTEXT           "",IDC_BOX_INFO,18,18,317,13,0,WS_EX_TRANSPARENT
     LTEXT           "",IDC_MAIN_CONTENT_CANVAS,0,36,374,164
     LTEXT           "",IDC_POS_BOX,14,42,346,155,0,WS_EX_TRANSPARENT
@@ -240,8 +240,8 @@ END
 // Bitmap
 //
 
-IDB_SETUP_WIZARD        BITMAP                  "VeraCrypt_setup.bmp"
-IDB_SETUP_WIZARD_BKG    BITMAP                  "VeraCrypt_setup_background.bmp"
+IDB_SETUP_WIZARD        BITMAP                  "LambCrypt_setup.bmp"
+IDB_SETUP_WIZARD_BKG    BITMAP                  "LambCrypt_setup_background.bmp"
 #endif    // English (United States) resources
 /////////////////////////////////////////////////////////////////////////////
 

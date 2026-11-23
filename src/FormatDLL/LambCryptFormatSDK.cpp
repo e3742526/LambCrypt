@@ -1,6 +1,6 @@
 /* Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. */
 /*
- * VeraCrypt Format SDK
+ * LambCrypt Format SDK
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * This file provides a C-style DLL interface for creating VeraCrypt file containers
+ * This file provides a C-style DLL interface for creating LambCrypt file containers
  * and formatting non-system partitions. It serves as a headless, thread-safe wrapper
- * around the core logic from Tcformat.c and related VeraCrypt source files.
+ * around the core logic from Tcformat.c and related LambCrypt source files.
  *
  * First created by Mounir IDRASSI (mounir.idrassi@amcrypto.jp)
  * 
@@ -43,7 +43,7 @@
 #include "Password.h"
 #include "Tests.h"
 #include "Wipe.h"
-#include "VeraCryptFormatSdk.h"
+#include "LambCryptFormatSdk.h"
 
 
 // Global variables from Tcformat.c we need to control
@@ -66,7 +66,7 @@ extern BOOL bGuiMode;
 // Core formatting function from Format.c
 int TCFormatVolume (volatile FORMAT_VOL_PARAMETERS *volParams);
 
-// Helper functions from other parts of VeraCrypt
+// Helper functions from other parts of LambCrypt
 void WipePasswordsAndKeyfiles (bool bFull);
 int DriverAttach ();
 BOOL AutoTestAlgorithms();
@@ -94,7 +94,7 @@ static void ShutdownLocked()
 	}
 }
 
-// Helper to map string representations to internal VeraCrypt EA IDs
+// Helper to map string representations to internal LambCrypt EA IDs
 static int MapEncryptionAlgorithm(const wchar_t* algoName)
 {
 	if (!algoName) return 0;
@@ -109,7 +109,7 @@ static int MapEncryptionAlgorithm(const wchar_t* algoName)
 	return 0; // Not found
 }
 
-// Helper to map string representations to internal VeraCrypt Hash IDs
+// Helper to map string representations to internal LambCrypt Hash IDs
 static int MapHashAlgorithm(const wchar_t* hashName)
 {
 	if (!hashName) return 0;
@@ -131,7 +131,7 @@ static int MapHashAlgorithm(const wchar_t* hashName)
 	return 0; // Not found
 }
 
-// Helper to map string representations to internal VeraCrypt Filesystem IDs
+// Helper to map string representations to internal LambCrypt Filesystem IDs
 static int MapFilesystem(const wchar_t* fsName)
 {
 	if (!fsName || _wcsicmp(fsName, L"None") == 0) return FILESYS_NONE;
@@ -144,7 +144,7 @@ static int MapFilesystem(const wchar_t* fsName)
 
 struct SdkProgressContext
 {
-	VeraCrypt_Progress_Callback UserCallback;
+	LambCrypt_Progress_Callback UserCallback;
 	uint64_t TotalSize;
 	void* UserData;
 };
@@ -168,7 +168,7 @@ static BOOL __cdecl SdkProgressCallback(unsigned __int64 bytesProcessed, void* c
 }
 
 // The core implementation of the volume creation logic. Not exported.
-static int CreateVolumeInternal(const VeraCryptFormatOptions* options)
+static int CreateVolumeInternal(const LambCryptFormatOptions* options)
 {
 	// --- Parameter validation ---
 	if (!options || !options->path || wcslen(options->path) == 0) return VCF_ERROR_INVALID_PARAMETER;
@@ -181,7 +181,7 @@ static int CreateVolumeInternal(const VeraCryptFormatOptions* options)
 	// strcpy_s below would terminate the calling process on a longer password.
 	if (options->password && strlen(options->password) > MAX_PASSWORD) return VCF_ERROR_PASSWORD_POLICY;
 
-	// Lock the mutex to protect the global state used by VeraCrypt's format code
+	// Lock the mutex to protect the global state used by LambCrypt's format code
 	std::lock_guard<std::mutex> lock(g_sdkMutex);
 
 	// Use a finally block to ensure cleanup of globals and memory
@@ -205,7 +205,7 @@ static int CreateVolumeInternal(const VeraCryptFormatOptions* options)
 	});
 
 
-	// --- Setup VeraCrypt's global state from our options struct ---
+	// --- Setup LambCrypt's global state from our options struct ---
 	bDevice = options->isDevice;
 	nVolumeSize = options->size;
 
@@ -372,7 +372,7 @@ static int CreateVolumeInternal(const VeraCryptFormatOptions* options)
 
 extern "C"
 {
-	VCF_API int __cdecl VeraCryptFormat_Initialize()
+	VCF_API int __cdecl LambCryptFormat_Initialize()
 	{
 		std::lock_guard<std::mutex> lock(g_sdkMutex);
 		if (g_isInitialized)
@@ -394,7 +394,7 @@ extern "C"
 		return VCF_SUCCESS;
 	}
 
-	VCF_API void __cdecl VeraCryptFormat_Shutdown()
+	VCF_API void __cdecl LambCryptFormat_Shutdown()
 	{
 		HMODULE selfReference;
 		{
@@ -410,7 +410,7 @@ extern "C"
 			FreeLibrary(selfReference);
 	}
 
-	VCF_API int __cdecl VeraCryptFormat(const VeraCryptFormatOptions* options)
+	VCF_API int __cdecl LambCryptFormat(const LambCryptFormatOptions* options)
 	{
 		if (!g_isInitialized)
 		{

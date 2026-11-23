@@ -33,6 +33,7 @@ namespace VeraCrypt
 
 		virtual void AppendToListCtrl (wxListCtrl *listCtrl, const vector <wstring> &itemFields, int imageIndex = -1, void *itemDataPtr = nullptr) const;
 		virtual wxMenuItem *AppendToMenu (wxMenu &menu, const wxString &label, wxEvtHandler *handler = nullptr, wxObjectEventFunction handlerFunction = nullptr, int itemId = wxID_ANY) const;
+		virtual bool AskLicenseAcceptance () const;
 		virtual bool AskYesNo (const wxString &message, bool defaultYes = false, bool warning = false) const;
 		virtual void AutoDismountVolumes (VolumeInfoList mountedVolumes, bool alwaysForce);
 		virtual void BackupVolumeHeaders (shared_ptr <VolumePath> volumePath) const;

@@ -68,9 +68,9 @@
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='ReleaseCustomEFI|Win32'">false</LinkIncremental>
     <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</GenerateManifest>
     <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='ReleaseCustomEFI|Win32'">true</GenerateManifest>
-    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">VeraCryptSetup</TargetName>
-    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">VeraCryptSetup</TargetName>
-    <TargetName Condition="'$(Configuration)|$(Platform)'=='ReleaseCustomEFI|Win32'">VeraCryptSetup</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">LambCryptSetup</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">LambCryptSetup</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='ReleaseCustomEFI|Win32'">LambCryptSetup</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -90,7 +90,7 @@
     <Link>
       <AdditionalOptions>/NODEFAULTLIB:LIBCMTD %(AdditionalOptions)</AdditionalOptions>
       <AdditionalDependencies>version.lib;msi.lib;libcmtd.lib;atls.lib;mpr.lib;..\Common\Debug\Zip.lib;..\Common\Debug\lzma.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)VeraCryptSetup.dll</OutputFile>
+      <OutputFile>$(OutDir)LambCryptSetup.dll</OutputFile>
       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
       <DelayLoadDLLs>mpr.dll;bcrypt.dll;user32.dll;gdi32.dll;advapi32.dll;shell32.dll;ole32.dll;oleaut32.dll;shlwapi.dll;setupapi.dll;wintrust.dll;comctl32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -107,7 +107,7 @@
     </Manifest>
     <PostBuildEvent>
       <Command>md "..\Debug\Setup Files" 2&gt;NUL:
-copy Debug\VeraCryptSetup.dll "..\Debug\Setup Files\VeraCryptSetup.dll" &gt;NUL:
+copy Debug\LambCryptSetup.dll "..\Debug\Setup Files\LambCryptSetup.dll" &gt;NUL:
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -131,7 +131,7 @@ copy Debug\VeraCryptSetup.dll "..\Debug\Setup Files\VeraCryptSetup.dll" &gt;NUL:
     <Link>
       <AdditionalOptions>/IGNORE:4089 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalDependencies>version.lib;atls.lib;msi.lib;mpr.lib;..\Common\Release\Zip.lib;..\Common\Release\lzma.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)VeraCryptSetup.dll</OutputFile>
+      <OutputFile>$(OutDir)LambCryptSetup.dll</OutputFile>
       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
       <DelayLoadDLLs>mpr.dll;bcrypt.dll;user32.dll;gdi32.dll;advapi32.dll;shell32.dll;ole32.dll;oleaut32.dll;shlwapi.dll;setupapi.dll;wintrust.dll;comctl32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -148,7 +148,7 @@ copy Debug\VeraCryptSetup.dll "..\Debug\Setup Files\VeraCryptSetup.dll" &gt;NUL:
       <AdditionalManifestFiles>Setup.manifest;%(AdditionalManifestFiles)</AdditionalManifestFiles>
     </Manifest>
     <PostBuildEvent>
-      <Command>copy Release\VeraCryptSetup.dll "..\Release\Setup Files\VeraCryptSetup.dll"</Command>
+      <Command>copy Release\LambCryptSetup.dll "..\Release\Setup Files\LambCryptSetup.dll"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseCustomEFI|Win32'">
@@ -170,7 +170,7 @@ copy Debug\VeraCryptSetup.dll "..\Debug\Setup Files\VeraCryptSetup.dll" &gt;NUL:
     <Link>
       <AdditionalOptions>/IGNORE:4089 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalDependencies>atls.lib;version.lib;msi.lib;mpr.lib;..\Common\Release\Zip.lib;..\Common\Release\lzma.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)VeraCryptSetup.dll</OutputFile>
+      <OutputFile>$(OutDir)LambCryptSetup.dll</OutputFile>
       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
       <DelayLoadDLLs>mpr.dll;bcrypt.dll;user32.dll;gdi32.dll;advapi32.dll;shell32.dll;ole32.dll;oleaut32.dll;shlwapi.dll;setupapi.dll;wintrust.dll;comctl32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -187,7 +187,7 @@ copy Debug\VeraCryptSetup.dll "..\Debug\Setup Files\VeraCryptSetup.dll" &gt;NUL:
       <AdditionalManifestFiles>Setup.manifest;%(AdditionalManifestFiles)</AdditionalManifestFiles>
     </Manifest>
     <PostBuildEvent>
-      <Command>copy Release\VeraCryptSetup.dll "..\Release\Setup Files\VeraCryptSetup.dll"</Command>
+      <Command>copy Release\LambCryptSetup.dll "..\Release\Setup Files\LambCryptSetup.dll"</Command>
     </PostBuildEvent>
     <ResourceCompile>
       <PreprocessorDefinitions>VC_EFI_CUSTOM_MODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -221,11 +221,11 @@ copy Debug\VeraCryptSetup.dll "..\Debug\Setup Files\VeraCryptSetup.dll" &gt;NUL:
   <ItemGroup>
     <None Include="ComSetup.rgs" />
     <None Include="Setup.ico" />
-    <None Include="..\Common\VeraCrypt.ico" />
+    <None Include="..\Common\LambCrypt.ico" />
     <None Include="SetupDLL.def" />
-    <None Include="VeraCrypt_setup.bmp" />
-    <None Include="VeraCrypt_setup_background.bmp" />
-    <None Include="..\Common\VeraCrypt_Volume.ico" />
+    <None Include="LambCrypt_setup.bmp" />
+    <None Include="LambCrypt_setup_background.bmp" />
+    <None Include="..\Common\LambCrypt_Volume.ico" />
     <None Include="..\Common\Language.xml" />
     <None Include="..\Resources\Texts\License.rtf" />
     <None Include="..\Common\Textual_logo_288dpi.bmp" />

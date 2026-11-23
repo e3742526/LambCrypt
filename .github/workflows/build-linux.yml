@@ -89,6 +89,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # Accept the LambCrypt license terms for test processes (see Installing LambCrypt).
+  LAMBCRYPT_LICENSE_ACCEPTED: "1"
   WXWIDGETS_VERSION: 3.2.5
   # SHA-256 of wxWidgets-3.2.5.tar.bz2 (its SHA-1 matches the release notes).
   # Update together with WXWIDGETS_VERSION.
@@ -207,6 +209,8 @@ jobs:
     - name: Install and test LambCrypt GUI .deb packages
       run: |
         sudo apt install -y /tmp/LambCrypt_Packaging/GUI/Packaging/lambcrypt-*.deb
+        # sudo resets the environment, so record root's acceptance explicitly.
+        sudo lambcrypt --text --accept-license
         python3 Tests/test_linux_privilege_helpers.py --veracrypt "$(command -v lambcrypt)"
         python3 Tests/test_linux_service_inheritance.py --veracrypt "$(command -v lambcrypt)"
         lambcrypt --text --test && lambcrypt --text --version
@@ -250,6 +254,7 @@ jobs:
     - name: Install and test LambCrypt Console .deb packages
       run: |
         sudo apt install -y /tmp/LambCrypt_Packaging/Console/Packaging/lambcrypt-console-*.deb
+        sudo lambcrypt --text --accept-license
         python3 Tests/test_linux_service_inheritance.py --veracrypt "$(command -v lambcrypt)"
         lambcrypt --test && lambcrypt --version
         sudo lambcrypt --non-interactive Tests/test.sha256.hc --hash sha256 --slot 1 --password test --mount-options=ro

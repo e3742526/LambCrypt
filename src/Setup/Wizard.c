@@ -263,7 +263,7 @@ BOOL CALLBACK PageDialogProc (HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPa
 				SetCheckBox (hwndDlg, IDC_AGREE, bLicenseAccepted);
 
 				SetWindowTextW (GetDlgItem (GetParent (hwndDlg), IDC_BOX_TITLE), L"Please read the license terms");
-				SetWindowTextW (GetDlgItem (GetParent (hwndDlg), IDC_BOX_INFO), L"You must accept these license terms before you can use, extract, or install VeraCrypt.");
+				SetWindowTextW (GetDlgItem (GetParent (hwndDlg), IDC_BOX_INFO), L"You must accept these license terms before you can use, extract, or install LambCrypt.");
 				SetWindowTextW (GetDlgItem (hwndDlg, IDC_BOX_HELP), L"IMPORTANT: By checking the checkbox below, you accept these license terms and signify that you understand and agree to them. Please click the 'arrow down' icon to see the rest of the license.");	// Cannot be localized by third parties (for legal reasons).
 				//SendMessage (GetDlgItem (hwndDlg, IDC_BOX_HELP), WM_SETFONT, (WPARAM) hUserBoldFont, (LPARAM) TRUE);
 
@@ -331,7 +331,7 @@ BOOL CALLBACK PageDialogProc (HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPa
 			if (wcslen(WizardDestExtractPath) < 2)
 			{
 				StringCbCopyW (WizardDestExtractPath, sizeof(WizardDestExtractPath), SetupFilesDir);
-				StringCbCatNW (WizardDestExtractPath, sizeof(WizardDestExtractPath), L"VeraCrypt\\", ARRAYSIZE (WizardDestExtractPath) - wcslen (WizardDestExtractPath) - 1);
+				StringCbCatNW (WizardDestExtractPath, sizeof(WizardDestExtractPath), L"LambCrypt\\", ARRAYSIZE (WizardDestExtractPath) - wcslen (WizardDestExtractPath) - 1);
 			}
 
 			SendMessage (GetDlgItem (hwndDlg, IDC_DESTINATION), EM_LIMITTEXT, TC_MAX_PATH - 1, 0);
@@ -895,9 +895,9 @@ BOOL CALLBACK MainDialogProc (HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPa
 
 			SendMessage (GetDlgItem (hwndDlg, IDC_BOX_TITLE), WM_SETFONT, (WPARAM) hUserBoldFont, (LPARAM) TRUE);
 #ifndef PORTABLE
-			SetWindowText (hwndDlg, L"VeraCrypt Setup " _T(VERSION_STRING) _T(VERSION_STRING_SUFFIX));
+			SetWindowText (hwndDlg, L"LambCrypt Setup " _T(VERSION_STRING) _T(VERSION_STRING_SUFFIX));
 #else
-			SetWindowText (hwndDlg, L"VeraCrypt Portable " _T(VERSION_STRING) _T(VERSION_STRING_SUFFIX));
+			SetWindowText (hwndDlg, L"LambCrypt Portable " _T(VERSION_STRING) _T(VERSION_STRING_SUFFIX));
 #endif
 
 			DonColorSchemeId = GetDonVal (2, 9);

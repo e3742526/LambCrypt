@@ -59,6 +59,7 @@ namespace VeraCrypt
 		ArgDisableFileSizeCheck (false),
 		ArgUseLegacyPassword (false),
 		ArgUseDummySudoPassword (false),
+		ArgAcceptLicense (false),
 #if defined(TC_UNIX)
 		ArgAllowInsecureMount (false),
  #endif
@@ -88,6 +89,7 @@ namespace VeraCrypt
 #ifdef TC_LINUX
 		parser.AddSwitch (L"",	L"emergency-unmount",	_("Attempt emergency cleanup if normal Linux unmount fails"));
 #endif
+		parser.AddSwitch (L"",	L"accept-license",		_("Accept the license terms and record the acceptance"));
 		parser.AddSwitch (L"",	L"display-password",	_("Display password while typing"));
 		parser.AddOption (L"",	L"encryption",			_("Encryption algorithm"));
 		parser.AddSwitch (L"",	L"explore",				_("Open explorer window for mounted volume"));
@@ -437,6 +439,7 @@ namespace VeraCrypt
 		ArgEmergencyUnmount = parser.Found (L"emergency-unmount");
 #endif
 
+		ArgAcceptLicense = parser.Found (L"accept-license");
 		ArgDisableFileSizeCheck = parser.Found (L"no-size-check");
 		ArgUseLegacyPassword = parser.Found (L"legacy-password-maxlength");
 #if defined(TC_LINUX ) || defined (TC_FREEBSD)
@@ -785,7 +788,7 @@ namespace VeraCrypt
 			throw_err (L"--emergency-unmount is supported only with an unmount command");
 #endif
 
-		if (ArgCommand == CommandId::None && Application::GetUserInterfaceType() == UserInterfaceType::Text)
+		if (ArgCommand == CommandId::None && !ArgAcceptLicense && Application::GetUserInterfaceType() == UserInterfaceType::Text)
 			parser.Usage();
 	}
 

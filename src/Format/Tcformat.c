@@ -558,7 +558,7 @@ static BOOL CALLBACK BroadcastSysEncCfgUpdateCallb (HWND hwnd, LPARAM lParam)
 	{
 		wchar_t name[1024] = { 0 };
 		GetWindowText (hwnd, name, ARRAYSIZE (name) - 1);
-		if (hwnd != MainDlg && wcsstr (name, L"VeraCrypt"))
+		if (hwnd != MainDlg && wcsstr (name, L"LambCrypt"))
 		{
 			PostMessage (hwnd, TC_APPMSG_SYSENC_CONFIG_UPDATE, 0, 0);
 		}
@@ -6439,9 +6439,9 @@ BOOL CALLBACK MainDialogProc (HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPa
 
 			SHGetFolderPath (NULL, CSIDL_MYDOCUMENTS, NULL, 0, szRescueDiskISO);
 			if (bSystemIsGPT)
-				StringCbCatW (szRescueDiskISO, sizeof(szRescueDiskISO), L"\\VeraCrypt Rescue Disk.zip");
+				StringCbCatW (szRescueDiskISO, sizeof(szRescueDiskISO), L"\\LambCrypt Rescue Disk.zip");
 			else
-				StringCbCatW (szRescueDiskISO, sizeof(szRescueDiskISO), L"\\VeraCrypt Rescue Disk.iso");
+				StringCbCatW (szRescueDiskISO, sizeof(szRescueDiskISO), L"\\LambCrypt Rescue Disk.iso");
 
 			// Availability of in-place encryption (which is pre-selected by default whenever
 			// possible) makes partition-hosted volume creation safer.

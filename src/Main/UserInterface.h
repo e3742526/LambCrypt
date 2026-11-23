@@ -1,3 +1,4 @@
+/* Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. */
 /*
  Derived from source code of TrueCrypt 7.1a, which is
  Copyright (c) 2008-2012 TrueCrypt Developers Association and which is governed
@@ -30,6 +31,7 @@ namespace VeraCrypt
 	public:
 		virtual ~UserInterface ();
 
+		virtual bool AskLicenseAcceptance () const;
 		virtual bool AskYesNo (const wxString &message, bool defaultYes = false, bool warning = false) const = 0;
 		virtual void BackupVolumeHeaders (shared_ptr <VolumePath> volumePath) const = 0;
 		virtual void BeginBusyState () const = 0;
@@ -54,6 +56,8 @@ namespace VeraCrypt
 		virtual const UserPreferences &GetPreferences () const { return Preferences; }
 		virtual void ImportTokenKeyfiles () const = 0;
 		virtual void Init ();
+		static bool IsLicenseAccepted ();
+		static void RecordLicenseAcceptance ();
 		virtual void InitSecurityTokenLibrary () const = 0;
 		virtual void ListMountedVolumes (const VolumeInfoList &volumes) const;
 		virtual void ListTokenKeyfiles () const = 0;

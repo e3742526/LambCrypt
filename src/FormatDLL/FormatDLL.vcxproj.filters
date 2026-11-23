@@ -18,7 +18,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="VeraCryptFormatSDK.cpp">
+    <ClCompile Include="LambCryptFormatSDK.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\Common\CommandAPDU.cpp">
@@ -137,7 +137,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="VeraCryptFormatSDK.h">
+    <ClInclude Include="LambCryptFormatSDK.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

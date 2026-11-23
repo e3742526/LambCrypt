@@ -1,4 +1,4 @@
-LIBRARY VERACRYPTSETUP
+LIBRARY LAMBCRYPTSETUP
 EXPORTS
 	VC_CustomAction_PreInstall
 	VC_CustomAction_PostInstall
