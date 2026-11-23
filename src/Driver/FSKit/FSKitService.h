@@ -19,6 +19,7 @@ namespace VeraCrypt
 		void ObserveAttachedMedia (int activationChannel, const DevicePath &device);
 		void ObserveLateAttachedMedia (int activationChannel);
 		DevicePath GetAttachedDiskImageDevice (const DirectoryPath &mountPoint);
+		bool IsDiskImageAbsentAfterAuxiliaryUnmount (const DirectoryPath &mountPoint);
 		uint64 GetMediaIdentity (const DevicePath &device);
 		int AcquireUnmountLock (const DirectoryPath &mountPoint);
 		void UnmountAuxiliary (const DirectoryPath &mountPoint, bool force);

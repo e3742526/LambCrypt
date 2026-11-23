@@ -738,6 +738,16 @@ image and IOKit media. Writable teardown verifies the worker's encrypted
 file sync after the image detaches. The same check runs before worker
 cleanup after an external eject. A failed sync leaves the worker available.
 
+If macOS removes a published auxiliary mount before releasing the disk
+image, the worker keeps its reservations and socket. After the mounting
+caller hands off attachment observation, a bounded helper checks the exact
+image path in Disk Images, even though the backing file no longer
+resolves. The worker can exit when both inventories confirm absence. A
+retained image or failed inventory query keeps it running and backs off before
+retrying. Startup rollback releases its attachment handoff before waiting
+for worker exit. The discovery regression simulates a retained image with a
+missing auxiliary path, an incomplete inventory, and eventual image release.
+
 Validation used macOS 26.6.2 (25G83), arm64, and Xcode SDK 27.2.
 The integrated native trials ran on the physical Apple Silicon Mac using
 the signed development app built from `c5d9e1f3` and the normal Disk Images
@@ -827,6 +837,19 @@ The host reported the FSKit module disabled on later scratch registration
 attempts despite an enabled PlugInKit record. Those mounts failed before
 Disk Images attached. The guest matrix independently passed with the same
 runtime code. The host registration discrepancy remains open.
+
+The worker-retention change passed the offline discovery and worker
+protocol suites and compiled into a signed arm64 Tahoe development build
+with passing crypto self-tests. Its development installer preserved the
+signed payload. The rebuilt FUSE-T 1.2.9 client passed its FAT write,
+sync, read-only remount and cleanup trial. The rebuilt default macFUSE
+client linked and passed its crypto self-tests using the extracted vendor
+libraries and framework. The kernel driver remains unavailable for live
+mounts. The physical host reproduced the same enablement failure
+before the new build reached Disk Images. The host inventory and prior
+registration were checked after the attempt. The earlier signed matrix
+remains evidence for the filesystem routes. Live teardown after auxiliary
+loss still requires a signed runtime trial on the updated build.
 
 ### Warm-cache HFS+ comparison on the MVP revision
 

@@ -187,7 +187,8 @@ namespace VeraCrypt
 		return Process::ExecuteBounded ("/usr/bin/hdiutil", args, 2000);
 	}
 
-	static bool FindDiskImageInfoByImagePath (const string &xml, const string &imagePath, DevicePath &device, DirectoryPath &mountPoint)
+	static bool FindDiskImageInfoByImagePath (const string &xml, const string &imagePath, DevicePath &device, DirectoryPath &mountPoint,
+		bool imagePathIsCanonical = false)
 	{
 		CFHolder plist (ParsePropertyList (xml));
 		if (!plist.Get() || CFGetTypeID (plist.Get()) != CFDictionaryGetTypeID())
@@ -201,7 +202,7 @@ namespace VeraCrypt
 		if (imageCount == 0)
 			return false;
 
-		string canonicalImagePath = CanonicalizeDiskImagePath (imagePath);
+		const string canonicalImagePath = imagePathIsCanonical ? imagePath : CanonicalizeDiskImagePath (imagePath);
 		size_t imageSeparator = canonicalImagePath.find_last_of ('/');
 		if (imageSeparator == string::npos || imageSeparator == 0)
 			throw ParameterIncorrect (SRC_POS);
@@ -286,6 +287,16 @@ namespace VeraCrypt
 		FindDiskImageInfoByImagePath (GetDiskImageInventory(),
 			string (mountPoint) + FuseService::GetVolumeImagePath(), device, innerMount);
 		return device;
+	}
+
+	bool FSKit::IsDiskImageAbsentAfterAuxiliaryUnmount (const DirectoryPath &mountPoint)
+	{
+		// The worker was given the canonical auxiliary path at startup. The
+		// image file may no longer resolve after the auxiliary mount disappears.
+		DevicePath device;
+		DirectoryPath innerMount;
+		return !FindDiskImageInfoByImagePath (GetDiskImageInventory(),
+			string (mountPoint) + FuseService::GetVolumeImagePath(), device, innerMount, true);
 	}
 
 	static void ConfirmDiskImageMedia (const DirectoryPath &auxiliary, const DevicePath &device, uint64 expectedMedia)

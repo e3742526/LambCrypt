@@ -1765,6 +1765,15 @@ namespace VeraCrypt
 			try { throw; }
 			catch (exception &e) { SystemLog::WriteException (e); }
 			catch (...) { }
+#ifdef VC_MACOSX_FSKIT
+			// Rollback can wait for the worker to exit. Hand off attachment
+			// observation before it starts, so the worker never waits on us.
+			if (needsMediaObservation)
+				FSKit::ObserveLateAttachedMedia (activationChannel);
+			needsMediaObservation = false;
+			close (activationChannel);
+			activationChannel = -1;
+#endif
 			try
 			{
 				shared_ptr <VolumeInfo> cleanupVolume (new VolumeInfo);
@@ -1774,9 +1783,6 @@ namespace VeraCrypt
 				cleanupVolume->SerialInstanceNumber = mountServiceSerialInstanceNumber;
 				cleanupVolume->AuxMountPoint = fuseMountPoint;
 				DismountVolume (cleanupVolume);
-#ifdef VC_MACOSX_FSKIT
-				needsMediaObservation = false;
-#endif
 			}
 			catch (DismountServiceCleanupFailed &) { throw; }
 			catch (exception &e)

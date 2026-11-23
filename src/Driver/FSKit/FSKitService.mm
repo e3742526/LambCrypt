@@ -239,6 +239,7 @@ namespace VeraCrypt
 				using Clock = std::chrono::steady_clock;
 				Clock::time_point publicationDeadline;
 				Clock::time_point nextMediaCheck;
+				Clock::time_point nextExitCheck;
 				fsid_t identity = {};
 				uint64 media = 0;
 				uint64 incomingMedia = 0;
@@ -249,14 +250,15 @@ namespace VeraCrypt
 				bool observeMount = false;
 				bool committed = false;
 				bool observeLateMedia = false;
+				bool checkingImageAbsence = false;
 				while (true)
 				{
+					bool auxiliaryGone = false;
 					if (committed)
 					{
 						try
 						{
-							if (!IsServiceMountPresent (directory, mountPoint, identity))
-								break;
+							auxiliaryGone = !IsServiceMountPresent (directory, mountPoint, identity);
 						}
 						catch (const SystemException &) { }
 					}
@@ -280,6 +282,12 @@ namespace VeraCrypt
 						if (finished > 0 || (finished < 0 && errno != EINTR))
 						{
 							helper = -1;
+							if (checkingImageAbsence)
+							{
+								checkingImageAbsence = false;
+								if (auxiliaryGone && finished > 0 && WIFEXITED (status) && WEXITSTATUS (status) == 0)
+									break;
+							}
 							if (mediaReport >= 0)
 							{
 								if (finished > 0 && WIFEXITED (status) && WEXITSTATUS (status) == 0)
@@ -298,7 +306,24 @@ namespace VeraCrypt
 					}
 					// Disk Images queries and unmount run in a helper, with the
 					// worker serving the filesystem throughout either operation.
-					if (committed && observeLateMedia)
+					if (auxiliaryGone)
+					{
+						// Wait for the mounting caller's attachment handoff. The
+						// extension can disappear while Disk Images still has a disk.
+						if (descriptors[1].fd < 0 && helper < 0 && Clock::now() >= nextExitCheck)
+						{
+							nextExitCheck = Clock::now() + std::chrono::seconds (5);
+							helper = fork();
+							if (helper == 0)
+							{
+								closeWorkerDescriptors();
+								try { _exit (IsDiskImageAbsentAfterAuxiliaryUnmount (mountPoint) ? 0 : 1); }
+								catch (...) { _exit (1); }
+							}
+							checkingImageAbsence = helper > 0;
+						}
+					}
+					else if (committed && observeLateMedia && helper < 0)
 					{
 						observeLateMedia = false;
 						int report[2];
@@ -319,7 +344,7 @@ namespace VeraCrypt
 								close (report[0]);
 						}
 					}
-					if (committed && media != 0 && helper < 0 && Clock::now() >= nextMediaCheck)
+					if (committed && !auxiliaryGone && media != 0 && helper < 0 && Clock::now() >= nextMediaCheck)
 					{
 						nextMediaCheck = Clock::now() + std::chrono::seconds (1);
 						uint64 current;

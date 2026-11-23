@@ -57,6 +57,11 @@ discovery before destructive operations. The auxiliary mount timeout check
 verifies that a mount already visible in the kernel table retains its worker
 for dismount. The teardown tests use a real directory lock and simulated
 kernel snapshots to check transient mount disappearance and worker exit.
+It also simulates macOS dropping an auxiliary mount while its disk image
+is still attached. The worker must retain its endpoint through a retained
+or incomplete Disk Images inventory and exit once the exact image is gone.
+The startup rollback regression verifies the mounting caller hands over
+attachment observation before waiting for worker exit.
 The runner also runs `macos_process_test.cpp`
 against the real platform archive, checking subprocess deadlines, output limits,
 descriptor isolation, error reporting, and child reaping with its own helper

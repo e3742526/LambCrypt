@@ -45,6 +45,8 @@ def main():
             "alias": {"images": [alias_image]},
             "absent": {"images": []},
             "unrelated": {"images": [dict(exact, **{"image-path": "/offline/unrelated.dmg"})]},
+            "retained_after_auxiliary_loss": {"images": [
+                dict(exact, **{"image-path": str(work / "removed-auxiliary" / "volume.dmg")})]},
             "exact_after_unknown": {"images": [unknown_alias, {}, exact]},
             "unknown_alias": {"images": [unknown_alias]},
             "unknown_record": {"images": [{}]},
@@ -319,6 +321,7 @@ namespace FSKit {
     int AcquireUnmountLock(const DirectoryPath &);
     void UnmountAuxiliary(const DirectoryPath &, bool);
     DevicePath GetAttachedDiskImageDevice(const DirectoryPath &);
+    bool IsDiskImageAbsentAfterAuxiliaryUnmount(const DirectoryPath &);
     static uint64 GetMediaIdentity(const DevicePath &) {
         if (MediaReads.empty()) return 42;
         const uint64 media = MediaReads.front();
@@ -425,6 +428,7 @@ static const string StartupContainer = "/disposable.hc";
 static const uint64 StartupSerial = 42;
 static bool RefuseRollback;
 static bool UnconfirmedRollback;
+static bool StartupChannelClosed;
 static shared_ptr<VolumeInfo> RollbackTarget;
 static vector<int> LateAttachmentChannels;
 static vector<int> AttachedMediaChannels;
@@ -443,6 +447,7 @@ static shared_ptr<VolumeInfo> GetMountedVolume(const DirectoryPath &) {
 }
 
 static void DismountVolume(shared_ptr<VolumeInfo> volume) {
+    if (!StartupChannelClosed) throw runtime_error("rollback held the worker activation channel open");
     RollbackTarget = volume;
     if (UnconfirmedRollback) throw DismountServiceCleanupFailed(SRC_POS, L"detach remains unconfirmed");
     if (RefuseRollback) throw runtime_error("worker identity unavailable");
@@ -451,10 +456,17 @@ static void DismountVolume(shared_ptr<VolumeInfo> volume) {
 enum class StartupFailure { BeforeAttach, AttachTimeout, AfterAttach, AfterHandoff };
 struct NotApplicable {};
 
+static int CloseStartupChannel(int channel) {
+    if (channel != 15 || StartupChannelClosed) throw runtime_error("wrong startup channel");
+    StartupChannelClosed = true;
+    return 0;
+}
+#define close CloseStartupChannel
 static void SimulateStartupFailure(StartupFailure failure) {
+    StartupChannelClosed = false;
     const string fuseMountPoint = StartupAuxiliary;
     const uint64 mountServiceSerialInstanceNumber = StartupSerial;
-    const int activationChannel = 15;
+    int activationChannel = 15;
     auto volume = make_shared<Volume>();
     volume->Path = StartupContainer;
     MountOptions options;
@@ -479,7 +491,7 @@ static void SimulateStartupFailure(StartupFailure failure) {
         }
         throw runtime_error("startup failed");
     }
-''' + rollback + "\n}\n"
+''' + rollback + "\n}\n#undef close\n"
         observation_fixture = r'''
 namespace MediaObservationTest {
 static vector<pair<int, uint64>> Reports;
@@ -579,7 +591,9 @@ public:
 namespace WorkerPublicationTest {
 static chrono::milliseconds Elapsed;
 static int PublishAfter, UnavailableThrough, Probes, Requests, MountedChecks;
-static bool SentActivation, Cancel, InitiallyUnavailable;
+static int ExitChecks, UnconfirmedExitChecks;
+static bool SentActivation, SentHandoff, Cancel, InitiallyUnavailable;
+static bool HelperRunning;
 struct PublicationClock {
     using time_point = chrono::steady_clock::time_point;
     static time_point now() { return time_point(Elapsed); }
@@ -606,14 +620,20 @@ static int Poll(pollfd *descriptors, unsigned int, int timeout) {
     }
     if (timeout != 200) throw runtime_error("worker stopped checking for late publication");
     if (Cancel && descriptors[1].fd != -1) throw runtime_error("worker kept polling the cancellation EOF");
+    if (MountedChecks > 1 && descriptors[1].fd >= 0 && !SentHandoff) {
+        SentHandoff = true;
+        descriptors[1].revents = POLLIN;
+        return 1;
+    }
     Elapsed += chrono::milliseconds(timeout);
-    if (Requests == 0) {
+    if (Elapsed > chrono::seconds(18)) throw runtime_error("worker failed to exit after confirmed image absence");
+    if (Requests == 0 || (Requests == 1 && HelperRunning && UnconfirmedExitChecks > 0)) {
         descriptors[0].revents = POLLIN;
         return 1;
     }
     return 0;
 }
-static ssize_t Read(int, void *byte, size_t) { *static_cast<char *>(byte) = 1; return Cancel ? 0 : 1; }
+static ssize_t Read(int, void *byte, size_t) { *static_cast<char *>(byte) = 1; return Cancel || SentHandoff ? 0 : 1; }
 static int Accept(int, void *, void *) { return 15; }
 static int Close(int) { return 0; }
 static void ServeRequest(int, uid_t, Volume &, VolumeInfo &, const array<uint8_t, 16> &) { ++Requests; }
@@ -622,17 +642,37 @@ static bool LookupMedia(uint64, uint64 &) { throw runtime_error("worker watched 
 static void CleanupEjectedMount(const string &, const fsid_t &) { throw runtime_error("unexpected eject helper"); }
 static uint64 FindLateMedia(const string &, const fsid_t &) { throw runtime_error("unexpected late attach helper"); }
 static void SendMediaIdentity(int, uint64) { throw runtime_error("unexpected media report"); }
+static bool IsDiskImageAbsentAfterAuxiliaryUnmount(const string &) {
+    throw runtime_error("inventory must run in the helper, not the worker");
+}
+static pid_t Fork() {
+    if (HelperRunning || (!Cancel && !SentHandoff))
+        throw runtime_error("exit check overlapped another helper or the mounting caller");
+    HelperRunning = true;
+    ++ExitChecks;
+    return 16;
+}
+static pid_t WaitForHelper(pid_t child, int *status, int) {
+    if (!HelperRunning || child != 16) throw runtime_error("wrong helper");
+    HelperRunning = false;
+    *status = ExitChecks <= UnconfirmedExitChecks ? 1 << 8 : 0;
+    return child;
+}
 
 #define poll Poll
 #define read Read
 #define accept Accept
 #define close Close
+#define fork Fork
+#define waitpid WaitForHelper
 #define MountTableEntry PublicationTableEntry
 static void Simulate(int publishAfter, bool cancel = false, bool initiallyUnavailable = false,
-                     int unavailableThrough = 0) {
+                     int unavailableThrough = 0, int unconfirmedExitChecks = 0) {
     Elapsed = chrono::milliseconds(0);
     Probes = Requests = MountedChecks = 0;
-    SentActivation = false;
+    SentActivation = SentHandoff = HelperRunning = false;
+    ExitChecks = 0;
+    UnconfirmedExitChecks = unconfirmedExitChecks;
     PublishAfter = publishAfter;
     UnavailableThrough = unavailableThrough;
     Cancel = cancel;
@@ -646,6 +686,8 @@ static void Simulate(int publishAfter, bool cancel = false, bool initiallyUnavai
 ''' + worker_loop + r'''
 }
 #undef MountTableEntry
+#undef waitpid
+#undef fork
 #undef close
 #undef accept
 #undef read
@@ -669,12 +711,12 @@ static void CheckMediaObservation() {
 static void CheckLateWorkerPublication() {
     using namespace WorkerPublicationTest;
     Simulate(3);
-    Require(Probes == 3 && Requests == 1 && MountedChecks == 1,
+    Require(Probes == 3 && Requests == 1 && ExitChecks == 1,
             "worker exited before a late mount appeared or stopped responding during publication");
     Simulate(0);
     Require(MountedChecks == 0 && Elapsed == chrono::seconds(10), "a mount that never published did not expire");
     Simulate(1, true);
-    Require(Probes == 1 && MountedChecks == 1 && Elapsed == chrono::milliseconds(0),
+    Require(Probes == 1 && ExitChecks == 1,
             "worker stopped despite auxiliary publication racing cancellation");
     Simulate(0, true);
     Require(Probes == 1 && Elapsed == chrono::milliseconds(0), "confirmed cancellation entered the publication wait");
@@ -682,14 +724,17 @@ static void CheckLateWorkerPublication() {
     Require(MountedChecks == 0 && Requests == 1 && Elapsed == chrono::seconds(10),
             "unconfirmed cancellation did not bound its publication wait while serving requests");
     Simulate(3, true, true);
-    Require(Probes == 3 && Requests == 1 && MountedChecks == 1,
+    Require(Probes == 3 && Requests == 1 && ExitChecks == 1,
             "worker failed to retain a mount published after an inconclusive cancellation");
     Simulate(54, false, false, 53);
-    Require(Probes == 54 && Requests == 1 && MountedChecks == 1,
+    Require(Probes == 54 && Requests == 1 && ExitChecks == 1,
             "worker exited at the publication deadline without a usable mount table");
     Simulate(0, false, false, 53);
     Require(Probes == 54 && Requests == 1 && MountedChecks == 0 && Elapsed == chrono::milliseconds(10600),
             "worker did not release its resources when inventory recovered and confirmed absence");
+    Simulate(3, false, false, 0, 2);
+    Require(ExitChecks == 3 && Requests == 2 && Elapsed >= chrono::seconds(10),
+            "worker failed to retain the attachment, serve requests and back off before retrying");
 }
 static void CheckBackingReservation(const string &root, const string &image) {
     const int original = open(image.c_str(), O_RDONLY | O_CLOEXEC);
@@ -966,7 +1011,9 @@ static void CheckStartupRollback() {
         Require(keptStartupError && RollbackTarget && RollbackTarget->AuxMountPoint == StartupAuxiliary
                 && RollbackTarget->SerialInstanceNumber == StartupSerial && RollbackTarget->SlotNumber == 2
                 && RollbackTarget->Path == StartupContainer, "startup rollback used a replacement mount identity");
-        Require(LateAttachmentChannels.empty(), "confirmed rollback requested a late attach probe");
+        Require(StartupChannelClosed, "confirmed rollback did not release the activation channel");
+        Require(LateAttachmentChannels == (failure == StartupFailure::AfterAttach ? vector<int>{15} : vector<int>{}),
+                "rollback handed off the wrong attachment state");
     }
 
     RefuseRollback = true;
@@ -1273,6 +1320,17 @@ int main(int argc, char **argv) {
         const DirectoryPath vanishedBacking = root + "/removed-auxiliary";
         Require(FSKit::GetAttachedDiskImageDevice(vanishedBacking).IsEmpty(),
                 "an empty image inventory depended on the backing path");
+        Inventory = Read(root + "/retained_after_auxiliary_loss");
+        Require(!FSKit::IsDiskImageAbsentAfterAuxiliaryUnmount(vanishedBacking),
+                "a retained disk image was missed after its auxiliary mount disappeared");
+        Inventory = Read(root + "/unrelated");
+        Require(FSKit::IsDiskImageAbsentAfterAuxiliaryUnmount(vanishedBacking),
+                "an unrelated disk image prevented confirmed absence after auxiliary mount loss");
+        Inventory = Read(root + "/unknown_record");
+        bool unknownAfterLoss = false;
+        try { FSKit::IsDiskImageAbsentAfterAuxiliaryUnmount(vanishedBacking); }
+        catch (const std::exception &) { unknownAfterLoss = true; }
+        Require(unknownAfterLoss, "an incomplete image inventory confirmed worker exit after auxiliary mount loss");
         for (const auto &name : {"unknown_alias", "unknown_record", "bad_entities", "broken"}) {
             bool failed=false; DevicePath device; DirectoryPath mount;
             try { FindDiskImageInfoByImagePath(Read(root+"/"+name),image,device,mount); }
@@ -1318,7 +1376,7 @@ int main(int argc, char **argv) {
         SlotViewTest::CheckOpenSelectedVolume();
         std::cout << "PASS: Finder opens require a fresh visible volume identity\n";
         CheckLateWorkerPublication();
-        std::cout << "PASS: late publication, requests while pending, expiration, and immediate cancellation\n";
+        std::cout << "PASS: late publication, cancellation, worker retention, and exit after disk image release\n";
         CheckAuxiliaryMountStartup();
         std::cout << "PASS: auxiliary mount deadline and confirmed and unconfirmed worker cleanup\n";
         CheckWorkerTeardown(root + "/unused-mount");
