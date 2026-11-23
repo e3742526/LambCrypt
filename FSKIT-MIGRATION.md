@@ -30,10 +30,17 @@ available, and the application ships in English.
   environment file and run `LOCAL_DEVELOPMENT_BUILD=true make -C src WITHFSKIT=1 prepare`.
   The recipe reads the Team ID from the profile, builds matching App Group
   entitlements, and signs the extension before signing the app.
+- [ ] When signing successive FSKit candidates with the same marketing
+  version, export an increasing `VC_FSKIT_BUILD_VERSION` before building.
+  Use one to three dot-separated integers. Make writes the value to both
+  the app and extension before signing. The standard app has the preferred
+  Finder handler rank for VeraCrypt containers when both apps are installed.
 - [ ] Run `codesign --verify --deep --strict src/Main/LambCrypt-FSKit.app`.
-  Verify the app and extension are signed by the same team and have matching
-  App Group entitlements. The extension should have the provisioned application
-  identifier and FSKit Module entitlement. In System Settings, go to General
+  Run `bash src/Setup/MacOSX/verify_fskit_bundle.sh src/Main/LambCrypt-FSKit.app`
+  to check arm64, deployment target, bundle versions, signature and embedded
+  profile agreement, App Group entitlements, and the opt-in document handler
+  rank. The same verifier accepts the app extracted from a development package.
+  In System Settings, go to General
   → Login Items & Extensions → By Category → File System Extensions and
   enable LambCrypt FSKit. Verify it on disposable internal-drive containers.
 - [ ] At the release gate, set `VC_SIGN_TEAM_ID`, select the team's Developer ID
@@ -63,10 +70,36 @@ installed apps alone and collect evidence before advancing each gate.
 | 0. Baseline | Default MacFUSE build, discovery tests, and applicable FUSE-T checks pass. | Passed |
 | 1. Build variant | MacFUSE remains default. The opt-in FSKit bundle builds separately. | Passed |
 | 2. Read-only | Read a VeraCrypt payload and a fresh compatible container, then verify external dismount, background exit, and worker cleanup. | Passed on disposable containers |
-| 3. Read-write | Verify write and sync, file operations, xattrs, advisory locks, busy dismount, dismount after release, read-only remount, Finder eject, and independent inactivity timers. | HFS+ passed, including native Finder eject. Writable FAT passed with explicit kernel FAT on a signed Tahoe guest. Automatic writable FAT unmount and Finder eject for the kernel FAT route remain open. |
+| 3. Read-write | Verify write and sync, file operations, xattrs, advisory locks, busy dismount, dismount after release, read-only remount, Finder eject, and independent inactivity timers. | Signed native HFS+ and FAT12/16/32 read-write trials passed on Tahoe arm64, including read-only remount and writable Finder eject. Independent inactivity timers passed in earlier signed trials. |
 | 4. Lifecycle | Verify discovery, preferences, menu-bar state, and background exit from the signed bundle. | Passed on the signed development bundle. Native menu checks covered Open in Finder, busy refusal, unmount after release, empty state, and opening Preferences. |
 | 5. Bugs and performance | Record regressions in [BUGLOG.md](BUGLOG.md) and profile FSKit, MacFUSE, and FUSE-T before claiming gains. | FSKit and FUSE-T HFS+ measurements are recorded. The MacFUSE runtime comparison is pending on a Mac with the driver enabled. |
 | 6. Packaging | Verify FSKit package signing, notarization dry run, Finder smoke test, and rollback to MacFUSE. | Local payload verification passed. The release dry run requires Developer ID Application and Installer identities and the FSKit distribution profile. Notarization and a MacFUSE rollback trial are also pending. |
+
+## Read-write MVP starting point
+
+At `954a10b9a76960195ec5ecf552c89ea0d3e968d6`, the mount worker
+exposes a decrypted raw image through a sandboxed Swift FSKit module.
+The wxWidgets Cocoa GUI and the CLI share the C++ mount lifecycle. The
+provider writes existing image bytes and syncs through the worker. The
+inner filesystem implements file and directory operations. Existing
+protocol regressions cover interrupted and short writes, partial requests
+and replies, stale generations, read-only enforcement, and failed sync.
+
+The original attach path delegates filesystem selection to Disk Images.
+The existing filesystem-permissions check recognizes some FAT and exFAT
+signatures but does not select a driver. Ordinary FSKit startup and
+teardown already use exact image-path inventory, worker serial, slot and
+container validation, bounded process calls, and a shared teardown lock.
+The worker tracks an IOKit media identity for external eject. Startup
+rollback retains the worker when cleanup cannot be confirmed. Multiple
+volumes have separate mount paths and slot and backing-file reservations.
+
+The previous signed Tahoe arm64 checks covered the five VeraCrypt read
+fixtures, HFS+ read-write, native HFS+ Finder eject, and an explicit FAT
+kernel-driver trial. Ordinary writable FAT auto-selection and native
+Finder eject on the FAT route were open. Release packaging has a local
+dry run. Real Developer ID packaging and a loaded macFUSE runtime
+comparison require their respective credentials and driver.
 
 ## Current macOS build variants
 
@@ -685,21 +718,370 @@ the source, and the decrypted FAT payload matched the known checksum. The
 test removed the copy. This check exercises a file-backed volume on external
 storage without mounting the encrypted filesystem or accessing the raw disk.
 
+## Kernel FAT routing and verification
+
+The opt-in FSKit build reads the opened volume's boot sector. A
+structurally plausible, unpartitioned FAT12, FAT16, or FAT32 volume
+uses Disk Images attach-only and Apple's kernel `mount_msdos`. The
+same route honors read-only protection. Its default mount directory is
+`volume` in the FSKit worker's private mount parent. An explicit
+directory must already exist. LambCrypt reports the actual path in its
+volume list. Attach-only requests still suppress filesystem mounting.
+Unrecognized geometry, partitioned images, HFS+, exFAT and APFS retain
+system selection.
+
+The mount uses the existing teardown lock and confirms the exact backing
+image and IOKit media identity before and after the kernel mount. LambCrypt
+checks the kernel mount table for the expected driver, directory and access
+mode. A mount timeout or inconclusive attachment identity leaves the
+worker available for cleanup. The existing rollback handles a confirmed
+mount failure. Before a normal detach the app rechecks the selected worker,
+image and IOKit media. Writable teardown verifies the worker's encrypted
+file sync after the image detaches. The same check runs before worker
+cleanup after an external eject. A failed sync leaves the worker available.
+
+If macOS removes a published auxiliary mount before releasing the disk
+image, the worker keeps its reservations and socket. After the mounting
+caller hands off attachment observation, a bounded helper checks the exact
+image path in Disk Images, even though the backing file no longer
+resolves. The worker can exit when both inventories confirm absence. A
+retained image or failed inventory query keeps it running and backs off before
+retrying. Startup rollback releases its attachment handoff before waiting
+for worker exit. The discovery regression simulates a retained image with a
+missing auxiliary path, an incomplete inventory, and eventual image release.
+
+Validation used macOS 26.6.2 (25G83), arm64, and Xcode SDK 27.2.
+The integrated native trials ran on the physical Apple Silicon Mac using
+the signed development app built from `c5d9e1f3` and the normal Disk Images
+service. All writable fixtures were newly created file-backed containers.
+
+| Check | Result |
+| --- | --- |
+| FSKit build and crypto | PASS. Clean signed development build, strict app and extension signature verification, crypto self-tests and all five VeraCrypt fixture hashes through the linked volume reader. |
+| Offline mount and write lifecycle | PASS. Discovery, FAT routing, media reuse checks, busy retry, failed sync, stale worker generation, interrupted and partial I/O, and auxiliary startup and teardown fault cases. |
+| Native kernel FAT controls | PASS. Freshly generated encrypted FAT12, FAT16 and FAT32 containers were decrypted by the standalone reader. Plain APFS-backed copies passed explicit Apple kernel mount, write, fsync, busy refusal, clean detach, read-only remount and payload hashes. These controls exercise Disk Images and the FAT driver. |
+| Signed FAT12, FAT16 and FAT32 read-write | PASS. Ordinary LambCrypt mounts used Apple's kernel FAT driver and honored explicit and default directories in both access modes across the matrix. File and directory operations, timestamps, sync, busy refusal and retry, and SHA-256 verification after read-only remount passed. FAT16 also dismounted a separate keyfile-protected backup-header mount while the first volume stayed busy. |
+| Signed HFS+ read-write | PASS. Automatic Apple filesystem selection, sync, binary extended attributes, cross-process POSIX advisory locks, busy refusal and retry, and read-only content and metadata verification passed. The background GUI also discovered the volume and exited after eject when registered before mounting. |
+| Read-only exFAT control | PASS. A fresh encrypted exFAT container used automatic Apple filesystem selection, mounted read-only and dismounted cleanly. Writable exFAT and APFS were not tested. |
+| Native Finder eject | PASS. Finder ejected writable HFS+, FAT12, FAT16 and FAT32. Each trial verified the backing image, mounted filesystem and worker were gone. Disk Arbitration eject also passed in read-only trials. |
+| Native FUSE-T | PASS. The arm64 FUSE-T 1.2.9 build passed crypto and an HFS+ lifecycle with persisted payload, background exit, and cleanup. |
+| macFUSE | PARTIAL. The default arm64 build linked the extracted macFUSE 5.5.0 libraries and passed crypto self-tests. The driver was unavailable for live mounts, comparison or rollback. |
+| Release package | PARTIAL. The expanded local installer preserved the signed development bundle. The release preflight rejected the development-only signature. Developer ID signing and notarization remain unverified. |
+
+A separate build of the upstream VeraCrypt volume library decrypted all
+four written HFS+ and FAT containers. Read-only mounts of the resulting
+disposable images matched the independently generated payload SHA-256 and
+expected timestamps. HFS+ also preserved the binary extended attribute.
+Each test detached the plaintext image and verified that the encrypted
+container's checksum was unchanged by the independent read.
+
+The initial physical-host attempt reported `EINVAL` at the auxiliary
+probe. The signed matrix passed after the current scratch app used a
+distinct bundle build version, a host-matched profile, and an exclusive
+per-account test registration. The previous registration was restored
+after testing. These steps were applied together, so the earlier probe
+failure has no confirmed single cause.
+
+In the first HFS+ GUI run, Launch Services registered the app after
+the CLI had mounted the read-only volume. The FSKit extension received
+`SIGTERM` and the inner image remained attached after the auxiliary mount
+disappeared. An ordinary detach recovered the exact disposable image.
+Two later attempts to use a freshly re-registered extension immediately
+also failed before image attachment with ExtensionKit error 2. Launching
+the signed scratch GUI once on an empty session before mounting allowed
+the full HFS+ GUI and Finder trials and the resumed CLI trials to pass. The
+[lifecycle test notes](Tests/README-macos-lifecycle.md#signed-fskit-gui-preflight)
+record the preflight. The automatic FAT driver stall still has an
+independent Apple-only reproducer in the writable FAT investigation above.
+
+### Signed Tahoe guest installation and replacement
+
+The independently provisioned UTM guest ran macOS 26.6.2 (25G83), arm64.
+The exact running device matched the embedded development profile. The
+guest first opened the signed scratch app with an empty session, then
+passed an ordinary FAT12 write, busy dismount retry and read-only remount.
+After confirmed teardown, the trial replaced the scratch app at the same
+path. Both bundles retained the same marketing version and application
+identifiers. The app and extension build numbers increased together from
+`1.28.10` to `1.28.11`.
+
+The replacement passed its first GUI launch and the ordinary FAT12,
+FAT16, FAT32 and HFS+ read-write matrix, including read-only verification.
+FAT16 dismounted an independent keyfile/backup-header fixture while the
+first volume stayed busy. HFS+ passed background discovery, Disk
+Arbitration eject, and automatic GUI exit. The runner verified the final
+mount and Disk Images inventories and restored the prior per-account
+test registration. This was a development bundle install and replacement
+with all volumes already dismounted. Notarized package installation,
+in-use replacement and native Finder UI eject in the guest remain
+unverified. Native Finder eject passed on the physical Mac.
+
+The updated bundle recipe builds matching app and extension build numbers
+and gives the FSKit app the Alternate document handler rank. On the
+physical Mac, Launch Services offered the FSKit build as an opener for
+a disposable `.hc` file and kept the existing default. A development
+installer preserved the signed binaries, property lists and embedded
+profile. Its Distribution recorded the application build number and
+used the marketing version for the package version. The release dry
+run rejected the development signature before packaging for notarization.
+
+### FUSE-T rollback check
+
+FUSE-T 1.2.9 on the physical Mac mounted a disposable copy of the
+encrypted HFS+ container previously written by signed FSKit. It verified
+the persisted payload, timestamp and binary extended attribute read-only,
+then wrote and synced a new file in a writable mount of the copy.
+After read-only remount both payloads matched their expected SHA-256
+hashes, the source container's encrypted checksum remained unchanged,
+and no image, mount or open backing file remained.
+
+The host reported the FSKit module disabled on later scratch registration
+attempts despite an enabled PlugInKit record. Those mounts failed before
+Disk Images attached. The guest matrix independently passed with the same
+runtime code. The host registration discrepancy remains open.
+
+The worker-retention change passed the offline discovery and worker
+protocol suites and compiled into a signed arm64 Tahoe development build
+with passing crypto self-tests. Its development installer preserved the
+signed payload. The rebuilt FUSE-T 1.2.9 client passed its FAT write,
+sync, read-only remount and cleanup trial. The rebuilt default macFUSE
+client linked and passed its crypto self-tests using the extracted vendor
+libraries and framework. The kernel driver remains unavailable for live
+mounts. The physical host reproduced the same enablement failure
+before the new build reached Disk Images. The host inventory and prior
+registration were checked after the attempt. The earlier signed matrix
+remains evidence for the filesystem routes. Live teardown after auxiliary
+loss still requires a signed runtime trial on the updated build.
+
+### Physical Tahoe activation and attachment handoff, November 23, 2026
+
+The physical Apple Silicon host ran macOS 26.6.2 (25G83). At 02:50 EST,
+PlugInKit listed the `io.github.e3742526.LambCrypt.fskit.module` extension
+with a `+` user election, and a development-signed FSClient probe reported
+the same older scratch path disabled. At 02:52 EST, a host-provisioned
+`1.28.13` build was the path returned by FSClient. The isolated GUI
+launch exited 0. An ordinary disposable HFS+ trial exited 1 during
+formatting when `mount -F` reported the module disabled. Disk Images
+never attached the decrypted image. The nominally correct registration
+therefore reproduced the disabled state. The earlier path mismatch was
+also real and could select a different bundle independently of enablement.
+
+The signed app and extension used the bundle IDs
+`io.github.e3742526.LambCrypt.fskit` and
+`io.github.e3742526.LambCrypt.fskit.module`. Both passed strict signature
+verification. The signing teams and App Groups matched, the embedded
+development profile authorized the exact host provisioning identifier and
+FSKit Module entitlement, and the module declared `lambcryptfs` path URL
+resources. The short filtered unified log window provided no matching
+FSKit launch or provisioning diagnostic for the failed mount. The
+effective disabled state is confirmed. The reason for the disagreement
+with PlugInKit remains open. The test left File System Extensions policy
+as found. See the [signed probe and native reproduction](Tests/README-macos-lifecycle.md#signed-fskit-gui-preflight).
+
+The mount service now uses a five-second FSClient query before opening
+the worker endpoint. It checks the signed bundle's exact module path and
+reports missing, conflicting and disabled registrations separately. The
+signed `1.28.14` CLI rejected the older registered path. At 03:03 EST
+the same build's empty GUI launch exited 0 and FSClient returned the
+intended path disabled. The native CLI exited 1 with the disabled
+diagnostic on a newly generated FAT12 container. Both attempts stopped
+before worker startup or image attachment. The test registration was
+removed afterward, leaving the original PlugInKit record. The final
+census found no test mounts, images, processes or newly created sockets.
+Four socket nodes from earlier trials remained. Their creation dates
+preceded this session, and none had a live socket owner or corresponding
+auxiliary directory. They were preserved. The development bundle
+preparation verifies the signed team against the embedded profile and
+checks the full signature after signing both bundles.
+
+The attachment review found a second startup window. Disk Images can
+still publish an attachment after the attach command times out, and the
+worker can lose the auxiliary mount before that image reaches the
+inventory. The mounting caller now marks the request pending before it
+can start the attach. If it exits without a completion report, an empty
+inventory preserves the worker. When the worker observes the exact
+attachment, it resumes normal cleanup once absence is confirmed.
+Production-loop simulations exercised empty and unavailable inventory,
+late publication, and final release with and without an auxiliary mount
+observed. Explicit and concurrent teardown still use the per-auxiliary
+lock and refresh the disk and worker identifiers before detach. Finder
+and Disk Arbitration eject rely on I/O Registry media disappearance and
+an exact Disk Images check before auxiliary unmount. The worker's
+separate session can outlive the background app. An unresolved attach
+that never appears can leave its worker, keys and reservations held.
+If the auxiliary mount disappears, the
+ordinary mounted-volume list may also lose the entry. Preserve that
+state for exact-image diagnosis instead of starting a different backend.
+
+The `1.28.14` development build linked for arm64 and macOS 26.0. Its
+crypto self-tests, five offline VeraCrypt fixture hashes, focused
+discovery, protocol, preflight, credential retry and build metadata
+checks passed. The default macFUSE arm64 bundle linked against isolated
+copies of the vendor libraries, had no FSKit framework dependency, and
+passed crypto self-tests. The host had no loaded macFUSE driver.
+A native FUSE-T 1.2.9 FAT trial passed write, sync, read-only remount,
+hash verification and cleanup. The development installer expanded to a
+byte-matching app and extension with valid signatures and the embedded
+profile. Developer ID Application and Installer identities and an FSKit
+distribution profile were unavailable for signing a release; notarization,
+clean release installation, upgrade and rollback remain unverified.
+Native FSKit worker retention, busy and multi-volume teardown, Finder
+eject, filesystem integrity and performance remain unverified on the
+updated revision.
+
+### Detached worker inventory and offline package verification
+
+The native Disk Images drill exposed a failure in the bounded process
+runner. The worker closes stdin, stdout and stderr at startup. Its
+inventory helper could then allocate a pipe at one of those descriptor
+numbers, where the spawn file actions also redirect child I/O. The
+standalone subprocess regression failed against the original platform
+archive with those descriptors closed. Moving the pipe ends above the
+standard descriptors before spawning preserved stdout, stderr, the child
+exit status and the existing isolation and time limits.
+
+On the physical arm64 macOS 26.6.2 host, the fixed build passed the
+[native Disk Images worker drill](Tests/README-macos-lifecycle.md#native-disk-images-worker-drill).
+Two independent workers served new 4 MiB FAT containers. With the
+mount-table observation injected, one retained its generation, reads and
+locks while its exact image was attached. The second retained those
+resources across an empty inventory and subsequent image publication.
+Detaching the first image left the second worker and image active.
+Each worker released its socket and reservations after its own detach.
+The upstream VeraCrypt reader matched every decrypted byte for both
+fixtures and left both encrypted inputs unchanged. The rebuilt default
+macFUSE client passed crypto self-tests against isolated vendor libraries.
+The rebuilt FUSE-T client passed its native FAT write, sync, read-only
+remount and cleanup again.
+
+Disk Images used APFS-backed read-only raw files in this drill. The
+signed FSKit extension, live disappearance of its auxiliary filesystem,
+and native Finder and writable filesystem tests still require an
+enabled FSKit integration host.
+
+The `1.28.15` development bundle and its expanded installer payload
+passed the offline bundle verifier. The verifier rejected a mismatched
+extension build number and rejected the development profile in
+distribution mode. The FSKit release script checks this same contract
+before packaging and on the expanded payload, while retaining its
+Developer ID, Hardened Runtime and secure timestamp requirements.
+It now compares the packaged extension executable and Info.plist as well
+as its provisioning profile. No notarization request was submitted.
+
+### Warm-cache HFS+ comparison on the MVP revision
+
+On the same physical Tahoe host, FSKit and FUSE-T 1.2.9 each tested a copy
+of the same 128 MiB encrypted HFS+ fixture. Each backend ran one warm-up and
+five measured passes. Sequential I/O used 1 MiB blocks and a 64 MiB
+payload. Random I/O used 256 discrete 4 KiB operations at identical
+offsets. The metadata workload created, queried, and deleted 64 files.
+Both backends verified the final payload SHA-256 after read-only remount
+and completed cleanup. These timings describe a single warm-cache
+workload. The read measurements include the system cache.
+
+| Operation | FSKit | FUSE-T |
+| --- | ---: | ---: |
+| Sequential write, median | 58.5 ms | 62.4 ms |
+| Sequential read, median | 7.5 ms | 8.9 ms |
+| Sequential write `fsync`, median | 33.5 ms | 46.2 ms |
+| Random write, median | 85.5 ms | 77.4 ms |
+| Random read, median | 0.38 ms | 0.36 ms |
+| Random write `fsync`, median | 25.5 ms | 24.7 ms |
+| Close after sync, median | 0.012 ms | 0.015 ms |
+| Metadata workload, median | 4.44 ms | 3.53 ms |
+| Writable mount / dismount, one observation | 0.86 s / 2.45 s | 0.54 s / 2.38 s |
+| Worker CPU time / final RSS across six passes | 0.39 s / 6.58 MiB | 0.89 s / 6.61 MiB |
+
+CPU time and RSS cover only the process that held the encrypted backing
+file. Whole-backend resource usage, cold-cache runs and the live macFUSE
+comparison remain unmeasured.
+
+### November 23 audit follow-up
+
+The worker keeps its backing file and reservations through polling errors.
+It checks attachment ownership on the ordinary teardown path and retries
+inconclusive media lookups at five-second intervals. Detach requires an
+inventory that resolves ownership of the exact image. An incomplete
+inventory can still supply a positive result for the volume list.
+
+When an attach times out and its publication remains unresolved, the
+worker records `attachment-pending` in the private parent of the
+auxiliary mount and reports the exact image path. Use
+`hdiutil info -plist` to look up that path. Leave the worker and
+reservations in place while ownership is uncertain. The marker clears
+after the worker observes the matching attachment. A timed-out request
+that never publishes can leave its worker retained because an empty
+inventory cannot establish cancellation.
+
+The FSKit, FUSE-T and macFUSE builds now share a backing-file reservation
+for local regular-file containers. It also covers read-only opens and
+hard-link aliases. Remote files, raw devices and already-running older
+binaries fall outside this shared reservation.
+
+On macOS 26.6.2 (25G83), the injected discovery and native two-attachment
+drills passed. The native drill used real Disk Images attachments with
+injected auxiliary disappearance. The production FUSE-T service held
+the reservation across mount and released it on dismount. Its FAT
+write, sync and read-only remount passed. The three builds passed crypto
+self-tests. The FSKit development bundle passed offline verification.
+The native signed-module integration and release gates below remain open.
+
+### Follow-up on unconfirmed attach and BSD media reuse
+
+The bounded runner reports whether `hdiutil attach` started and lost a
+confirmed exit or output. A timeout before launch takes ordinary startup
+rollback. A timeout, signal, or incomplete output after launch keeps
+attachment monitoring active and prevents a second attach attempt. A
+normal exit still permits the existing retry for an unsupported
+`-noautofsck` option. If an interrupted request never publishes, the
+worker still needs conclusive OS evidence to release its resources.
+
+On the kernel FAT route, LambCrypt holds a read-only, close-on-exec raw
+device descriptor across `mount_msdos`. It verifies the image path and
+I/O Registry media again after opening the descriptor. The hold covers
+the command's lookup of the BSD name. Explicit detach still uses a fresh
+image and media check before the name-based Disk Images command. Apple's
+Disk Arbitration implementation also derives a BSD name when a client
+constructs a disk object from I/O Registry media.
+[Apple storage driver](https://github.com/apple-oss-distributions/IOStorageFamily/blob/main/IOMediaBSDClient.cpp#L3609-L3624)
+[Apple Disk Arbitration implementation](https://github.com/apple-oss-distributions/DiskArbitration/blob/main/DiskArbitration/DADisk.c#L349-L373)
+
+The focused discovery, process, protocol and native worker checks passed
+on macOS 26.6.2 (25G83). Native Disk Images FAT12, FAT16 and FAT32 fixtures
+with the same held-descriptor flags passed write, sync and checksum
+verification after a read-only remount. These raw fixtures tested the OS
+mount behavior independently of the FSKit extension. The development
+installer payload passed offline verification. All three builds passed
+crypto self-tests, and FUSE-T passed the disposable FAT lifecycle trial.
+A read-only signed
+FSClient probe still found a different registered bundle with effective
+enablement false and exited 3. PlugInKit still reported a positive
+election for the module identifier. Host policy was left as found.
+
 ## Remaining migration gates
 
-1. Prototype the explicit kernel FAT route for writable FAT12, FAT16 and
-   FAT32 containers. Preserve exact backing-image and media identity from
-   attach through mount and cleanup. Verify default and explicit mount
-   directories, read-only and attach-only options, and behavior when
-   filesystem identification or mounting fails. Test native Finder eject
-   and menu dismount, busy retry, payload integrity and worker exit on the
-   signed Tahoe guest before making the route available through regular
-   mounts. Include HFS+ and exFAT controls for routing.
-2. On a Mac that already has the matching MacFUSE driver enabled, perform
-   the same HFS+ workload and verify rollback by opening a disposable
-   VeraCrypt-format container after the FSKit app closes. Record the
-   driver and workload with the results.
-3. Use the release credentials from the integrator checklist to verify
+1. On a physical Mac that already has the matching macFUSE kernel
+   driver enabled, perform the same HFS+ workload and verify rollback
+   by opening a disposable VeraCrypt-format container after the FSKit app closes. Record the
+   driver and workload with the results. Recent macOS guests cannot load
+   this third-party kernel driver. [macFUSE setup notes](https://github.com/macfuse/macfuse/wiki/Getting-Started)
+2. Use the release credentials from the integrator checklist to verify
    the Developer ID installer locally. For the distribution trial, install
    the notarized package in a clean Tahoe guest and repeat extension
-   enablement, Finder eject and standard volume discovery.
+   enablement, Finder eject and standard volume discovery. Confirm that
+   clean install and upgrade resolve the physical-host registration
+   discrepancy before promoting the backend.
+3. With the signed FSKit bundle enabled, run the two-mount FAT12 smoke
+   trial and the physical Finder matrix. Run an isolated auxiliary-loss
+   drill with a test build that can inject the observer's missing-mount
+   result without forcibly unmounting the backing filesystem. Record the
+   exact image path, media identity, worker generation, socket and
+   reservations through retained attachment and ordinary detach. Also
+   test a timed-out attachment that publishes after startup reports
+   incomplete cleanup.
+
+The current build selects a backend at compile time. An automatic retry
+across backends could attach a container twice while the first backend
+still owns a worker or image. A future fallback must follow confirmed
+teardown and a fresh reservation. Keep macFUSE as the default until the
+native and release gates pass.

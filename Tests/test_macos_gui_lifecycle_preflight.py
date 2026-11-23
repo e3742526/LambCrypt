@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise FAT trial preflight and teardown checks with simulated inventories."""
+"""Exercise FSKit trial preflight and teardown checks with simulated inventories."""
 from pathlib import Path
 import plistlib
 import subprocess
@@ -12,8 +12,8 @@ from unittest.mock import patch
 import test_macos_gui_lifecycle as lifecycle
 
 
-class FatPreflightTests(unittest.TestCase):
-    def exercise(self, inventory, expected_error):
+class FSKitPreflightTests(unittest.TestCase):
+    def exercise(self, inventory, expected_error, mode=("--fskit-kernel-fat", "--isolated-host")):
         with tempfile.TemporaryDirectory() as directory:
             app = Path(directory) / "LambCrypt-FSKit.app"
             binary = app / "Contents/MacOS/LambCrypt-FSKit"
@@ -34,8 +34,7 @@ class FatPreflightTests(unittest.TestCase):
                     return ""
                 raise AssertionError(command)
 
-            with (patch.object(sys, "argv", ["lifecycle", "--binary", str(binary),
-                                             "--fskit-kernel-fat", "--isolated-host"]),
+            with (patch.object(sys, "argv", ["lifecycle", "--binary", str(binary), *mode]),
                   patch.object(sys, "platform", "darwin"),
                   patch.object(lifecycle.os, "uname", return_value=SimpleNamespace(machine="arm64")),
                   patch.object(lifecycle.os, "geteuid", return_value=501),
@@ -57,6 +56,7 @@ class FatPreflightTests(unittest.TestCase):
             "/tmp/.veracrypt_aux_mnt-12345678/volume.dmg",
             "/Users/test/Library/Caches/lambcrypt-fat-repro-example/fskit-mount/volume.dmg",
             "/Users/test/Library/Caches/lambcrypt-fat-repro-example/lambcrypt-isolated-plain-fat.raw",
+            "/private/tmp/lambcrypt-worker.12345678/1/aux/volume.dmg",
         ):
             with self.subTest(path=path):
                 self.exercise({"images": [{"image-path": path}]}, (RuntimeError, "remains attached"))
@@ -74,8 +74,16 @@ class FatPreflightTests(unittest.TestCase):
         self.exercise({"images": [{"image-path": "/tmp/other/volume.dmg"}]},
                       (AssertionError, "Scratch creation reached"))
 
+    def test_hfs_cli_and_finder_check_the_inventory_before_creating_a_fixture(self):
+        for option in ("--cli-only", "--finder-eject"):
+            with self.subTest(option=option):
+                mode = ("--fskit-external-eject", option)
+                self.exercise({"images": []}, (AssertionError, "Scratch creation reached"), mode)
+                self.exercise({"images": [{"image-path": "/tmp/lambcrypt-fskit.abcd/aux/volume.dmg"}]},
+                              (RuntimeError, "remains attached"), mode)
 
-class FatTeardownTests(unittest.TestCase):
+
+class FSKitTeardownTests(unittest.TestCase):
     root = Path("/private/tmp/vc-gui-lifecycle-test")
     volume = root / "ordinary.hc"
     aux = Path("/private/tmp/lambcrypt-fskit.12345678/.veracrypt_aux_mnt")
@@ -97,7 +105,7 @@ class FatTeardownTests(unittest.TestCase):
                   patch.object(Path, "exists", side_effect=AssertionError("probed a retained mount path")) as probe,
                   patch.object(lifecycle.subprocess, "run") as lsof):
                 with self.assertRaisesRegex(*error):
-                    lifecycle.confirm_closed(lambda: mounts, self.root, self.volume, self.active, kernel_fat=True)
+                    lifecycle.confirm_closed(lambda: mounts, self.root, self.volume, self.active, fskit=True)
                 probe.assert_not_called()
                 lsof.assert_not_called()
 
@@ -106,7 +114,7 @@ class FatTeardownTests(unittest.TestCase):
               patch.object(lifecycle.os, "kill", side_effect=ProcessLookupError),
               patch.object(Path, "exists", return_value=False),
               patch.object(lifecycle.subprocess, "run", return_value=SimpleNamespace(returncode=1, stdout="")) as lsof):
-            lifecycle.confirm_closed(lambda: "", self.root, self.volume, self.active, kernel_fat=True)
+            lifecycle.confirm_closed(lambda: "", self.root, self.volume, self.active, fskit=True)
         lsof.assert_called_once_with(["/usr/sbin/lsof", "-t", str(self.volume)],
                                      capture_output=True, text=True, timeout=8)
 

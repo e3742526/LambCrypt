@@ -182,6 +182,10 @@ namespace VeraCrypt
 			mf->Type = sysMountList[i].f_fstypename;
 #ifdef TC_MACOSX
 			mf->Owner = sysMountList[i].f_owner;
+#ifdef VC_MACOSX_FSKIT
+			mf->Flags = sysMountList[i].f_flags;
+			mf->ExtendedFlags = sysMountList[i].f_flags_ext;
+#endif
 			mf->MountId[0] = sysMountList[i].f_fsid.val[0];
 			mf->MountId[1] = sysMountList[i].f_fsid.val[1];
 #endif

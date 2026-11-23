@@ -14,9 +14,11 @@ import hashlib
 import os
 from pathlib import Path
 import plistlib
+import random
 import re
 import shutil
 import subprocess
+import struct
 import sys
 import tempfile
 import time
@@ -42,12 +44,12 @@ def fskit_mounts(mount_table):
     return paths
 
 
-def require_no_retained_fat_image():
+def require_no_retained_fskit_image():
     # Disk Arbitration can remove a mount-table row before it releases the image.
     try:
         inventory = plistlib.loads(subprocess.check_output(["/usr/bin/hdiutil", "info", "-plist"], timeout=8))
     except (OSError, subprocess.SubprocessError, ValueError, ExpatError) as error:
-        raise RuntimeError("could not verify Disk Images inventory for the FAT trial") from error
+        raise RuntimeError("could not verify Disk Images inventory for the FSKit trial") from error
     if not isinstance(inventory, dict) or not isinstance(inventory.get("images"), list):
         raise RuntimeError("Disk Images inventory is incomplete")
     for record in inventory["images"]:
@@ -55,20 +57,20 @@ def require_no_retained_fat_image():
         if not isinstance(image, str) or not image:
             raise RuntimeError("Disk Images inventory is incomplete")
         directories = Path(image).parts[:-1]
-        if any(part.startswith((".veracrypt_aux_mnt", "lambcrypt-fskit.", "lambcrypt-fat-repro-"))
+        if any(part.startswith((".veracrypt_aux_mnt", "lambcrypt-fskit.", "lambcrypt-fat-repro-", "lambcrypt-worker."))
                for part in directories):
             raise RuntimeError(f"a previous LambCrypt or VeraCrypt disk image remains attached at {image}")
 
 
-def confirm_closed(mounts, root, volume, active, kernel_fat):
+def confirm_closed(mounts, root, volume, active, fskit):
     mount_table = mounts()
     assert str(root) not in mount_table, "Disposable mount remains"
-    if kernel_fat:
+    if fskit:
         # A stalled detach can leave the image attached after the mount row
         # disappears. Confirm both inventories before probing its paths.
         if active:
             assert f" on {active[1]} (" not in mount_table, "Auxiliary mount remains"
-        require_no_retained_fat_image()
+        require_no_retained_fskit_image()
     if active:
         pid, aux, endpoint = active
         try:
@@ -94,26 +96,37 @@ def main():
     mode.add_argument("--fskit-external-eject", action="store_true",
                       help="Test a signed FSKit bundle with HFS+ and Disk Arbitration eject")
     mode.add_argument("--fskit-kernel-fat", action="store_true",
-                      help="Test production FSKit read-write teardown with the kernel FAT driver")
+                      help="Control trial with a manual kernel FAT mount after attach-only")
+    mode.add_argument("--fskit-routed-fat", type=int, choices=(12, 16, 32),
+                      help="Test the app's FAT routing and lifecycle")
+    parser.add_argument("--fat-default-directory", action="store_true",
+                        help="Use the default directory on the writable routed FAT mount")
+    parser.add_argument("--finder-eject", "--fat-finder-eject", action="store_true",
+                        help="Wait up to 90 seconds for Finder to eject a writable FSKit volume")
     parser.add_argument("--isolated-host", action="store_true",
                         help="Confirm this is a dedicated test host for the FAT trial")
     parser.add_argument("--keep-artifacts", action="store_true")
     args = parser.parse_args()
-    if args.fskit_kernel_fat:
+    fat_trial = args.fskit_kernel_fat or args.fskit_routed_fat is not None
+    if args.fat_default_directory and not args.fskit_routed_fat:
+        parser.error("--fat-default-directory requires --fskit-routed-fat")
+    if args.finder_eject and not (args.fskit_routed_fat or (args.fskit_external_eject and not args.cli_only)):
+        parser.error("--finder-eject requires routed FAT or the HFS+ GUI trial")
+    if fat_trial:
         if not args.isolated_host:
-            parser.error("--fskit-kernel-fat requires --isolated-host")
+            parser.error("the FAT trials require --isolated-host")
         if sys.platform != "darwin" or os.uname().machine != "arm64" or os.geteuid() == 0:
             parser.error("run the kernel FAT trial as a regular user on Apple Silicon macOS")
-    fskit = args.fskit_external_eject or args.fskit_kernel_fat
-    cli_only = args.cli_only or args.fskit_kernel_fat
+    fskit = args.fskit_external_eject or fat_trial
+    cli_only = args.cli_only or fat_trial
     binary = args.binary.resolve(strict=True)
     release = args.release_binary.resolve(strict=True) if args.release_binary else binary
     if fskit:
         if (not is_fskit(binary) or binary.parent.name != "MacOS" or binary.parents[2].suffix != ".app"
-                or args.release_binary or (args.fskit_external_eject and cli_only)):
+                or args.release_binary):
             parser.error("the FSKit modes require a signed FSKit bundle and no release binary")
         app = binary.parents[2]
-        if args.fskit_kernel_fat:
+        if fat_trial:
             extension = app / "Contents/Extensions/LambCryptFSKit.appex/Contents"
             if Path("/Applications") in app.parents or not (extension / "embedded.provisionprofile").is_file():
                 parser.error("the kernel FAT trial requires a provisioned scratch FSKit bundle")
@@ -127,17 +140,18 @@ def main():
     initial_mounts = mounts()
     if ".veracrypt_aux_mnt" in initial_mounts or fskit_mounts(initial_mounts):
         raise RuntimeError("Dismount existing LambCrypt or VeraCrypt volumes before this isolated GUI test")
-    if args.fskit_kernel_fat:
-        require_no_retained_fat_image()
+    if fskit:
+        require_no_retained_fskit_image()
     processes = subprocess.check_output(["/bin/ps", "-axo", "comm="], text=True)
     if any(Path(line.strip()).name.lower() in {"lambcrypt", "lambcrypt-fskit", "veracrypt"}
            for line in processes.splitlines()):
         raise RuntimeError("Close other LambCrypt or VeraCrypt processes before this isolated GUI test")
 
-    root = Path(tempfile.mkdtemp(prefix="vc-gui-lifecycle-", dir="/private/tmp" if args.fskit_kernel_fat else None)).resolve()
+    root = Path(tempfile.mkdtemp(prefix="vc-gui-lifecycle-", dir="/private/tmp" if fat_trial else None)).resolve()
     print("Artifacts:", root, flush=True)
     temporary = root / "tmp"
-    mountpoint = root / "mount"
+    explicit_mount = root / "mount"
+    mountpoint = explicit_mount
     config = root / "config" / "LambCrypt"
     temporary.mkdir(mode=0o700)
     mountpoint.mkdir()
@@ -188,12 +202,19 @@ def main():
                    expected_returncode=expected_returncode)
 
     def mount(read_only=False, client=binary):
-        nonlocal active, mount_client
+        nonlocal active, mount_client, mountpoint
         mount_client = client
         before = fskit_mounts(mounts()) if fskit else set()
-        target = "--filesystem=none" if args.fskit_kernel_fat else mountpoint
-        label = "mount-readonly" if args.fskit_kernel_fat and read_only else "mount"
-        vc(label, "--mount", volume, target, "--password=" + password,
+        default_directory = args.fskit_routed_fat and (args.fat_default_directory != read_only)
+        mountpoint = explicit_mount
+        if args.fskit_kernel_fat:
+            target = ["--filesystem=none"]
+        elif default_directory:
+            target = []
+        else:
+            target = [explicit_mount]
+        label = "mount-readonly" if fat_trial and read_only else "mount"
+        vc(label, "--mount", volume, *target, "--password=" + password,
            "--pim=1", "--keyfiles=", "--protect-hidden=no",
            *(["--mount-options=ro"] if read_only else []), client=client)
         if fskit:
@@ -215,6 +236,17 @@ def main():
                 run("mount-kernel-fat-readonly" if read_only else "mount-kernel-fat",
                     ["/sbin/mount_msdos", "-o", options, device, mountpoint], timeout=15)
                 assert confirm_kernel_fat(aux, read_only) == device
+            elif args.fskit_routed_fat:
+                if default_directory:
+                    mountpoint = aux.parent / "volume"
+                device = confirm_kernel_fat(aux, read_only)
+                with (aux / "volume.dmg").open("rb", buffering=0) as image:
+                    boot = image.read(512)
+                type_offset = 82 if struct.unpack_from("<H", boot, 22)[0] == 0 else 54
+                assert boot[type_offset:type_offset + 8].strip() == f"FAT{args.fskit_routed_fat}".encode()
+                print(f"FAT{args.fskit_routed_fat} kernel route: {'read-only' if read_only else 'writable'}, "
+                      f"{'default' if default_directory else 'explicit'} mount directory", flush=True)
+                (root / f"{label}-device.txt").write_text(device + "\n")
             else:
                 confirm_fskit_attachment(aux, read_only)
             return
@@ -235,10 +267,10 @@ def main():
                    if re.fullmatch(r"/dev/disk[0-9]+", entry.get("dev-entry", "")))
         return device
 
-    def confirm_kernel_fat(aux, read_only):
+    def confirm_kernel_fat(aux, read_only, directory=None):
         image, = fskit_images(aux)
         device = kernel_fat_device(image, read_only)
-        prefix = f"{device} on {mountpoint} (msdos, "
+        prefix = f"{device} on {directory or mountpoint} (msdos, "
         line, = (line for line in mounts().splitlines() if line.startswith(prefix))
         flags = line[len(prefix):].removesuffix(")").split(", ")
         assert "fskit" not in flags and ("read-only" in flags) == read_only, line
@@ -246,31 +278,32 @@ def main():
 
     def confirm_fskit_attachment(aux, read_only):
         image, = fskit_images(aux)
+        assert image.get("writeable") is (not read_only), "Unexpected Disk Images protection"
         device, = (entity["dev-entry"] for entity in image["system-entities"]
                    if entity.get("mount-point") == str(mountpoint))
         assert re.fullmatch(r"/dev/disk[0-9]+(?:s[0-9]+)?", device), device
         table_entry = f"{device} on {mountpoint} (hfs,"
         line, = (line for line in mounts().splitlines() if line.startswith(table_entry))
         assert (", read-only" in line) == read_only, line
+        return device
 
     xattr = "/usr/bin/xattr"
     xattr_name = "io.github.e3742526.LambCrypt.lifecycle"
     xattr_value = "00FF4C430A00"
-    payload_path = mountpoint / "payload.bin"
-
-    def check_xattr(label):
+    def check_xattr(label, payload_path):
         result = run(label, [xattr, "-px", xattr_name, payload_path])
         assert bytes.fromhex(result.stdout) == bytes.fromhex(xattr_value)
 
-    def check_writable_metadata(stream):
+    def check_writable_metadata(payload_path):
         run("xattr-create", [xattr, "-wx", xattr_name, "01", payload_path])
         run("xattr-replace", [xattr, "-wx", xattr_name, xattr_value, payload_path])
-        check_xattr("xattr-before-remount")
+        check_xattr("xattr-before-remount", payload_path)
         deleted = xattr_name + ".removed"
         run("xattr-create-to-delete", [xattr, "-w", deleted, "discard", payload_path])
         run("xattr-remove", [xattr, "-d", deleted, payload_path])
         assert deleted not in run("xattr-list", [xattr, payload_path]).stdout.splitlines()
 
+    def check_posix_locks(stream, payload_path):
         lock_probe = """
 import errno
 import fcntl
@@ -294,50 +327,167 @@ with open(sys.argv[1], 'r+b') as stream:
         fcntl.lockf(stream, fcntl.LOCK_UN, 1)
         run("lock-after-release", [*probe, "0"], timeout=8)
 
-    def check_busy_kernel_fat(stream, payload):
+    def check_busy_fskit(stream, payload):
         pid, aux, _ = active
-        device = confirm_kernel_fat(aux, read_only=False)
-        result = vc("busy-kernel-fat-unmount", "--unmount", volume, expected_returncode=1)
+        attachment = confirm_kernel_fat if fat_trial else confirm_fskit_attachment
+        device = attachment(aux, read_only=False)
+        result = vc("busy-unmount", "--unmount", volume, expected_returncode=1)
         assert "The volume is in use." in result.stdout + result.stderr
-        listing = vc("busy-kernel-fat-list", "--list", "--verbose", volume).stdout
+        listing = vc("busy-list", "--list", "--verbose", volume).stdout
         assert str(volume) in listing and str(mountpoint) in listing
-        assert confirm_kernel_fat(aux, read_only=False) == device
-        holders = run("busy-kernel-fat-worker", ["/usr/sbin/lsof", "-t", volume], timeout=8)
+        assert attachment(aux, read_only=False) == device
+        holders = run("busy-worker", ["/usr/sbin/lsof", "-t", volume], timeout=8)
         assert {int(word) for word in holders.stdout.split()} == {pid}
         stream.seek(0)
         assert stream.read() == payload
 
+    def check_independent_volume():
+        second = root / "second.hc"
+        target = root / "second-mount"
+        keyfile = root / "second.key"
+        target.mkdir(mode=0o700)
+        keyfile.write_bytes(bytes(range(256)))
+        keyfile.chmod(0o600)
+        keyfiles = f"--keyfiles={keyfile}"
+        vc("create-second", "--create", second, "--size=4194304", "--volume-type=normal",
+           "--encryption=AES", "--hash=sha512", "--filesystem=FAT", "--password=" + password,
+           "--pim=1", keyfiles, "--random-source=/dev/urandom")
+        before = fskit_mounts(mounts())
+        vc("mount-second", "--mount", second, target, "--password=" + password,
+           "--pim=1", keyfiles, "--protect-hidden=no", "--mount-options=headerbak,ro")
+        secondary_aux, = fskit_mounts(mounts()) - before
+        confirm_kernel_fat(secondary_aux, read_only=True, directory=target)
+        devices = vc("list-two", "--list", "--verbose").stdout
+        assert str(volume) in devices and str(second) in devices, devices
+        vc("unmount-second", "--unmount", second)
+        assert fskit_mounts(mounts()) == before
+        assert not fskit_images(secondary_aux) and not secondary_aux.parent.exists()
+        run("second-worker-closed", ["/usr/sbin/lsof", "-t", second], timeout=8, expected_returncode=1)
+        assert confirm_kernel_fat(active[1], read_only=False)
+        print("PASS: a second keyfile/backup-header mount dismounted while the first remained busy", flush=True)
+
+    def wait_for_external_cleanup(seconds):
+        deadline = time.monotonic() + seconds
+        while f" on {active[1]} (" in mounts() and time.monotonic() < deadline:
+            time.sleep(0.25)
+        while active[1].parent.exists() and time.monotonic() < deadline:
+            time.sleep(0.25)
+        confirm_closed(mounts, root, volume, active, fskit)
+
+    def eject_in_finder():
+        print(f"Eject the disposable test volume in Finder at {mountpoint}", flush=True)
+        wait_for_external_cleanup(90)
+        print("PASS: Finder eject and worker cleanup for the writable mount", flush=True)
+
+    def check_hfs_readonly_metadata(payload_path, expected_mtime):
+        assert abs(payload_path.stat().st_mtime - expected_mtime) <= 2
+        check_xattr("xattr-after-remount", payload_path)
+        assert xattr_name + ".removed" not in run("xattr-remount-list", [xattr, payload_path]).stdout.splitlines()
+        denied = run("xattr-readonly-denied", [xattr, "-wx", xattr_name, "01", payload_path],
+                     expected_returncode=1)
+        assert f"[Errno {errno.EROFS}]" in denied.stderr, denied.stderr
+        check_xattr("xattr-readonly-preserved", payload_path)
+        print("PASS: HFS+ binary xattrs and cross-process POSIX advisory locks", flush=True)
+
+    def encrypted_checksum():
+        with volume.open("rb") as encrypted:
+            return hashlib.file_digest(encrypted, "sha256").hexdigest()
+
+    def check_backing_reservation(alias, mounted):
+        with alias.open("rb") as backing:
+            try:
+                fcntl.flock(backing, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                assert mounted, "Backing reservation remains after dismount"
+            else:
+                assert not mounted, "Mounted service lost the backing reservation"
+
     filesystem = "HFS+" if args.fskit_external_eject else "FAT"
+    file_size = {12: 4 << 20, 16: 32 << 20, 32: 96 << 20}.get(args.fskit_routed_fat, 32 << 20)
     try:
-        vc("create", "--create", volume, "--size=33554432", "--volume-type=normal",
+        vc("create", "--create", volume, f"--size={file_size}", "--volume-type=normal",
            "--encryption=AES", "--hash=sha512", f"--filesystem={filesystem}", "--password=" + password,
            "--pim=1", "--keyfiles=", "--random-source=/dev/urandom", client=release)
+        if fskit:
+            initial_encrypted = encrypted_checksum()
+        alias = root / "ordinary-alias.hc"
+        alias.hardlink_to(volume)
         mount()
-        if args.fskit_kernel_fat:
+        check_backing_reservation(alias, mounted=True)
+        if fskit:
             marker = mountpoint / "before.bin"
-            marker.write_bytes(b"LambCrypt FAT test")
+            marker.write_bytes(b"LambCrypt lifecycle test")
             renamed = marker.with_name("after.bin")
             marker.rename(renamed)
-            assert renamed.read_bytes() == b"LambCrypt FAT test"
+            assert renamed.read_bytes() == b"LambCrypt lifecycle test"
             renamed.unlink()
+            directory = mountpoint / "before-dir"
+            directory.mkdir()
+            (directory / "remove.txt").write_text("disposable")
+            renamed_directory = directory.with_name("after-dir")
+            directory.rename(renamed_directory)
+            (renamed_directory / "remove.txt").unlink()
+            renamed_directory.rmdir()
         payload = bytes(range(256)) * 4096
-        with payload_path.open("w+b" if args.fskit_kernel_fat else "wb") as stream:
-            stream.write(payload)
+        payload_path = mountpoint / "payload.bin"
+        with payload_path.open("w+b" if fskit else "wb") as stream:
+            assert stream.write(payload) == len(payload)
+            if fskit:
+                expected = bytearray(payload)
+                rng = random.Random(42)
+                for offset in [511, 4093, *rng.sample(range(8192, len(payload) - 4096), 16)]:
+                    patch = rng.randbytes(777)
+                    stream.seek(offset)
+                    assert stream.write(patch) == len(patch)
+                    expected[offset:offset + len(patch)] = patch
+                stream.truncate(700_003)
+                stream.truncate(800_007)
+                payload = bytes(expected[:700_003]) + bytes(100_004)
+                stream.seek(0)
+                assert stream.read() == payload
+                mtime = 1_700_000_000
+                os.utime(payload_path, (mtime, mtime))
+                assert abs(payload_path.stat().st_mtime - mtime) <= 2
             stream.flush()
             if args.fskit_external_eject:
-                check_writable_metadata(stream)
+                check_writable_metadata(payload_path)
+                check_posix_locks(stream, payload_path)
             os.fsync(stream.fileno())
-            if args.fskit_kernel_fat:
-                check_busy_kernel_fat(stream, payload)
+            if fskit:
+                check_busy_fskit(stream, payload)
+            if args.fskit_routed_fat == 16:
+                check_independent_volume()
+                stream.seek(0)
+                assert stream.read() == payload
         vc("unmount-write", "--unmount", volume)
-        confirm_closed(mounts, root, volume, active, args.fskit_kernel_fat)
+        confirm_closed(mounts, root, volume, active, fskit)
+        check_backing_reservation(alias, mounted=False)
+        if fskit:
+            final_encrypted = encrypted_checksum()
+            assert initial_encrypted != final_encrypted, "The write trial did not change the encrypted data"
+            (root / "encrypted-checksums.txt").write_text(f"{initial_encrypted}\n{final_encrypted}\n")
         if args.release_binary or cli_only:
             mount(read_only=True, client=release)
             assert hashlib.sha256((mountpoint / "payload.bin").read_bytes()).digest() == hashlib.sha256(payload).digest()
-            if args.fskit_kernel_fat:
+            if fat_trial:
                 assert not (mountpoint / "before.bin").exists() and not (mountpoint / "after.bin").exists()
-            vc("unmount-release", "--unmount", volume, client=release)
-            confirm_closed(mounts, root, volume, active, args.fskit_kernel_fat)
+            if args.fskit_routed_fat:
+                assert abs((mountpoint / "payload.bin").stat().st_mtime - mtime) <= 2
+                run("external-eject", ["/usr/sbin/diskutil", "eject", confirm_kernel_fat(active[1], read_only=True)], timeout=30)
+                wait_for_external_cleanup(15)
+                assert encrypted_checksum() == final_encrypted
+                if args.finder_eject:
+                    mount()
+                    eject_in_finder()
+            elif args.fskit_external_eject:
+                check_hfs_readonly_metadata(mountpoint / "payload.bin", mtime)
+                confirm_fskit_attachment(active[1], read_only=True)
+                run("external-eject", ["/usr/sbin/diskutil", "eject", mountpoint], timeout=30)
+                wait_for_external_cleanup(15)
+                assert encrypted_checksum() == final_encrypted
+            else:
+                vc("unmount-release", "--unmount", volume, client=release)
+                confirm_closed(mounts, root, volume, active, fskit)
             print("PASS: create, write/fsync, read-only remount, payload integrity, service/file cleanup", flush=True)
         if cli_only:
             succeeded = True
@@ -345,25 +495,29 @@ with open(sys.argv[1], 'r+b') as stream:
         mount(read_only=True)
         assert hashlib.sha256((mountpoint / "payload.bin").read_bytes()).digest() == hashlib.sha256(payload).digest()
         if args.fskit_external_eject:
-            check_xattr("xattr-after-remount")
-            assert xattr_name + ".removed" not in run("xattr-remount-list", [xattr, payload_path]).stdout.splitlines()
-            denied = run("xattr-readonly-denied", [xattr, "-wx", xattr_name, "01", payload_path],
-                         expected_returncode=1)
-            assert f"[Errno {errno.EROFS}]" in denied.stderr, denied.stderr
-            check_xattr("xattr-readonly-preserved")
-            print("PASS: HFS+ binary xattrs and cross-process POSIX advisory locks", flush=True)
+            check_hfs_readonly_metadata(payload_path, mtime)
+            if args.finder_eject:
+                vc("unmount-before-finder", "--unmount", volume)
+                confirm_closed(mounts, root, volume, active, fskit)
+                assert encrypted_checksum() == final_encrypted
+                mount()
         with (root / "gui.log").open("w") as log:
             gui = subprocess.Popen([str(executable), "--background-task"], env=env,
                                    stdout=log, stderr=log, start_new_session=True)
         time.sleep(5)
         assert gui.poll() is None, "Background app exited with a mounted volume"
         if args.fskit_external_eject:
-            confirm_fskit_attachment(active[1], read_only=True)
-            run("external-eject", ["/usr/sbin/diskutil", "eject", mountpoint], timeout=30)
+            confirm_fskit_attachment(active[1], read_only=not args.finder_eject)
+            if args.finder_eject:
+                eject_in_finder()
+            else:
+                run("external-eject", ["/usr/sbin/diskutil", "eject", mountpoint], timeout=30)
         else:
             vc("unmount-readonly", "--unmount", volume)
         assert gui.wait(timeout=20) == 0, "Background app did not exit cleanly"
-        confirm_closed(mounts, root, volume, active, args.fskit_kernel_fat)
+        confirm_closed(mounts, root, volume, active, fskit)
+        if args.fskit_external_eject and not args.finder_eject:
+            assert encrypted_checksum() == final_encrypted
         succeeded = True
         print("PASS: payload integrity, initial background discovery, external-dismount refresh, automatic exit, service/file cleanup", flush=True)
     finally:
@@ -371,10 +525,10 @@ with open(sys.argv[1], 'r+b') as stream:
             gui.terminate()
             gui.wait(timeout=10)
         # Keep a failed FAT trial available for diagnosis without another detach.
-        if not args.fskit_kernel_fat and (str(root) in mounts() or (active and active[1].exists())):
+        if not fat_trial and (str(root) in mounts() or (active and active[1].exists())):
             vc("test-cleanup", "--unmount", volume, client=mount_client)
         if succeeded and not args.keep_artifacts:
-            confirm_closed(mounts, root, volume, active, args.fskit_kernel_fat)
+            confirm_closed(mounts, root, volume, active, fskit)
             shutil.rmtree(root)
 
 

@@ -337,7 +337,7 @@ ifeq "$(VC_OSX_FSKIT)" "1"
 	# Match the native Swift extension and wxWidgets architecture for both signing modes.
 	VC_OSX_NATIVE_BUILD := true
 	C_CXX_FLAGS += -DVC_MACOSX_FSKIT
-	LFLAGS += -framework Foundation
+	LFLAGS += -framework Foundation -framework FSKit
 endif
 	# use the output of the command "xcrun --show-sdk-version" to set the SDK version if not set
 	export VC_OSX_SDK ?= $(shell xcrun --show-sdk-version)

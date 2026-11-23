@@ -103,7 +103,7 @@ namespace VeraCrypt
 		// descriptor without restoring timestamps through a requester process.
 		void SetReleaseOnly () { ReleaseOnly = true; }
 #endif
-#if defined(TC_LINUX) || defined(VC_MACOSX_FSKIT)
+#if defined(TC_LINUX) || defined(TC_MACOSX)
 		SystemFileHandleType GetSystemHandle () const { return FileHandle; }
 #endif
 		FilePath GetPath () const;

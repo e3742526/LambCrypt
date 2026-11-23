@@ -36,6 +36,10 @@ namespace VeraCrypt
 				&& backend;
 		}
 		uid_t Owner;
+#ifdef VC_MACOSX_FSKIT
+		uint32 Flags = 0;
+		uint32 ExtendedFlags = 0;
+#endif
 		int32 MountId[2];
 #endif
 		DevicePath Device;

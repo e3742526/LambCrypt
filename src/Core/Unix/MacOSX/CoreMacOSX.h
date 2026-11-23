@@ -29,7 +29,8 @@ namespace VeraCrypt
 		virtual string GetDefaultMountPointPrefix () const { return "/Volumes/veracrypt"; }
 
 	protected:
-		virtual DevicePath MountAuxVolumeImage (const DirectoryPath &auxMountPoint, const MountOptions &options) const;
+		virtual DevicePath MountAuxVolumeImage (const DirectoryPath &auxMountPoint, const MountOptions &options,
+			Volume *volume, bool useDefaultMountPoint) const;
 		virtual void UpdateMountedVolumeInfo (shared_ptr <VolumeInfo> mountedVolume) const;
 		virtual void UpdateMountedVolumesInfo (VolumeInfoList &volumes) const;
 

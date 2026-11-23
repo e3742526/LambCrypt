@@ -57,10 +57,19 @@ discovery before destructive operations. The auxiliary mount timeout check
 verifies that a mount already visible in the kernel table retains its worker
 for dismount. The teardown tests use a real directory lock and simulated
 kernel snapshots to check transient mount disappearance and worker exit.
+It also simulates macOS dropping an auxiliary mount while its disk image
+is still attached. The worker must retain its endpoint through a retained
+or incomplete Disk Images inventory and exit once the exact image is gone.
+The startup rollback regression verifies the mounting caller hands over
+attachment observation before waiting for worker exit. It also drives the
+production worker loop through an attach timeout, empty and unavailable
+inventories, late publication, and final release. One case never publishes
+the auxiliary mount. These are simulated macOS events.
 The runner also runs `macos_process_test.cpp`
 against the real platform archive, checking subprocess deadlines, output limits,
-descriptor isolation, error reporting, and child reaping with its own helper
-processes. `macos_volume_state_test.cpp` includes production headers directly to
+descriptor isolation including detached workers with closed standard descriptors,
+error reporting, and child reaping with its own helper processes.
+`macos_volume_state_test.cpp` includes production headers directly to
 check auxiliary mount owner/backend/basename filtering and initial, partial,
 invalidated, and stale snapshot decisions.
 
@@ -82,6 +91,35 @@ unchanged.
 These tests exercise state and serialization contracts. They do not establish
 real backend timing, GUI rendering, or filesystem behavior under forced unmount.
 
+### Native Disk Images worker drill
+
+With a matching FSKit build, run this on Apple Silicon as a regular user.
+The signed bundle only creates two disposable FAT containers in this drill.
+
+```sh
+python3 -B Tests/test_macos_fskit_worker_lifecycle.py --build-dir "$VC_TEST_BUILD_SRC"
+```
+
+The test compiles the production worker into a test executable and injects
+its mount-table observation. Each worker decrypts a new container through
+its normal socket protocol. Disk Images attaches the resulting APFS-backed
+raw files read-only and without mounting their inner filesystems. The test
+records the exact image paths, media identifiers and worker generations.
+One worker sees the auxiliary mount disappear with its image already
+attached. The other sees an authoritative empty inventory before its image
+appears. Both must continue serving reads with their reservations held.
+The late-publication fixture also checks the private `attachment-pending`
+indicator and verifies its removal when teardown finishes.
+The test detaches each verified fixture by its current device identity
+and checks that only its worker, socket and reservations are released.
+
+This exercises the production worker, socket, process runner and Disk Images
+inventory on macOS. A signed module, real auxiliary filesystem loss and
+Finder eject still require an enabled FSKit integration run. Add
+`--keep-artifacts` to retain test fixtures and capture files on success.
+A failed trial preserves its artifacts. Inspect the exact test records with
+`hdiutil info -plist` and recover any retained fixture without forcing detach.
+
 For an ordinary integration check with a FUSE-T GUI build, close other LambCrypt
 and VeraCrypt processes and dismount their volumes first. Run the tests from a
 logged-in macOS desktop session.
@@ -100,17 +138,111 @@ reproduce all packaged-app behavior. The lifecycle check verifies
 write/fsync/remount integrity, background startup with a mounted
 volume, refresh after a CLI dismount, and automatic GUI exit. It checks service
 exit, closed backing-file handles, and removal of the auxiliary mount and
-shutdown endpoint. The default lifecycle check uses FUSE-T and a FAT fixture.
-For the signed FSKit scratch bundle, select `--fskit-external-eject` to use
-HFS+. This path verifies the exact Disk Images attachment and mount mode,
-checks binary extended attributes and POSIX advisory locks across processes,
-and verifies the attributes after a read-only remount. It then uses `diskutil`
-to eject the image and checks worker cleanup and background exit.
+shutdown endpoint. It also checks the backing-file reservation through a
+hard-link alias before and after writable dismount. The default lifecycle
+check uses FUSE-T and a FAT fixture.
+With Python 3.11 or later and the signed FSKit scratch bundle, select
+`--fskit-external-eject` to use HFS+. This path verifies the exact Disk Images
+attachment and mount mode, busy refusal with the original worker intact,
+binary extended attributes, and POSIX advisory locks across processes.
+It verifies content and attributes after a read-only remount and checks
+that the read-only pass preserves the encrypted checksum. It uses `diskutil`
+to eject the image and checks worker cleanup and background exit. Add
+`--cli-only` to check the filesystem and worker lifecycle without launching
+the GUI. In the GUI trial, `--finder-eject` tests writable Finder eject after
+the read-only verification pass.
 
 ```sh
 python3 Tests/test_macos_gui_lifecycle.py --fskit-external-eject --keep-artifacts \
   --binary "$VC_FSKIT_BUILD_SRC/Main/LambCrypt-FSKit.app/Contents/MacOS/LambCrypt-FSKit"
 ```
+
+### Signed FSKit GUI preflight
+
+Query FSKit directly from the login account before the first native test.
+Sign the small probe with the test app's Apple Development identity. On
+the physical Tahoe test host that signature exposed the LambCrypt module
+to the probe. The ad hoc probe returned only system modules. Keep the
+signed probe and the test bundle outside the checkout.
+
+```sh
+VC_FSKIT_APP="$VC_FSKIT_BUILD_SRC/Main/LambCrypt-FSKit.app"
+VC_PROBE_DIR="$(mktemp -d)"
+xcrun swiftc Tests/check_fskit_activation.swift -o "$VC_PROBE_DIR/check_fskit_activation"
+codesign --force --sign "$VC_APP_SIGN_IDENTITY" "$VC_PROBE_DIR/check_fskit_activation"
+date
+pluginkit -m -A -D -v -i io.github.e3742526.LambCrypt.fskit.module
+"$VC_PROBE_DIR/check_fskit_activation" "$VC_FSKIT_APP"
+```
+
+The probe returns 0 for the intended enabled module, 1 for the intended
+disabled module, 2 for a missing module, 3 for a different registered copy,
+and 4 for an unavailable FSKit query. PlugInKit's `+` records a user election.
+FSKit supplies the effective state for its own module lookup. An enablement
+change belongs in System Settings under General → Login Items & Extensions
+→ By Category → File System Extensions. Open the intended signed app on an
+empty session, then recheck the exact module URL. If the module remains
+disabled, record both results with the time and stop the native trial.
+
+After the probe returns 0, use the ordinary routed FAT12 trial below for a
+disposable write, sync, dismount and read-only remount. Its two mounts
+exercise the actual extension. Confirm the final mount table, Disk Images
+inventory and worker cleanup before running the rest of the matrix.
+
+Launch and close a freshly registered signed scratch app before mounting
+anything for the GUI trial. Use empty, isolated preferences so the app
+cannot mount saved favorites or devices during this check. Leave `TMPDIR`
+at its ordinary session value. The background app should exit on its own
+with these preferences when there are no mounted volumes.
+
+```sh
+VC_FSKIT_CLI="$VC_FSKIT_BUILD_SRC/Main/LambCrypt-FSKit.app/Contents/MacOS/LambCrypt-FSKit"
+VC_GUI_PREFS="$(mktemp -d)"
+mkdir "$VC_GUI_PREFS/LambCrypt"
+cat >"$VC_GUI_PREFS/LambCrypt/Configuration.xml" <<'EOF'
+<VeraCrypt><configuration>
+<config key="BackgroundTaskEnabled">1</config>
+<config key="CloseBackgroundTaskOnNoVolumes">1</config>
+</configuration></VeraCrypt>
+EOF
+XDG_CONFIG_HOME="$VC_GUI_PREFS" "$VC_FSKIT_CLI" --background-task
+```
+
+On macOS 26.6.2 (25G83), one initial GUI registration coincided with
+termination of the scratch extension and left the disposable read-only
+HFS+ image attached. The empty launch let later GUI trials pass. If the
+runner reports a retained image, preserve its logs and identify it in
+`hdiutil info -plist` before attempting ordinary cleanup. The HFS+ and FAT
+preflights stop before creating a fixture when a prior diagnostic image is
+still attached or the inventory is incomplete.
+
+For a signed development replacement trial, build two scratch bundles with
+ascending `VC_FSKIT_BUILD_VERSION` values and the same marketing version.
+Verify each with `codesign --verify --deep --strict`. Install the first into
+the scratch location, launch the empty GUI, then run a writable FAT12
+lifecycle. Confirm the inner mount, image, auxiliary mount, and worker
+are gone before replacing the app at the same location. Launch the newer
+bundle before repeating the FAT and HFS+ checks. Keep the previous
+bundle outside the app's registration path during the replacement.
+
+### Default macFUSE rollback check
+
+For macFUSE rollback validation, use a separate physical Mac with the
+matching macFUSE driver already loaded. Dismount the FSKit fixture and
+confirm its image and worker are gone. Keep the original disposable
+container and use a copy for the rollback test. Verify the prior macFUSE
+binary links macFUSE, then run this lifecycle smoke test.
+
+```sh
+otool -L "$VC_MACFUSE_CLI"
+python3 -B Tests/test_macos_gui_lifecycle.py --cli-only --binary "$VC_MACFUSE_CLI"
+```
+
+Then mount the rollback copy read-only, verify the expected hash,
+dismount, and confirm the Disk Images and mount inventories are clear
+of the fixture. Use a second disposable copy to repeat the busy
+dismount refusal with a file open and the successful retry after close.
+Record the loaded driver version and both attachment inventories.
 
 ### Isolated production kernel FAT trial
 
@@ -135,6 +267,39 @@ reopen. The teardown check reads the mount table and Disk Images inventory
 with deadlines before probing the backing paths. The open-file check also
 has a deadline. A failure leaves the disposable volume and evidence for diagnosis.
 Native Finder eject has its own smoke check.
+
+### Ordinary FSKit FAT routing
+
+Use Python 3.11 or later and a dedicated, logged-in Apple Silicon Tahoe
+test system with a provisioned scratch bundle. Run each case separately
+so a retained image stops the next trial. This mode uses an ordinary
+LambCrypt mount and checks that the app selected the kernel FAT driver.
+It checks the exact device, expected FAT width and requested access mode.
+
+```sh
+VC_FSKIT_CLI="$VC_FSKIT_BUILD_SRC/Main/LambCrypt-FSKit.app/Contents/MacOS/LambCrypt-FSKit"
+python3 -B Tests/test_macos_gui_lifecycle.py --isolated-host --fskit-routed-fat 12 --binary "$VC_FSKIT_CLI"
+python3 -B Tests/test_macos_gui_lifecycle.py --isolated-host --fskit-routed-fat 16 --fat-default-directory --binary "$VC_FSKIT_CLI"
+python3 -B Tests/test_macos_gui_lifecycle.py --isolated-host --fskit-routed-fat 32 --binary "$VC_FSKIT_CLI"
+```
+
+The writable and read-only passes exercise opposite directory choices.
+The trials cover create, rename, deletion, directory changes, sequential
+and unaligned random writes, truncation and extension, read-back, FAT
+timestamps, sync, busy refusal, clean dismount, and a persisted payload
+hash. The read-only pass checks the encrypted hash again after Disk
+Arbitration eject. FAT16 also dismounts a second, keyfile-protected
+backup-header mount while the first volume stays busy. The HFS+ trial
+checks extended attributes and POSIX locks. FAT extended attributes and
+locks are outside this test's assertions.
+
+Add `--finder-eject` to each routed FAT run to exercise writable eject
+from Finder. The existing `--fat-finder-eject` spelling is also accepted.
+After the read-only pass the test remounts writable and prints the exact
+directory. Eject that volume from Finder within 90 seconds. The runner
+checks for the disappearance of the inner mount, backing image and worker.
+A timeout or failed assertion preserves the scratch artifacts for diagnosis.
+Use `--keep-artifacts` to keep the logs and container after a successful run.
 
 The inactivity check takes about two minutes. It attaches two
 disposable HFS+ containers read-only and verifies independent idle timers. Use

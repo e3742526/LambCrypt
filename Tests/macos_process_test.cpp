@@ -2,6 +2,7 @@
 // privilege changes, or installed VeraCrypt services are involved.
 #include "Platform/Platform.h"
 #include "Platform/Unix/Process.h"
+#include <cerrno>
 #include <chrono>
 #include <fcntl.h>
 #include <iostream>
@@ -37,6 +38,7 @@ int main (int argc, char **argv)
 			return 0;
 		}
 		if (mode == "failure") { write (STDERR_FILENO, "expected", 8); return 7; }
+		if (mode == "signal") { raise (SIGKILL); return 10; }
 		if (mode == "closed") { close (STDOUT_FILENO); close (STDERR_FILENO); sleep (5); return 0; }
 		if (mode == "stream")
 		{
@@ -60,24 +62,57 @@ int main (int argc, char **argv)
 		Require (nullFd >= 0 && dup2 (nullFd, 80) == 80, "test descriptor setup");
 		close (nullFd);
 		int before = DescriptorCount();
+		bool completionUnconfirmed = true;
 		std::cout << "process: success" << std::endl;
-		Require (Process::ExecuteBounded (argv[0], { "success" }, 1000) == "complete", "output/descriptor isolation");
+		Require (Process::ExecuteBounded (argv[0], { "success" }, 1000, completionUnconfirmed) == "complete"
+			&& !completionUnconfirmed, "output/descriptor isolation or normal exit not reported");
 		std::cout << "process: failure" << std::endl;
-		try { Process::ExecuteBounded (argv[0], { "failure" }, 1000); throw std::runtime_error ("missing child error"); }
-		catch (ExecutedProcessFailed &e) { Require (e.GetExitCode() == 7 && e.GetErrorOutput() == "expected", "child error details"); }
+		try { Process::ExecuteBounded (argv[0], { "failure" }, 1000, completionUnconfirmed); throw std::runtime_error ("missing child error"); }
+		catch (ExecutedProcessFailed &e)
+		{
+			Require (e.GetExitCode() == 7 && e.GetErrorOutput() == "expected" && !completionUnconfirmed, "normal child error details");
+		}
+		try { Process::ExecuteBounded (argv[0], { "signal" }, 1000, completionUnconfirmed); throw std::runtime_error ("missing signal error"); }
+		catch (ExecutedProcessFailed &) { Require (completionUnconfirmed, "signal was mistaken for a normal exit"); }
+		try { Process::ExecuteBounded (std::string (argv[0]) + ".absent", {}, 1000, completionUnconfirmed); throw std::runtime_error ("missing launch error"); }
+		catch (SystemException &) { Require (!completionUnconfirmed, "failed launch was marked as started"); }
+		std::cout << "process: closed parent standard descriptors" << std::endl;
+		const pid_t detached = fork();
+		Require (detached >= 0, "could not start descriptor test");
+		if (detached == 0)
+		{
+			close (STDIN_FILENO);
+			close (STDOUT_FILENO);
+			close (STDERR_FILENO);
+			try
+			{
+				if (Process::ExecuteBounded (argv[0], { "success" }, 1000) != "complete")
+					_exit (1);
+				Process::ExecuteBounded (argv[0], { "failure" }, 1000);
+			}
+			catch (ExecutedProcessFailed &e) { _exit (e.GetExitCode() == 7 && e.GetErrorOutput() == "expected" ? 0 : 1); }
+			catch (...) { _exit (1); }
+			_exit (1);
+		}
+		int detachedStatus;
+		pid_t reaped;
+		do { reaped = waitpid (detached, &detachedStatus, 0); }
+		while (reaped < 0 && errno == EINTR);
+		Require (reaped == detached && WIFEXITED (detachedStatus) && WEXITSTATUS (detachedStatus) == 0,
+			"bounded child lost output with standard descriptors closed in the parent");
 		for (const auto &mode : { "silent", "closed", "stream" })
 		{
 			std::cout << "process: " << mode << std::endl;
 			auto start = std::chrono::steady_clock::now();
-			try { Process::ExecuteBounded (argv[0], { mode }, 150); throw std::runtime_error ("missing timeout"); }
-			catch (TimeOut &) { }
+			try { Process::ExecuteBounded (argv[0], { mode }, 150, completionUnconfirmed); throw std::runtime_error ("missing timeout"); }
+			catch (TimeOut &) { Require (completionUnconfirmed, "timed-out child was marked complete"); }
 			Require (std::chrono::steady_clock::now() - start < std::chrono::seconds (2), "deadline overrun");
 			int status;
 			Require (waitpid (-1, &status, WNOHANG) == -1 && errno == ECHILD, "timed-out child not reaped");
 		}
 		std::cout << "process: output cap" << std::endl;
-		try { Process::ExecuteBounded (argv[0], { "large" }, 1000, 64); throw std::runtime_error ("missing output cap"); }
-		catch (ParameterTooLarge &) { }
+		try { Process::ExecuteBounded (argv[0], { "large" }, 1000, completionUnconfirmed, 64); throw std::runtime_error ("missing output cap"); }
+		catch (ParameterTooLarge &) { Require (completionUnconfirmed, "incomplete output was marked complete"); }
 		int status;
 		Require (waitpid (-1, &status, WNOHANG) == -1 && errno == ECHILD, "output-limited child not reaped");
 		Require (DescriptorCount() == before, "descriptor leak");

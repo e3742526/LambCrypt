@@ -1,14 +1,17 @@
 #import <Foundation/Foundation.h>
+#import <FSKit/FSClient.h>
 #undef ERR_SUCCESS
 #include "FSKitService.h"
 #include "VolumeProtocol.h"
 #include "Common/Tcdefs.h"
 #include "Core/CoreException.h"
 #include "Platform/Finally.h"
+#include "Platform/SystemLog.h"
 #include "Platform/Unix/Process.h"
 #include <cerrno>
 #include <chrono>
 #include <fcntl.h>
+#include <future>
 #include <IOKit/IOBSD.h>
 #include <IOKit/IOKitLib.h>
 #include <poll.h>
@@ -26,6 +29,59 @@ namespace VeraCrypt
 	{
 		namespace
 		{
+			void RequireEnabledModule ()
+			{
+				@autoreleasepool
+				{
+					NSURL *extensionURL = [[[NSBundle mainBundle] bundleURL]
+						URLByAppendingPathComponent:@"Contents/Extensions/LambCryptFSKit.appex" isDirectory:YES];
+					NSBundle *extension = [NSBundle bundleWithURL:extensionURL];
+					NSString *identifier = [extension bundleIdentifier];
+					if (![identifier isEqualToString:@"io.github.e3742526.LambCrypt.fskit.module"])
+						throw ExternalException (SRC_POS, L"Start LambCrypt FSKit from its provisioned app bundle.");
+
+					NSString *expectedPath = [[extensionURL path] stringByResolvingSymlinksInPath];
+					auto result = make_shared <std::promise <wstring>> ();
+					auto response = result->get_future();
+					[[FSClient sharedInstance] fetchInstalledExtensionsWithCompletionHandler:
+						^(NSArray <FSModuleIdentity *> *modules, NSError *error) {
+							if (!modules || error)
+							{
+								result->set_value (L"macOS could not query the installed FSKit modules.");
+								return;
+							}
+							bool found = false;
+							bool enabled = true;
+							for (FSModuleIdentity *module in modules)
+							{
+								if (![module.bundleIdentifier isEqualToString:identifier])
+									continue;
+								if (![[[module.url path] stringByResolvingSymlinksInPath] isEqualToString:expectedPath])
+								{
+									result->set_value (L"macOS registered a different copy of LambCrypt FSKit. "
+										L"Open the intended signed LambCrypt FSKit app and check File System Extensions in System Settings.");
+									return;
+								}
+								found = true;
+								enabled = enabled && module.isEnabled;
+							}
+							if (!found)
+								result->set_value (L"macOS did not list the LambCrypt FSKit module. Open the signed app once, "
+									L"then check File System Extensions in System Settings.");
+							else if (!enabled)
+								result->set_value (L"The LambCrypt FSKit module is disabled. In System Settings, open General, "
+									L"Login Items & Extensions, choose By Category, then enable LambCrypt FSKit under File System Extensions.");
+							else
+								result->set_value (wstring());
+						}];
+					if (response.wait_for (std::chrono::seconds (5)) != std::future_status::ready)
+						throw ExternalException (SRC_POS, L"macOS did not respond to the FSKit module query.");
+					const wstring message = response.get();
+					if (!message.empty())
+						throw ExternalException (SRC_POS, message);
+				}
+			}
+
 			string ResourcePath (const string &mountPoint)
 			{
 				return mountPoint.substr (0, mountPoint.rfind ('/'));
@@ -86,19 +142,13 @@ namespace VeraCrypt
 				return result == KERN_SUCCESS && identity != 0;
 			}
 
-			uint64 GetMediaIdentity (const DevicePath &device)
-			{
-				const string path = device;
-				if (path.compare (0, 9, "/dev/disk") != 0)
-					return 0;
-				uint64 identity;
-				return LookupMedia (IOBSDNameMatching (kIOMainPortDefault, 0, path.c_str() + 5), identity) ? identity : 0;
-			}
+			// Zero requests a lookup after the attach command has returned.
+			constexpr uint64 PendingDiskImageAttachment = UINT64_MAX;
 
-			void SendMediaIdentity (int channel, uint64 identity)
+			bool SendMediaIdentity (int channel, uint64 identity)
 			{
 				if (channel < 0)
-					return;
+					return false;
 				const uint8 *bytes = reinterpret_cast <const uint8 *> (&identity);
 				for (size_t sent = 0; sent < sizeof (identity); )
 				{
@@ -106,9 +156,10 @@ namespace VeraCrypt
 					if (count < 0 && errno == EINTR)
 						continue;
 					if (count <= 0)
-						return;
+						return false;
 					sent += static_cast <size_t> (count);
 				}
+				return true;
 			}
 
 			bool TryLockFile (int fd, int mode)
@@ -198,7 +249,12 @@ namespace VeraCrypt
 					return;
 				fsid_t current;
 				if (MountTableEntry (mountPoint, current) && current.val[0] == identity.val[0] && current.val[1] == identity.val[1])
+				{
+					const auto volume = ReadVolumeInfo (mountPoint);
+					if (volume->Protection != VolumeProtection::ReadOnly)
+						FlushVolume (*volume);
 					UnmountAuxiliary (mountPoint, false);
+				}
 			}
 
 			uint64 FindLateMedia (const string &mountPoint, const fsid_t &identity)
@@ -222,6 +278,16 @@ namespace VeraCrypt
 				return 0;
 			}
 
+			void RecordPendingAttachment (int directory, const string &mountPoint)
+			{
+				// The auxiliary pathname can disappear from the mount table.
+				// Keep the recovery indicator in its private parent directory.
+				const int fd = openat (directory, "attachment-pending", O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+				if (fd >= 0)
+					close (fd);
+				SystemLog::WriteError ("FSKit attachment is unresolved for " + mountPoint + "/volume.dmg");
+			}
+
 			void RunWorker (int listener, int commit, int directory, int volumeReservation, int slotReservation,
 				Volume &volume, VolumeInfo &info, const std::array <uint8, 16> &identifier, const string &mountPoint,
 				const string &resource)
@@ -243,6 +309,7 @@ namespace VeraCrypt
 				using Clock = std::chrono::steady_clock;
 				Clock::time_point publicationDeadline;
 				Clock::time_point nextMediaCheck;
+				Clock::time_point nextExitCheck;
 				fsid_t identity = {};
 				uint64 media = 0;
 				uint64 incomingMedia = 0;
@@ -253,26 +320,43 @@ namespace VeraCrypt
 				bool observeMount = false;
 				bool committed = false;
 				bool observeLateMedia = false;
+				bool checkingImageAbsence = false;
+				bool attachmentRequested = false;
+				bool attachmentPending = false;
+				bool pendingRecorded = false;
+				bool pollFailureReported = false;
+				const auto pauseAfterPollError = [&] {
+					if (!pollFailureReported)
+					{
+						pollFailureReported = true;
+						SystemLog::WriteError ("FSKit worker polling failed. Attachment cleanup is unconfirmed for " + mountPoint);
+					}
+					Thread::Sleep (200);
+				};
 				while (true)
 				{
+					bool auxiliaryGone = false;
 					if (committed)
 					{
 						try
 						{
-							if (!IsServiceMountPresent (directory, mountPoint, identity))
-								break;
+							auxiliaryGone = !IsServiceMountPresent (directory, mountPoint, identity);
 						}
 						catch (const SystemException &) { }
 					}
 					else if (observeMount)
 					{
-						// Keep serving a late mount until a usable inventory can confirm
-						// its absence after the publication deadline.
+						// A successful mount command can start attaching an image before
+						// the worker observes an auxiliary mount in the kernel table.
 						try
 						{
 							committed = MountTableEntry (mountPoint, identity);
-							if (!committed && Clock::now() >= publicationDeadline)
-								break;
+							if (!committed && descriptors[1].fd < 0 && Clock::now() >= publicationDeadline)
+							{
+								if (!attachmentRequested)
+									break;
+								auxiliaryGone = true;
+							}
 						}
 						catch (const SystemException &) { }
 					}
@@ -284,6 +368,17 @@ namespace VeraCrypt
 						if (finished > 0 || (finished < 0 && errno != EINTR))
 						{
 							helper = -1;
+							if (checkingImageAbsence)
+							{
+								checkingImageAbsence = false;
+								if (auxiliaryGone && finished > 0 && WIFEXITED (status))
+								{
+									if (WEXITSTATUS (status) == 0 && !attachmentPending)
+										break;
+									if (WEXITSTATUS (status) == 1)
+										attachmentPending = false;
+								}
+							}
 							if (mediaReport >= 0)
 							{
 								if (finished > 0 && WIFEXITED (status) && WEXITSTATUS (status) == 0)
@@ -292,19 +387,47 @@ namespace VeraCrypt
 									ssize_t received;
 									do { received = read (mediaReport, &reported, sizeof (reported)); }
 									while (received < 0 && errno == EINTR);
-									if (received == sizeof (reported))
+									if (received == sizeof (reported) && reported != 0)
+									{
 										media = reported;
+										attachmentPending = false;
+									}
 								}
 								close (mediaReport);
 								mediaReport = -1;
+								observeLateMedia = media == 0;
+								if (observeLateMedia)
+									nextMediaCheck = Clock::now() + std::chrono::seconds (5);
 							}
 						}
 					}
+					if (pendingRecorded && !attachmentPending)
+					{
+						unlinkat (directory, "attachment-pending", 0);
+						pendingRecorded = false;
+					}
 					// Disk Images queries and unmount run in a helper, with the
 					// worker serving the filesystem throughout either operation.
-					if (committed && observeLateMedia)
+					if (auxiliaryGone)
 					{
-						observeLateMedia = false;
+						// Wait for the mounting caller's attachment handoff. The
+						// extension can disappear while Disk Images still has a disk.
+						if (descriptors[1].fd < 0 && helper < 0 && Clock::now() >= nextExitCheck)
+						{
+							nextExitCheck = Clock::now() + std::chrono::seconds (5);
+							helper = fork();
+							if (helper == 0)
+							{
+								closeWorkerDescriptors();
+								try { _exit (IsDiskImageAbsentAfterAuxiliaryUnmount (mountPoint) ? 0 : 1); }
+								catch (...) { _exit (2); }
+							}
+							checkingImageAbsence = helper > 0;
+						}
+					}
+					else if (committed && observeLateMedia && helper < 0 && Clock::now() >= nextMediaCheck)
+					{
+						nextMediaCheck = Clock::now() + std::chrono::seconds (5);
 						int report[2];
 						if (pipe (report) == 0)
 						{
@@ -323,7 +446,7 @@ namespace VeraCrypt
 								close (report[0]);
 						}
 					}
-					if (committed && media != 0 && helper < 0 && Clock::now() >= nextMediaCheck)
+					if (committed && !auxiliaryGone && media != 0 && helper < 0 && Clock::now() >= nextMediaCheck)
 					{
 						nextMediaCheck = Clock::now() + std::chrono::seconds (1);
 						uint64 current;
@@ -345,7 +468,10 @@ namespace VeraCrypt
 					if (ready < 0 && errno == EINTR)
 						continue;
 					if (ready < 0)
-						break;
+					{
+						pauseAfterPollError();
+						continue;
+					}
 
 					if (descriptors[1].revents != 0)
 					{
@@ -375,19 +501,32 @@ namespace VeraCrypt
 						}
 						else
 						{
-							// A zero identity requests bounded observation of a late
-							// attachment. An incomplete message carries no request.
+							// EOF without a completion report leaves a submitted
+							// attachment pending, even with an empty inventory.
 							uint8 *bytes = reinterpret_cast <uint8 *> (&incomingMedia);
 							do { received = read (commit, bytes + mediaBytes, sizeof (incomingMedia) - mediaBytes); }
 							while (received < 0 && errno == EINTR);
 							if (received > 0)
 								mediaBytes += static_cast <size_t> (received);
+							if (mediaBytes == sizeof (incomingMedia) && incomingMedia == PendingDiskImageAttachment)
+							{
+								attachmentRequested = attachmentPending = true;
+								mediaBytes = 0;
+								continue;
+							}
 							if (received <= 0 || mediaBytes == sizeof (incomingMedia))
 							{
 								if (mediaBytes == sizeof (incomingMedia))
 								{
 									media = incomingMedia;
+									attachmentPending = false;
 									observeLateMedia = media == 0;
+								}
+								else if (attachmentPending)
+								{
+									observeLateMedia = true;
+									RecordPendingAttachment (directory, mountPoint);
+									pendingRecorded = true;
 								}
 								close (commit);
 								descriptors[1].fd = -1;
@@ -397,7 +536,10 @@ namespace VeraCrypt
 					}
 
 					if (descriptors[0].revents & (POLLERR | POLLHUP | POLLNVAL))
-						break;
+					{
+						pauseAfterPollError();
+						continue;
+					}
 					if ((descriptors[0].revents & POLLIN) == 0)
 						continue;
 					const int connection = accept (listener, nullptr, nullptr);
@@ -457,7 +599,13 @@ namespace VeraCrypt
 		void RemoveEmptyMountDirectory (const string &mountPoint)
 		{
 			rmdir (mountPoint.c_str());
+			rmdir (GetKernelFatMountPoint (mountPoint).c_str());
 			rmdir (ResourcePath (mountPoint).c_str());
+		}
+
+		string GetKernelFatMountPoint (const string &mountPoint)
+		{
+			return ResourcePath (mountPoint) + "/volume";
 		}
 
 		int TryReserveSlot (VolumeSlotNumber slot)
@@ -468,6 +616,7 @@ namespace VeraCrypt
 		uint64 Mount (const shared_ptr <Volume> &volume, VolumeSlotNumber slot, const string &mountPoint,
 			int slotReservation, int &activationChannel)
 		{
+			RequireEnabledModule ();
 			const string mountDirectory = ResourcePath (mountPoint);
 			const int directory = open (mountDirectory.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
 			throw_sys_sub_if (directory < 0, mountDirectory);
@@ -595,6 +744,21 @@ namespace VeraCrypt
 					unlink (endpoint.c_str());
 				throw;
 			}
+		}
+
+		uint64 GetMediaIdentity (const DevicePath &device)
+		{
+			const string path = device;
+			if (path.compare (0, 9, "/dev/disk") != 0)
+				return 0;
+			uint64 identity;
+			return LookupMedia (IOBSDNameMatching (kIOMainPortDefault, 0, path.c_str() + 5), identity) ? identity : 0;
+		}
+
+		void BeginDiskImageAttachment (int activationChannel)
+		{
+			if (!SendMediaIdentity (activationChannel, PendingDiskImageAttachment))
+				throw MountServiceCleanupFailed (SRC_POS, L"Could not hand off Disk Images attachment to the FSKit worker.");
 		}
 
 		void ObserveAttachedMedia (int activationChannel, const DevicePath &device)
