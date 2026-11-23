@@ -1,0 +1,3 @@
+Executable=/Applications/LambCrypt-FSKit.app/Contents/MacOS/LambCrypt-FSKit
+warning: Specifying ':' in the path is deprecated and will not work in a future release
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>com.apple.security.application-groups</key><array><string>4K5Z4MZ8ZU.lambcrypt-fskit</string></array></dict></plist>

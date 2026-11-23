@@ -1,0 +1,46 @@
+{
+  "CFBundleDevelopmentRegion" => "en"
+  "CFBundleDocumentTypes" => [
+    0 => {
+      "CFBundleTypeIconFile" => "LambCrypt_Volume.icns"
+      "CFBundleTypeName" => "LambCrypt Container File"
+      "CFBundleTypeRole" => "Viewer"
+      "LSHandlerRank" => "Alternate"
+      "LSItemContentTypes" => [
+        0 => "org.idrix.veracrypt.hc"
+      ]
+    }
+  ]
+  "CFBundleExecutable" => "LambCrypt-FSKit"
+  "CFBundleIconFile" => "LambCrypt.icns"
+  "CFBundleIdentifier" => "io.github.e3742526.LambCrypt.fskit"
+  "CFBundleInfoDictionaryVersion" => "6.0"
+  "CFBundleLongVersionString" => "LambCrypt 1.27.0"
+  "CFBundleName" => "LambCrypt FSKit"
+  "CFBundlePackageType" => "APPL"
+  "CFBundleShortVersionString" => "1.27.0"
+  "CFBundleSignature" => "TRUE"
+  "CFBundleVersion" => "1.27.1"
+  "CSResourcesFileMapped" => true
+  "LambCryptFSKitIPCGroup" => "4K5Z4MZ8ZU.lambcrypt-fskit"
+  "LSMinimumSystemVersion" => "26.0"
+  "LSRequiresCarbon" => false
+  "NSHighResolutionCapable" => true
+  "NSPrincipalClass" => "NSApplication"
+  "UTImportedTypeDeclarations" => [
+    0 => {
+      "UTTypeConformsTo" => [
+        0 => "public.data"
+      ]
+      "UTTypeDescription" => "LambCrypt Container File"
+      "UTTypeIdentifier" => "org.idrix.veracrypt.hc"
+      "UTTypeTagSpecification" => {
+        "public.filename-extension" => [
+          0 => "hc"
+          1 => "tc"
+        ]
+        "public.mime-type" => "application/veracrypt"
+      }
+    }
+  ]
+}

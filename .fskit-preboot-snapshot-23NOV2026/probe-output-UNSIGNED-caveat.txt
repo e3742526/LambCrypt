@@ -1,0 +1,2 @@
+FSKit did not list io.github.e3742526.LambCrypt.fskit.module
+UNSIGNED probe — getTeamIDForToken filtering may hide third-party modules; do not treat absence as absence

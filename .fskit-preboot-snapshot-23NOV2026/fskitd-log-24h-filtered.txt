@@ -1,0 +1,564 @@
+2026-11-22 18:11:29.207 Df fskit_agent[1883:18fcb0] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 18:11:39.915 Df fskit_agent[1883:1bc193] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 19:58:02.076 Df fskit_agent[1883:1bc193] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 19:58:03.032 Df fskit_agent[1883:1ee3d0] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 19:58:12.787 Df fskit_agent[1883:1bc193] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 19:59:23.422 Df fskitd[90:aaf] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 19:59:23.739 Df fskitd[90:ba2] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 19:59:24.274 Df fskitd[90:aaf] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 20:00:40.470 Df fskitd[400:4381] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 20:00:51.500 Df fskitd[400:46ab] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 20:45:55.880 Df fskitd[400:211f9] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 20:46:06.966 Df fskitd[400:216af] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 21:01:36.442 Df fskit_agent[13673:1d655] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 21:01:47.088 Df fskit_agent[13673:2e28c] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 21:29:31.881 Df fskitd[400:46939] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 21:29:32.386 Df fskitd[400:461f4] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 21:29:44.260 Df fskitd[400:46bf3] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 21:29:45.841 Df fskitd[400:47173] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 21:29:56.894 Df fskitd[400:47173] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:04:47.590 Df fskitd[400:5c896] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:04:58.696 Df fskitd[400:5c896] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:30:52.066 Df fskit_agent[13673:77f82] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:31:02.656 Df fskit_agent[13673:43b9f] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:32:25.643 Df fskit_agent[13673:7834d] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:32:26.722 Df fskit_agent[13673:7834d] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:32:36.356 Df fskit_agent[13673:7834d] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:33:55.955 Df fskitd[400:5c896] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:34:02.490 Df fskit_agent[13673:7a2a2] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:34:07.039 Df fskitd[400:5c896] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:34:13.163 Df fskit_agent[13673:7a9eb] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:41:32.488 Df fskitd[400:834aa] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:41:43.501 Df fskitd[400:834aa] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:49:36.847 Df fskit_agent[13673:81c44] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:49:47.870 Df fskit_agent[13673:89138] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:50:16.929 Df fskit_agent[13673:897e6] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:50:17.454 Df fskitd[400:89cd5] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:50:19.668 Df fskit_agent[13673:897e6] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:50:27.493 Df fskit_agent[13673:8a0de] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:50:28.136 Df fskitd[400:88dff] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:50:58.421 Df fskit_agent[13673:8a0de] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:50:59.998 Df fskitd[400:8962e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:51:10.709 Df fskitd[400:8962e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:51:10.725 Df fskit_agent[13673:8ba43] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:51:31.209 Df fskit_agent[13673:8b549] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:51:36.238 Df fskit_agent[13673:8baf6] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:51:46.975 Df fskit_agent[13673:8ba43] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:52:40.214 Df fskit_agent[13673:8ce83] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:52:47.899 Df fskit_agent[13673:8de30] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:52:51.255 Df fskit_agent[13673:8e08e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:53:19.184 Df fskit_agent[13673:8e08e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:53:19.728 Df fskit_agent[13673:8e08e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:53:20.226 Df fskit_agent[13673:8e08e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:53:21.590 Df fskit_agent[13673:8e08e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:53:30.235 Df fskit_agent[13673:8e08e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:53:34.602 Df fskit_agent[13673:8e08e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:53:45.313 Df fskit_agent[13673:8e08e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:54:31.900 Df fskit_agent[13673:8eabf] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:54:42.078 Df fskit_agent[13673:8fc54] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:55:24.444 Df fskit_agent[13673:906fd] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:55:35.155 Df fskit_agent[13673:90b8f] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:56:15.841 Df fskit_agent[13673:90def] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:56:26.430 Df fskit_agent[13673:917dd] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:56:33.886 Df fskit_agent[13673:9162c] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:56:44.617 Df fskit_agent[13673:91c89] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:57:11.460 Df fskitd[400:909ca] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:57:22.440 Df fskitd[400:909ca] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:57:50.238 Df fskit_agent[13673:91f7c] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:58:00.963 Df fskit_agent[13673:92d5c] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:58:10.529 Df fskit_agent[13673:93084] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:58:21.234 Df fskit_agent[13673:93084] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:58:56.992 Df fskit_agent[13673:934cb] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:59:07.710 Df fskit_agent[13673:93c9f] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:59:47.638 Df fskit_agent[13673:9483d] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 22:59:58.400 Df fskit_agent[13673:94a43] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:00:47.930 Df fskit_agent[13673:94ef4] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:00:48.284 Df fskit_agent[13673:95c23] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:00:58.643 Df fskit_agent[13673:95c81] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:03:32.198 Df fskit_agent[13673:95c73] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:03:32.513 Df fskit_agent[13673:97c0f] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:03:42.904 Df fskit_agent[13673:97c77] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:05:20.314 Df fskit_agent[13673:97c77] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:05:22.609 Df fskit_agent[13673:99262] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:05:31.253 Df fskit_agent[13673:99262] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:05:52.363 Df fskit_agent[13673:99727] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:06:03.078 Df fskit_agent[13673:99b4a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:07:01.995 Df fskit_agent[13673:99f26] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:07:04.175 Df fskit_agent[13673:9ac89] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:07:12.722 Df fskit_agent[13673:9ad78] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:07:37.445 Df fskit_agent[13673:9ac89] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:07:48.154 Df fskit_agent[13673:9ad7a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:09:38.026 Df fskit_agent[13673:9c9ed] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:09:40.234 Df fskit_agent[13673:9c9ed] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:09:48.484 Df fskit_agent[13673:9d2cf] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:10:15.017 Df fskit_agent[13673:9dc9d] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:10:25.726 Df fskit_agent[13673:9dc9e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:29:52.692 Df fskit_agent[13673:9dc9e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:29:53.359 Df fskit_agent[13673:abc77] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:29:55.501 Df fskit_agent[13673:abc77] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:29:55.599 Df fskitd[400:9d03e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:29:59.045 Df fskit_agent[13673:9dc9e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:30:03.416 Df fskit_agent[13673:9dc9e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:30:06.631 Df fskitd[400:9d03e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:31:11.642 Df fskit_agent[13673:abc77] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:31:13.770 Df fskit_agent[13673:abc77] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:31:18.124 Df fskit_agent[13673:ad51e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:31:22.362 Df fskit_agent[13673:ad51e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:32:24.331 Df fskit_agent[13673:ad51f] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:32:31.809 Df fskit_agent[13673:ae2bd] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-22 23:32:35.025 Df fskit_agent[13673:ae537] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 02:37:03.784 Df fskit_agent[13673:b04ff] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 02:37:05.967 Df fskit_agent[13673:11548a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 02:37:05.981 Df fskitd[400:109f80] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 02:37:09.266 Df fskit_agent[13673:11548a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 02:37:14.479 Df fskit_agent[13673:11548a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 02:37:16.664 Df fskitd[400:109f80] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 02:41:11.582 Df fskit_agent[13673:b04ff] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 02:41:22.280 Df fskit_agent[13673:119969] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 02:51:11.830 Df fskit_agent[13673:119993] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 02:51:22.537 Df fskit_agent[13673:120655] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 02:51:42.168 Df fskit_agent[13673:120890] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 02:51:52.857 Df fskit_agent[13673:120890] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 02:51:59.859 Df fskit_agent[13673:120d44] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:02:34.687 Df fskit_agent[13673:125ffd] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:02:46.120 Df fskit_agent[13673:12b1b3] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:03:16.998 Df fskit_agent[13673:12b69b] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:03:28.057 Df fskit_agent[13673:12c033] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:03:54.527 Df fskitd[400:126017] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:03:54.562 Df fskit_agent[13673:12c2e8] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:04:05.230 Df fskitd[400:1214ba] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:05:38.415 Df fskit_agent[13673:12ca14] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:05:50.627 Df fskit_agent[13673:12ed7d] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:05:55.959 Df fskit_agent[13673:12ed7d] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:06:06.664 Df fskit_agent[13673:12ed7e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:08:02.498 Df fskit_agent[13673:12f149] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:08:13.544 Df fskit_agent[13673:12f149] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:13:00.066 Df fskit_agent[13673:1326d8] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:13:00.131 Df fskitd[400:126017] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:13:00.750 Df fskit_agent[13673:1326d8] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:13:00.827 Df fskitd[400:126017] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:13:01.295 Df fskitd[400:13263b] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:13:01.789 Df fskitd[400:126017] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:13:02.078 Df fskitd[400:13263b] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:13:03.233 Df fskitd[400:13263b] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:13:10.657 Df fskit_agent[13673:1326d8] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 03:13:10.822 Df fskitd[400:126017] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 07:37:02.393 Df fskitd[400:187af9] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 07:37:13.418 Df fskitd[400:18a798] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 09:16:28.488 Df fskit_agent[13673:1ab585] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 09:16:39.521 Df fskit_agent[13673:1ba215] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 09:17:44.838 Df fskitd[400:18a798] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 09:17:48.414 Df fskitd[400:19b417] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 09:17:58.030 Df fskitd[400:18a798] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 09:25:25.767 Df fskit_agent[13673:1ba453] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 09:25:36.813 Df fskit_agent[13673:1c1de5] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 09:33:29.993 Df fskit_agent[13673:1c205a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 09:33:41.039 Df fskit_agent[13673:1c9823] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 09:38:20.795 Df fskit_agent[13673:1c9b76] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 09:38:31.834 Df fskit_agent[13673:1cd773] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 09:41:32.697 Df fskit_agent[13673:1cd98e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 09:41:43.752 Df fskit_agent[13673:1d13ca] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 09:47:05.260 Df fskit_agent[13673:1d13cc] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 09:47:16.298 Df fskit_agent[13673:1d8590] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 12:13:51.087 Df fskitd[400:23aad5] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 12:14:02.262 Df fskitd[400:23aad5] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 13:08:29.054 Df fskit_agent[13673:232e0a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 13:08:40.189 Df fskit_agent[13673:2635d2] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 13:14:12.541 Df fskit_agent[13673:26945a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 13:14:13.209 Df fskit_agent[13673:26945a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 13:14:23.594 Df fskit_agent[13673:26cb10] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 13:16:39.391 Df fskit_agent[13673:26cdc3] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 13:16:50.432 Df fskit_agent[13673:26facb] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 13:36:27.985 Df fskit_agent[13673:26facb] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 13:36:39.028 Df fskit_agent[13673:281716] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 13:57:18.145 Df fskit_agent[13673:281964] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 13:57:29.202 Df fskit_agent[13673:290aba] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:00:36.950 Df fskit_agent[13673:290da1] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:00:47.657 Df fskit_agent[13673:290da1] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:03:05.963 Df fskit_agent[13673:2934ec] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:03:06.401 Df fskit_agent[13673:295372] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:03:12.399 Df fskit_agent[13673:295372] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:03:16.799 Df fskit_agent[13673:295372] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:03:20.906 Df fskit_agent[13673:2954b2] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:03:21.404 Df fskit_agent[13673:2954b2] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:03:21.828 Df fskit_agent[13673:295372] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:03:27.521 Df fskit_agent[13673:295372] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:11:45.497 Df fskit_agent[13673:295372] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:11:56.621 Df fskit_agent[13673:29baa6] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:29:59.776 Df fskit_agent[13673:29baa6] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:30:10.815 Df fskit_agent[13673:2a7b9b] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:34:50.025 Df fskitd[400:25ccc2] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:35:01.124 Df fskitd[400:267e07] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:37:03.654 Df fskit_agent[13673:2a7e00] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:37:14.702 Df fskit_agent[13673:2ad15e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:40:31.395 Df fskit_agent[13673:2ad4df] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:40:42.426 Df fskit_agent[13673:2afcc6] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:54:16.345 Df fskit_agent[13673:2afcc6] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:54:27.399 Df fskit_agent[13673:2b99fd] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:57:34.151 Df fskit_agent[13673:2be86c] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:57:35.740 Df fskitd[400:29ac76] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:57:44.853 Df fskit_agent[13673:2bf00c] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:57:47.179 Df fskitd[400:2bf0cf] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:58:52.926 Df fskit_agent[13673:2bf0bf] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:58:56.679 Df fskit_agent[13673:2c09b9] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 14:59:03.970 Df fskit_agent[13673:2c09b9] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:00:16.300 Df fskit_agent[13673:2c0d69] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:00:18.888 Df fskit_agent[13673:2c1d02] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:00:26.919 Df fskit_agent[13673:2c0d69] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:03:55.288 Df fskit_agent[13673:2c0d69] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:04:05.977 Df fskit_agent[13673:2c5077] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:20:40.475 Df fskit_agent[13673:2cf0ce] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:20:51.521 Df fskit_agent[13673:2d52b8] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:39:31.763 Df fskitd[400:2c5ab4] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:39:31.824 Df fskit_agent[13673:2e9bf9] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:39:42.459 Df fskitd[400:2c5ab4] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:39:42.481 Df fskit_agent[13673:2e9bf9] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:46:26.453 Df fskit_agent[13673:2edb12] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:46:37.127 Df fskit_agent[13673:2edb12] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:46:49.158 Df fskitd[400:2edb13] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:46:49.159 Df fskitd[400:2edb13] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:46:49.986 Df fskitd[400:2edb13] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:46:50.666 Df fskitd[400:2edb13] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:46:50.668 Df fskitd[400:2edb13] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:46:51.465 Df fskitd[400:2edb13] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:46:51.467 Df fskitd[400:2edb13] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:46:54.823 Df fskitd[400:2f0dfb] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:46:54.825 Df fskitd[400:2f0dfb] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:46:55.815 Df fskitd[400:2f0dfb] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:46:55.816 Df fskitd[400:2f0dfb] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:46:58.348 Df fskitd[400:2edb13] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:46:58.349 Df fskitd[400:2edb13] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:38.931 Df fskitd[400:2fbc90] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:59:38.967 Df fskit_agent[13673:2f34f9] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:59:39.380 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:39.394 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:39.505 Df fskit_agent[13673:2fc92a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:59:39.583 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:39.891 Df fskit_agent[13673:2fc92a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:59:39.899 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:39.915 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:40.297 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:40.313 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:42.495 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:43.054 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:43.448 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:43.653 Df fskit_agent[13673:2fc92a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:59:44.031 Df fskit_agent[13673:2fc92a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:59:44.061 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:44.073 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:44.429 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:44.441 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:45.677 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:46.162 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:46.670 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:47.213 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:47.581 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:49.612 Df fskit_agent[13673:2f34f9] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:59:49.629 Df fskitd[400:2fbc90] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:59:49.721 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:49.998 Df fskit_agent[13673:2fc92a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 15:59:50.030 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:50.044 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:50.317 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:50.395 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:50.408 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:50.801 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:52.831 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:53.181 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:53.548 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:56.018 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:56.386 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 15:59:56.750 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:00.698 Df fskit_agent[13673:2fc92a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:00:00.783 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:01.087 Df fskit_agent[13673:2fc92a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:00:01.117 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:01.131 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:01.484 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:01.497 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:03.899 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:04.266 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:04.634 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:07.087 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:07.489 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:07.850 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:11.781 Df fskit_agent[13673:2fc981] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:00:11.869 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:12.161 Df fskit_agent[13673:2fd058] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:00:12.190 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:12.204 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:12.572 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:12.584 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:14.979 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:15.342 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:15.724 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:18.063 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:18.542 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:18.954 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:22.856 Df fskit_agent[13673:2fc981] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:00:22.945 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:23.243 Df fskit_agent[13673:2fd62a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:00:23.270 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:23.283 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:23.614 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:23.615 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:23.652 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:23.664 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:26.029 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:26.338 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:26.802 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:29.193 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:29.519 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:29.948 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:33.939 Df fskit_agent[13673:2fd62a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:00:34.015 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:34.329 Df fskit_agent[13673:2fd62a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:00:34.357 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:34.369 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:34.652 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:34.663 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:37.043 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:37.328 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:37.763 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:40.133 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:40.463 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:40.971 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:44.947 Df fskit_agent[13673:2fd62a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:00:45.028 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:45.331 Df fskit_agent[13673:2fd62a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:00:45.363 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:45.375 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:45.736 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:45.748 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:48.137 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:48.513 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:48.889 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:51.320 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:51.730 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:52.080 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:56.023 Df fskit_agent[13673:2fdaf5] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:00:56.106 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:56.408 Df fskit_agent[13673:2fdaf5] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:00:56.439 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:56.453 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:56.815 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:56.830 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:59.216 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:59.592 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:00:59.967 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:02.337 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:02.790 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:03.170 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:07.439 Df fskit_agent[13673:2fdaf5] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:01:07.515 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:07.826 Df fskit_agent[13673:2fdaf5] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:01:07.856 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:07.869 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:08.231 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:08.245 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:09.235 Df fskit_agent[13673:2fdde1] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:01:09.665 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:09.712 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:10.591 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:11.008 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:11.246 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:12.787 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:13.806 I  fskit_agent[13673:2fdaf5] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:13.806 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:14.227 I  fskit_agent[13673:2fdaf5] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:14.228 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:14.432 I  fskit_agent[13673:2fdaf5] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:14.433 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:15.714 I  fskit_agent[13673:2fdaf5] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:15.962 I  fskit_agent[13673:2fdaf5] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:15.963 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:18.553 Df fskit_agent[13673:2fdaf5] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:01:18.610 I  fskit_agent[13673:2fdaf5] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:18.610 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:18.919 Df fskit_agent[13673:2fdaf5] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:01:18.946 I  fskit_agent[13673:2fdaf5] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:18.946 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:18.960 I  fskit_agent[13673:2fdaf5] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:18.960 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:19.325 I  fskit_agent[13673:2fe086] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:19.325 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:19.341 I  fskit_agent[13673:2fe086] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:19.341 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:19.735 I  fskit_agent[13673:2fe086] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:21.719 I  fskit_agent[13673:2fe086] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:21.719 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:22.096 I  fskit_agent[13673:2fe086] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:22.097 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:22.474 I  fskit_agent[13673:2fe086] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:22.475 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:23.754 I  fskit_agent[13673:2fe086] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:24.908 I  fskit_agent[13673:2fe086] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:24.909 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:25.317 I  fskit_agent[13673:2fe086] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:25.318 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:25.696 I  fskit_agent[13673:2fe086] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:25.697 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:27.770 I  fskit_agent[13673:2fe086] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:29.620 Df fskit_agent[13673:2fe086] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:01:29.701 I  fskit_agent[13673:2fe086] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:29.702 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:30.001 Df fskit_agent[13673:2fe086] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:01:30.029 I  fskit_agent[13673:2fe086] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:30.029 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:30.041 I  fskit_agent[13673:2fe086] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:30.042 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:30.407 I  fskit_agent[13673:2fe086] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:30.408 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:30.423 I  fskit_agent[13673:2fe086] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:30.424 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:31.787 I  fskit_agent[13673:2fe086] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:32.813 I  fskit_agent[13673:2fe086] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:32.815 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:33.179 I  fskit_agent[13673:2fe086] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:33.181 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:33.557 I  fskit_agent[13673:2fe086] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:33.558 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:35.812 I  fskit_agent[13673:2fe086] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:35.887 I  fskit_agent[13673:2fe6f1] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:35.888 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:36.387 I  fskit_agent[13673:2fe6f1] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:36.388 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:36.767 I  fskit_agent[13673:2fe6f1] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:36.768 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:39.829 I  fskit_agent[13673:2fe6f1] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:40.716 Df fskit_agent[13673:2fe6f1] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:01:40.812 I  fskit_agent[13673:2fe6f1] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:40.813 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:41.106 Df fskit_agent[13673:2fe6f1] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:01:41.138 I  fskit_agent[13673:2fe6f1] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:41.139 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:41.159 I  fskit_agent[13673:2fe6f1] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:41.160 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:41.505 I  fskit_agent[13673:2fecd6] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:41.505 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:41.518 I  fskit_agent[13673:2fecd6] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:41.519 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:43.850 I  fskit_agent[13673:2fecd6] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:43.924 I  fskit_agent[13673:2fecd6] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:43.925 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:44.288 I  fskit_agent[13673:2fecd6] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:44.288 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:44.653 I  fskit_agent[13673:2fecd6] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:44.654 Df fskitd[400:2fb773] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:47.112 I  fskit_agent[13673:2fecd6] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:47.113 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:47.454 I  fskit_agent[13673:2fecd6] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:47.454 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:47.857 I  fskit_agent[13673:2fecd6] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:47.858 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:51.814 Df fskit_agent[13673:2fecd6] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:01:51.964 I  fskit_agent[13673:2fecd6] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:51.965 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:52.218 I  fskit_agent[13673:2fefad] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:52.218 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:52.237 Df fskit_agent[13673:2fefad] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:01:52.237 I  fskit_agent[13673:2ff014] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:52.237 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:52.588 I  fskit_agent[13673:2fefad] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:52.589 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:52.605 I  fskit_agent[13673:2fefad] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:52.606 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:55.073 I  fskit_agent[13673:2fefad] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:55.073 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:55.223 I  fskit_agent[13673:2fefad] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:55.223 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:55.739 I  fskit_agent[13673:2fefad] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:55.740 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:58.240 I  fskit_agent[13673:2fefad] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:58.240 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:58.293 I  fskit_agent[13673:2fefad] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:58.293 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:01:58.952 I  fskit_agent[13673:2fefad] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:01:58.952 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:02:02.934 Df fskit_agent[13673:2fefad] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:02:02.986 I  fskit_agent[13673:2fefad] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:02:02.986 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:02:03.311 I  fskit_agent[13673:2ff43c] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:02:03.312 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:02:03.328 I  fskit_agent[13673:2ff43c] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:02:03.328 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:02:03.335 Df fskit_agent[13673:2ff43c] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:02:03.681 I  fskit_agent[13673:2ff43c] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:02:03.682 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:02:03.706 I  fskit_agent[13673:2ff43c] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:02:03.706 Df fskitd[400:2fbc90] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:02:13.976 Df fskit_agent[13673:2ff482] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:02:14.357 Df fskit_agent[13673:2ff7bc] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:02:18.104 I  fskit_agent[13673:2ff482] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:02:25.052 Df fskit_agent[13673:2ff482] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:02:25.433 Df fskit_agent[13673:2ffad7] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:02:35.209 I  fskit_agent[13673:2ff482] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:02:36.132 Df fskit_agent[13673:2ff482] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:02:36.515 Df fskit_agent[13673:2ffdb7] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:02:39.221 I  fskit_agent[13673:2ff482] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:02:43.232 I  fskit_agent[13673:2ff482] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:02:47.221 Df fskit_agent[13673:2ff482] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:02:47.273 I  fskit_agent[13673:2ff482] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:02:47.600 Df fskit_agent[13673:2ff482] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:02:51.343 I  fskit_agent[13673:2ff482] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:02:55.353 I  fskit_agent[13673:2ff482] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:02:58.298 Df fskit_agent[13673:2ff482] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:02:58.681 Df fskit_agent[13673:2ff482] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:02:59.361 I  fskit_agent[13673:2ff482] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:03:03.373 I  fskit_agent[13673:2ff482] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:03:07.388 I  fskit_agent[13673:2ff482] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:03:09.381 Df fskit_agent[13673:2ff482] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:03:09.764 Df fskit_agent[13673:2ff482] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:03:11.403 I  fskit_agent[13673:2ff482] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:03:15.412 I  fskit_agent[13673:2ff482] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:03:19.420 I  fskit_agent[13673:2ff482] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:03:20.459 Df fskit_agent[13673:2ff482] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:03:20.843 Df fskit_agent[13673:2ff482] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:03:23.429 I  fskit_agent[13673:2ff482] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:03:27.440 I  fskit_agent[13673:2ff482] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:03:29.550 Df fskit_agent[13673:2ff482] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:03:31.543 Df fskit_agent[13673:2ff482] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:04:25.752 Df fskit_agent[13673:2ff482] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:04:32.502 Df fskit_agent[13673:2ff482] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:04:43.180 Df fskit_agent[13673:2ff482] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:04:43.560 Df fskit_agent[13673:2ff482] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:04:48.641 Df fskit_agent[13673:302363] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:04:54.716 Df fskit_agent[13673:302363] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:05:05.422 Df fskit_agent[13673:302363] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:05:05.839 Df fskit_agent[13673:302363] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:05:15.929 Df fskit_agent[13673:302b1a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:05:16.306 Df fskit_agent[13673:302b1a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:05:26.998 Df fskit_agent[13673:302b1a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:05:27.373 Df fskit_agent[13673:302b1a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:05:38.058 Df fskit_agent[13673:302b1a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:44:47.686 I  fskit_agent[13673:30373a] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:45:37.457 I  fskit_agent[13673:30373a] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:45:37.457 Df fskitd[400:31c187] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 16:45:37.754 I  fskit_agent[13673:30373a] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:46:57.152 I  fskit_agent[13673:30373a] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:49:43.521 I  fskit_agent[13673:30373a] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:55:59.423 Df fskit_agent[13673:30373a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:55:59.810 I  fskit_agent[13673:30373a] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:56:10.136 Df fskit_agent[13673:323a98] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:56:23.761 Df fskit_agent[13673:323eed] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:56:34.448 Df fskit_agent[13673:324275] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:56:44.164 Df fskit_agent[13673:324634] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:56:54.861 Df fskit_agent[13673:324635] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:58:10.667 I  fskit_agent[13673:32572a] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:58:10.668 I  fskitd[400:325806] [com.apple.FSKit:default] Got extensions <private>
+2026-11-23 16:58:10.835 Df fskit_agent[13673:32572a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:58:11.433 Df fskit_agent[13673:32618e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:58:13.982 I  fskit_agent[13673:32618e] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:58:13.983 I  fskitd[400:325806] [com.apple.FSKit:default] Got extensions <private>
+2026-11-23 16:58:14.004 Df fskit_agent[13673:32618e] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 16:58:16.232 I  fskit_agent[13673:32572a] [com.apple.FSKit:default] Getting extensions
+2026-11-23 16:58:16.233 I  fskitd[400:325e7a] [com.apple.FSKit:default] Got extensions <private>
+2026-11-23 16:58:21.538 Df fskit_agent[13673:32572a] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key <private>
+2026-11-23 17:03:21.096 I  fskit_agent[13673:32661f] [com.apple.FSKit:default] Getting extensions
+2026-11-23 17:03:21.097 I  fskitd[400:32b469] [com.apple.FSKit:default] Got extensions <private>
+2026-11-23 17:03:21.097 Df fskitd[400:32b469] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 17:03:21.097 I  fskitd[400:32b469] [com.apple.FSKit:default] -[fskitdXPCServer getTeamIDForToken:] did not find team ID
+2026-11-23 17:06:31.975 I  fskit_agent[13673:32661f] [com.apple.FSKit:default] Getting extensions
+2026-11-23 17:06:31.976 I  fskitd[400:32f094] [com.apple.FSKit:default] Got extensions <private>
+2026-11-23 17:06:31.976 Df fskitd[400:32f094] [com.apple.FSKit:default] Received error '(null)', errno 2, retrieving team ID
+2026-11-23 17:06:31.976 I  fskitd[400:32f094] [com.apple.FSKit:default] -[fskitdXPCServer getTeamIDForToken:] did not find team ID

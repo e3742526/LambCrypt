@@ -1,0 +1,25 @@
+{
+  "CFBundleDevelopmentRegion" => "en"
+  "CFBundleDisplayName" => "LambCrypt FSKit"
+  "CFBundleExecutable" => "LambCryptFSKit"
+  "CFBundleIdentifier" => "io.github.e3742526.LambCrypt.fskit.module"
+  "CFBundleName" => "LambCrypt FSKit"
+  "CFBundlePackageType" => "XPC!"
+  "CFBundleShortVersionString" => "1.27.0"
+  "CFBundleVersion" => "1.27.1"
+  "EXAppExtensionAttributes" => {
+    "EXExtensionPointIdentifier" => "com.apple.fskit.fsmodule"
+    "FSActivateOptionSyntax" => {
+      "shortOptions" => "u:g:m:o:"
+    }
+    "FSMediaTypes" => {
+    }
+    "FSPersonalities" => {
+    }
+    "FSRequiresSecurityScopedPathURLResources" => true
+    "FSShortName" => "lambcryptfs"
+    "FSSupportsBlockResources" => false
+    "FSSupportsPathURLs" => true
+  }
+  "LSMinimumSystemVersion" => "26.0"
+}
