@@ -136,6 +136,39 @@ with deadlines before probing the backing paths. The open-file check also
 has a deadline. A failure leaves the disposable volume and evidence for diagnosis.
 Native Finder eject has its own smoke check.
 
+### Ordinary FSKit FAT routing
+
+Use Python 3.11 or later and a dedicated, logged-in Apple Silicon Tahoe
+test system with a provisioned scratch bundle. Run each case separately
+so a retained image stops the next trial. This mode uses an ordinary
+LambCrypt mount and checks that the app selected the kernel FAT driver.
+It checks the exact device, expected FAT width and requested access mode.
+
+```sh
+VC_FSKIT_CLI="$VC_FSKIT_BUILD_SRC/Main/LambCrypt-FSKit.app/Contents/MacOS/LambCrypt-FSKit"
+python3 -B Tests/test_macos_gui_lifecycle.py --isolated-host --fskit-routed-fat 12 --binary "$VC_FSKIT_CLI"
+python3 -B Tests/test_macos_gui_lifecycle.py --isolated-host --fskit-routed-fat 16 --fat-default-directory --binary "$VC_FSKIT_CLI"
+python3 -B Tests/test_macos_gui_lifecycle.py --isolated-host --fskit-routed-fat 32 --binary "$VC_FSKIT_CLI"
+```
+
+The writable and read-only passes exercise opposite directory choices.
+The trials cover create, rename, deletion, directory changes, sequential
+and unaligned random writes, truncation and extension, read-back, FAT
+timestamps, sync, busy refusal, clean dismount, and a persisted payload
+hash. The read-only pass checks the encrypted hash again after Disk
+Arbitration eject. FAT16 also dismounts a second, keyfile-protected
+backup-header mount while the first volume stays busy. The HFS+ trial
+checks extended attributes and POSIX locks. FAT extended attributes and
+locks are outside this test's assertions.
+
+Add `--fat-finder-eject` to each routed FAT run to exercise writable
+eject from the Finder UI. After the read-only pass the test remounts
+writable and prints the exact directory. Eject that volume from Finder
+within 90 seconds. The runner checks for the disappearance of the
+inner mount, backing image and worker. A timeout or failed assertion
+preserves the scratch artifacts for diagnosis. Use `--keep-artifacts`
+to retain the logs and container after a successful run.
+
 The inactivity check takes about two minutes. It attaches two
 disposable HFS+ containers read-only and verifies independent idle timers. Use
 `--active-second` to read the second image and verify that only its deadline
