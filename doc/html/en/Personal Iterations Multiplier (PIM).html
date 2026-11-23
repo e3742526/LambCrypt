@@ -111,25 +111,12 @@ Motivations behind using a custom PIM value can be:<br>
 </li><li>Speeding up booting or mounting through the use of a small PIM value (less than 12 for Argon2id volumes, less than 98 for system encryption that doesn't use SHA-512 or Whirlpool, and less than 485 for PBKDF2-HMAC in the other cases)
 </li></ul>
 <p>To mount a volume that uses a PIM of 231, select &quot;Use PIM&quot; in the password dialog and enter 231 in the PIM field.</p>
-<table style="margin-left:auto; margin-right:auto">
-<tbody>
-</tbody>
-</table>
+<p><img src="Tutorial_13_Mount_PIM.png" alt="Password dialog with the PIM field" width="536"></p>
 <p>&nbsp;</p>
 <h3>Changing/clearing the PIM</h3>
 <p>The PIM of a volume or for system encryption can be changed or cleared using the change password functionality. For example, you can change the PIM from the empty default value to a value equal to 3 (this is possible since the password
  has more than 20 characters). In order to do so, the user must first tick &quot;Use PIM&quot; checkbox in the &quot;New&quot; section to reveal the PIM field.</p>
-<table width="519" style="height:896px; width:519px; margin-left:auto; margin-right:auto">
-<caption><strong>Normal volume case</strong></caption>
-<tbody>
-</tbody>
-</table>
 <h5>&nbsp;</h5>
-<table style="margin-left:auto; margin-right:auto">
-<caption><strong>System encryption case</strong></caption>
-<tbody>
-</tbody>
-</table>
 <p>&nbsp;</p>
 <p><a href="VeraCrypt%20Volume%20Format%20Specification.html" style="text-align:left; color:#0080c0; text-decoration:none; font-weight:bold">Next Section &gt;&gt;</a></p>
 </div>

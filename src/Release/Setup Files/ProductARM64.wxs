@@ -413,6 +413,48 @@
 			<Component Id="cmp9380DDE2560B4D8EE9CC363AF4BC7B5F" Guid="{E2A85779-4B58-5F03-B927-83B06E172653}">
 				<File Id="fil04BCDEC7438B23A6BBF1C95ACF126266" KeyPath="yes" Source="$(sys.CURRENTDIR)\docs\html\en\Documentation.html" Checksum="yes" DiskId="1" />
 			</Component>
+			<Component Id="cmp94C39EE691F3D14B4552A148396F3486" Guid="{379B57D5-91F5-5B38-9F83-88E658BA5CCD}">
+				<File Id="fil94C39EE691F3D14B4552A148396F3486" KeyPath="yes" Source="$(sys.CURRENTDIR)\docs\html\en\Tutorial_01_Main_Window.png" Checksum="yes" DiskId="1" />
+			</Component>
+			<Component Id="cmp5E58E2588B6F5A662A10796738A70CE2" Guid="{428413DB-520B-5703-9B48-85AA4BCF92C9}">
+				<File Id="fil5E58E2588B6F5A662A10796738A70CE2" KeyPath="yes" Source="$(sys.CURRENTDIR)\docs\html\en\Tutorial_02_Volume_Type.png" Checksum="yes" DiskId="1" />
+			</Component>
+			<Component Id="cmp69D22A593738A726DED7492BF7C92127" Guid="{3181A7ED-980E-5120-A5C0-3194AF7E861D}">
+				<File Id="fil69D22A593738A726DED7492BF7C92127" KeyPath="yes" Source="$(sys.CURRENTDIR)\docs\html\en\Tutorial_03_Standard_Volume.png" Checksum="yes" DiskId="1" />
+			</Component>
+			<Component Id="cmpBBAA57ACACB0701E61837D8498DB6C1B" Guid="{4D6B14B0-7495-5C5D-A07D-90A8E995AC81}">
+				<File Id="filBBAA57ACACB0701E61837D8498DB6C1B" KeyPath="yes" Source="$(sys.CURRENTDIR)\docs\html\en\Tutorial_04_Location.png" Checksum="yes" DiskId="1" />
+			</Component>
+			<Component Id="cmpE0FC75BAB3608AA52ED89AF202E5AC22" Guid="{907B445D-19BF-590C-8D0A-C14030ECE68F}">
+				<File Id="filE0FC75BAB3608AA52ED89AF202E5AC22" KeyPath="yes" Source="$(sys.CURRENTDIR)\docs\html\en\Tutorial_05_Encryption_Options.png" Checksum="yes" DiskId="1" />
+			</Component>
+			<Component Id="cmp7B7A54FC5CF9BABAF16C3912361F46ED" Guid="{0CB3E2A3-D242-5A16-AE4D-61C45138C7F1}">
+				<File Id="fil7B7A54FC5CF9BABAF16C3912361F46ED" KeyPath="yes" Source="$(sys.CURRENTDIR)\docs\html\en\Tutorial_06_Volume_Size.png" Checksum="yes" DiskId="1" />
+			</Component>
+			<Component Id="cmpDF2724120BECBF2637EFCA4D538FD6C0" Guid="{0975B1EA-8975-56CE-881D-B88E1FA30066}">
+				<File Id="filDF2724120BECBF2637EFCA4D538FD6C0" KeyPath="yes" Source="$(sys.CURRENTDIR)\docs\html\en\Tutorial_07_Password.png" Checksum="yes" DiskId="1" />
+			</Component>
+			<Component Id="cmp00D17F04E4D02145CFA171555932796D" Guid="{985C8ED3-8D03-53B2-ADBE-5B96C8673FBA}">
+				<File Id="fil00D17F04E4D02145CFA171555932796D" KeyPath="yes" Source="$(sys.CURRENTDIR)\docs\html\en\Tutorial_08_Filesystem.png" Checksum="yes" DiskId="1" />
+			</Component>
+			<Component Id="cmpEED589867010B32D4B69025BEBE792EC" Guid="{6021A36C-D835-5391-AC0E-DE711E307914}">
+				<File Id="filEED589867010B32D4B69025BEBE792EC" KeyPath="yes" Source="$(sys.CURRENTDIR)\docs\html\en\Tutorial_09_Format.png" Checksum="yes" DiskId="1" />
+			</Component>
+			<Component Id="cmp5FBB85D8272B43D8151659F51F61443E" Guid="{14E59C43-2C88-52A8-B724-418BAE4FEA5B}">
+				<File Id="fil5FBB85D8272B43D8151659F51F61443E" KeyPath="yes" Source="$(sys.CURRENTDIR)\docs\html\en\Tutorial_10_Volume_Created.png" Checksum="yes" DiskId="1" />
+			</Component>
+			<Component Id="cmpB9AC866C0D31CFE5B18185DAA81AF645" Guid="{75335BEB-449C-542C-9EFA-F3FE037AC249}">
+				<File Id="filB9AC866C0D31CFE5B18185DAA81AF645" KeyPath="yes" Source="$(sys.CURRENTDIR)\docs\html\en\Tutorial_11_Select_Container.png" Checksum="yes" DiskId="1" />
+			</Component>
+			<Component Id="cmp4C648B72330C128DB0A82A3B688C9CBB" Guid="{3CE3672C-339F-56B6-B61E-9D1B08B04894}">
+				<File Id="fil4C648B72330C128DB0A82A3B688C9CBB" KeyPath="yes" Source="$(sys.CURRENTDIR)\docs\html\en\Tutorial_12_Mount_Password.png" Checksum="yes" DiskId="1" />
+			</Component>
+			<Component Id="cmp04F4564FCD21BED80F22B6DD84BE09E9" Guid="{FC815A55-48EA-58D4-A0E0-F05DF1445F36}">
+				<File Id="fil04F4564FCD21BED80F22B6DD84BE09E9" KeyPath="yes" Source="$(sys.CURRENTDIR)\docs\html\en\Tutorial_13_Mount_PIM.png" Checksum="yes" DiskId="1" />
+			</Component>
+			<Component Id="cmp67D5304D3AE9552CDC9E36B1C6CAE325" Guid="{65582F03-C587-5693-9F92-26A61C7171F1}">
+				<File Id="fil67D5304D3AE9552CDC9E36B1C6CAE325" KeyPath="yes" Source="$(sys.CURRENTDIR)\docs\html\en\Tutorial_14_Mount_Options.png" Checksum="yes" DiskId="1" />
+			</Component>
 			<Component Id="cmpF66AD1AA07E626FB6BACE2B67C694F7C" Guid="{A609AA3A-8A34-5199-94F0-F4172C6C4FAD}">
 				<File Id="filF66AD1AA07E626FB6BACE2B67C694F7C" KeyPath="yes" Source="$(sys.CURRENTDIR)\docs\html\en\LambCrypt and VeraCrypt.html" Checksum="yes" DiskId="1" />
 			</Component>
@@ -1056,6 +1098,20 @@
 			<ComponentRef Id="cmp40BDD4F3CA20DEE006E087930EF3847C" />
 			<ComponentRef Id="cmp7AEEABAF151FCE92735664A55F7B8FFA" />
 			<ComponentRef Id="cmp9380DDE2560B4D8EE9CC363AF4BC7B5F" />
+			<ComponentRef Id="cmp94C39EE691F3D14B4552A148396F3486" />
+			<ComponentRef Id="cmp5E58E2588B6F5A662A10796738A70CE2" />
+			<ComponentRef Id="cmp69D22A593738A726DED7492BF7C92127" />
+			<ComponentRef Id="cmpBBAA57ACACB0701E61837D8498DB6C1B" />
+			<ComponentRef Id="cmpE0FC75BAB3608AA52ED89AF202E5AC22" />
+			<ComponentRef Id="cmp7B7A54FC5CF9BABAF16C3912361F46ED" />
+			<ComponentRef Id="cmpDF2724120BECBF2637EFCA4D538FD6C0" />
+			<ComponentRef Id="cmp00D17F04E4D02145CFA171555932796D" />
+			<ComponentRef Id="cmpEED589867010B32D4B69025BEBE792EC" />
+			<ComponentRef Id="cmp5FBB85D8272B43D8151659F51F61443E" />
+			<ComponentRef Id="cmpB9AC866C0D31CFE5B18185DAA81AF645" />
+			<ComponentRef Id="cmp4C648B72330C128DB0A82A3B688C9CBB" />
+			<ComponentRef Id="cmp04F4564FCD21BED80F22B6DD84BE09E9" />
+			<ComponentRef Id="cmp67D5304D3AE9552CDC9E36B1C6CAE325" />
 			<ComponentRef Id="cmpF66AD1AA07E626FB6BACE2B67C694F7C" />
 			<ComponentRef Id="cmp2183E7DFA9F2A9571D0A378D8AD5EECB" />
 			<ComponentRef Id="cmp2E1E762AC66A6159216A7E3AB632E099" />
