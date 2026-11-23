@@ -56,6 +56,7 @@ class FSKitPreflightTests(unittest.TestCase):
             "/tmp/.veracrypt_aux_mnt-12345678/volume.dmg",
             "/Users/test/Library/Caches/lambcrypt-fat-repro-example/fskit-mount/volume.dmg",
             "/Users/test/Library/Caches/lambcrypt-fat-repro-example/lambcrypt-isolated-plain-fat.raw",
+            "/private/tmp/lambcrypt-worker.12345678/1/aux/volume.dmg",
         ):
             with self.subTest(path=path):
                 self.exercise({"images": [{"image-path": path}]}, (RuntimeError, "remains attached"))

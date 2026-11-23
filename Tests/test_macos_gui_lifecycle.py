@@ -57,7 +57,7 @@ def require_no_retained_fskit_image():
         if not isinstance(image, str) or not image:
             raise RuntimeError("Disk Images inventory is incomplete")
         directories = Path(image).parts[:-1]
-        if any(part.startswith((".veracrypt_aux_mnt", "lambcrypt-fskit.", "lambcrypt-fat-repro-"))
+        if any(part.startswith((".veracrypt_aux_mnt", "lambcrypt-fskit.", "lambcrypt-fat-repro-", "lambcrypt-worker."))
                for part in directories):
             raise RuntimeError(f"a previous LambCrypt or VeraCrypt disk image remains attached at {image}")
 
