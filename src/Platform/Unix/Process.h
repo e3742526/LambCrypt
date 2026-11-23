@@ -34,7 +34,7 @@ namespace VeraCrypt
 		// Best-effort protection for service processes that handle credentials or keys.
 		static void DisableCoreDumps ();
 		static bool IsExecutable(const std::string& path);
-		// Resolves a program name against fixed system directories. By default only
+		// Checks an absolute path or resolves a program name against fixed system directories. By default only
 		// candidates whose whole path is root-owned and not group/world-writable are
 		// accepted, because results are executed with elevated privileges or are
 		// given the administrator password.
@@ -53,8 +53,6 @@ namespace VeraCrypt
 #endif
 #if defined(TC_LINUX)
 		static bool IsRunningUnderAppImage (const string &executablePath);
-		// The validated AppImage file that contains the running executable, or empty.
-		static string GetTrustedAppImagePath ();
 #endif
 
 	protected:

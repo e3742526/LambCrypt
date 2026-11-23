@@ -322,9 +322,8 @@ static unsigned char gpbSha512CodeSignCertFingerprint[64] = {
 /*
  * SHA-512 hashes of the DER-encoded Authenticode leaf certificates used by
  * Microsoft WHQL signing for the current VeraCrypt driver files. These are
- * accepted only by VerifyModuleSignatureAllowingMicrosoftWHQL(), which is used
- * for loose portable driver files that cannot be signed by the IDRIX
- * certificate.
+ * accepted only when verifying loose portable driver files that cannot be
+ * signed by the IDRIX certificate.
  */
 static unsigned char gpbSha512MSWHQLCertFingerprints[][64] = {
 	/*
@@ -913,7 +912,7 @@ BOOL TCCopyFile (wchar_t *sourceFileName, wchar_t *destinationFile)
 	return TCCopyFileBase (src, dst);
 }
 
-#if !defined(_WIN64) && defined(NDEBUG) && !defined (VC_SKIP_OS_DRIVER_REQ_CHECK)
+#if !defined(_WIN64) && defined(NDEBUG)
 // in 32-bit build, Crypto project is not compiled so we need to provide this function here
 
 #pragma comment(lib, "bcrypt.lib")
@@ -983,9 +982,9 @@ cleanup:
 }
 #endif
 
-static BOOL VerifyModuleSignatureInternal (const wchar_t* path, BOOL bAllowMicrosoftWHQL)
+static BOOL VerifyModuleSignatureInternal (const wchar_t* path, HANDLE file, BOOL bAllowMicrosoftWHQL)
 {
-#if defined(NDEBUG) && !defined (VC_SKIP_OS_DRIVER_REQ_CHECK)
+#if defined(NDEBUG)
 	BOOL bResult = FALSE;
 	HRESULT hResult;
 	GUID gActionID = WINTRUST_ACTION_GENERIC_VERIFY_V2;
@@ -994,22 +993,19 @@ static BOOL VerifyModuleSignatureInternal (const wchar_t* path, BOOL bAllowMicro
 	wchar_t filePath [TC_MAX_PATH + 1024];
 
 	// Strip quotation marks (if any)
-	if (path [0] == L'"')
-	{
-		StringCbCopyW (filePath, sizeof(filePath), path + 1);
-	}
-	else
-	{
-		StringCbCopyW (filePath, sizeof(filePath), path);
-	}
+	if (!path || FAILED (StringCbCopyW (filePath, sizeof(filePath), path [0] == L'"' ? path + 1 : path)))
+		return FALSE;
 
 	// Strip quotation marks (if any)
-	if (filePath [wcslen (filePath) - 1] == L'"')
-		filePath [wcslen (filePath) - 1] = 0;
+	size_t pathLength = wcslen (filePath);
+	if (pathLength && filePath [pathLength - 1] == L'"')
+		filePath [--pathLength] = 0;
+	if (!pathLength)
+		return FALSE;
 
 	fileInfo.cbStruct = sizeof(WINTRUST_FILE_INFO);
 	fileInfo.pcwszFilePath = filePath;
-	fileInfo.hFile = NULL;
+	fileInfo.hFile = file;
 
 	WVTData.cbStruct            = sizeof(WINTRUST_DATA);
 	WVTData.dwUIChoice          = WTD_UI_NONE;
@@ -1031,7 +1027,7 @@ static BOOL VerifyModuleSignatureInternal (const wchar_t* path, BOOL bAllowMicro
 				PCRYPT_PROVIDER_CERT pProviderCert = WTHelperGetProvCertFromChain (pProviderSigner, 0);
 				if (pProviderCert && (pProviderCert->pCert))
 				{
-					BYTE hashVal[64];
+					BYTE hashVal[64] = {0};
 					sha512 (hashVal, pProviderCert->pCert->pbCertEncoded, pProviderCert->pCert->cbCertEncoded);
 
 					if ((0 == memcmp (hashVal, gpbSha512CodeSignCertFingerprint, 64))
@@ -1056,12 +1052,12 @@ static BOOL VerifyModuleSignatureInternal (const wchar_t* path, BOOL bAllowMicro
 
 BOOL VerifyModuleSignature (const wchar_t* path)
 {
-	return VerifyModuleSignatureInternal (path, FALSE);
+	return VerifyModuleSignatureInternal (path, NULL, FALSE);
 }
 
 BOOL VerifyModuleSignatureAllowingMicrosoftWHQL (const wchar_t* path)
 {
-	return VerifyModuleSignatureInternal (path, TRUE);
+	return VerifyModuleSignatureInternal (path, NULL, TRUE);
 }
 
 DWORD handleWin32Error (HWND hwndDlg, const char* srcPos)
@@ -5356,7 +5352,7 @@ static int DriverLoad ()
 	if (hDriverFile == INVALID_HANDLE_VALUE)
 		return ERR_OS_ERROR;
 
-	if (!VerifyModuleSignatureAllowingMicrosoftWHQL (driverPath))
+	if (!VerifyModuleSignatureInternal (driverPath, hDriverFile, TRUE))
 	{
 		CloseHandle (hDriverFile);
 		MessageBoxW (0, GetString ("DIST_PACKAGE_CORRUPTED"), lpszTitle, ICON_HAND);
@@ -10530,12 +10526,50 @@ HANDLE DismountDrive (wchar_t *devName, wchar_t *devicePath)
 	return (bResult ? hVolume : INVALID_HANDLE_VALUE);
 }
 
+static bool IsSafeZipEntryPath (const std::wstring &path)
+{
+	if (path.empty())
+		return false;
+
+	for (size_t start = 0; start < path.size();)
+	{
+		size_t separator = path.find (L'\\', start);
+		std::wstring component = path.substr (start, separator == std::wstring::npos ? separator : separator - start);
+		if (component.empty() || component.size() > 255 || component.back() == L'.' || component.back() == L' '
+			|| component.find_first_of (L"/:*?\"<>|") != std::wstring::npos)
+			return false;
+		for (wchar_t character : component)
+		{
+			if (character < L' ')
+				return false;
+		}
+
+		std::wstring base = component.substr (0, component.find (L'.'));
+		while (!base.empty() && base.back() == L' ')
+			base.pop_back();
+		for (const wchar_t *reserved : { L"CON", L"PRN", L"AUX", L"NUL", L"CONIN$", L"CONOUT$" })
+		{
+			if (_wcsicmp (base.c_str(), reserved) == 0)
+				return false;
+		}
+		if (base.size() == 4 && (_wcsnicmp (base.c_str(), L"COM", 3) == 0 || _wcsnicmp (base.c_str(), L"LPT", 3) == 0)
+			&& wcschr (L"0123456789\u00B9\u00B2\u00B3", base[3]))
+			return false;
+
+		if (separator == std::wstring::npos)
+			break;
+		start = separator + 1;
+	}
+	return true;
+}
+
 BOOL DecompressZipToDir (const unsigned char *inputBuffer, DWORD inputLength, const wchar_t *destinationDir, ProgressFn progressFnPtr, HWND hwndDlg)
 {
-	BOOL res = TRUE;
+	const zip_uint64_t maxExpandedSize = 64 * 1024 * 1024; // The setup ZIP contains documentation.
+	zip_uint64_t expandedSize = 0;
 	zip_error_t zerr;
-	zip_int64_t numFiles, i;
-	zip_stat_t sb;
+	zip_error_init (&zerr);
+	finally_do_arg (zip_error_t*, &zerr, { zip_error_fini (finally_arg); });
 	zip_source_t* zsrc = zip_source_buffer_create (inputBuffer, inputLength, 0, &zerr);
 	if (!zsrc)
 		return FALSE;
@@ -10546,45 +10580,60 @@ BOOL DecompressZipToDir (const unsigned char *inputBuffer, DWORD inputLength, co
 		return FALSE;
 	}
 
-	finally_do_arg (zip_t*, z, { zip_close (finally_arg); });
+	finally_do_arg (zip_t*, z, { zip_discard (finally_arg); });
 
-	numFiles = zip_get_num_entries (z, 0);
-	if (numFiles <= 0)
+	zip_int64_t numFiles = zip_get_num_entries (z, 0);
+	if (numFiles <= 0 || !destinationDir || !destinationDir[0])
 		return FALSE;
+	std::wstring root (destinationDir);
+	if (root.back() != L'\\' && root.back() != L'/')
+		root += L'\\';
 
-	for (i = 0; (i < numFiles) && res; i++)
+	for (zip_int64_t i = 0; i < numFiles; i++)
 	{
-		ZeroMemory (&sb, sizeof (sb));
-		if ((0 == zip_stat_index (z, i, 0, &sb)) && (sb.valid & (ZIP_STAT_NAME | ZIP_STAT_SIZE)) && (sb.size > 0))
+		zip_stat_t entry;
+		const zip_uint64_t required = ZIP_STAT_NAME | ZIP_STAT_SIZE;
+		if (zip_stat_index (z, i, 0, &entry) != 0 || (entry.valid & required) != required
+			|| !entry.name || strlen (entry.name) >= 4 * TC_MAX_PATH || entry.size > maxExpandedSize - expandedSize)
+			return FALSE;
+
+		std::wstring name = Utf8StringToWide (entry.name);
+		CorrectFileName (name);
+		if (!IsSafeZipEntryPath (name) || root.size() + name.size() >= TC_MAX_PATH)
+			return FALSE;
+		if (name.back() == L'\\')
 		{
-			std::wstring wname = Utf8StringToWide (sb.name);
-			CorrectFileName (wname);
-
-			std::wstring filePath = destinationDir + wname;
-			size_t pos = filePath.find_last_of (L"/\\");
-			// create the parent directory if it doesn't exist
-			if (pos != std::wstring::npos)
-			{
-				SHCreateDirectoryEx (NULL, filePath.substr (0, pos).c_str(), NULL);
-			}
-
-			zip_file_t *f = zip_fopen_index (z, i, 0);
-			if (f)
-			{
-				ByteArray buffer((ByteArray::size_type) sb.size);
-
-				zip_fread (f, buffer.data(), sb.size);
-				zip_fclose (f);
-
-				if (progressFnPtr)
-					progressFnPtr (hwndDlg, filePath.c_str());
-
-				res = SaveBufferToFile ((char *) buffer.data(), filePath.c_str(), (DWORD) buffer.size(), FALSE, TRUE);
-			}			
+			if (entry.size != 0)
+				return FALSE;
+			continue;
 		}
+		expandedSize += entry.size;
+
+		ByteArray buffer (static_cast<ByteArray::size_type> (entry.size ? entry.size : 1));
+		zip_file_t *f = zip_fopen_index (z, i, 0);
+		if (!f)
+			return FALSE;
+		zip_int64_t bytesRead = zip_fread (f, buffer.data(), entry.size);
+		unsigned char extra;
+		bool complete = bytesRead == static_cast<zip_int64_t> (entry.size) && zip_fread (f, &extra, 1) == 0;
+		if (zip_fclose (f) != 0 || !complete)
+			return FALSE;
+
+		std::wstring filePath = root + name;
+		size_t separator = name.find_last_of (L'\\');
+		if (separator != std::wstring::npos)
+		{
+			int status = SHCreateDirectoryEx (NULL, filePath.substr (0, root.size() + separator).c_str(), NULL);
+			if (status != ERROR_SUCCESS && status != ERROR_ALREADY_EXISTS && status != ERROR_FILE_EXISTS)
+				return FALSE;
+		}
+		if (progressFnPtr)
+			progressFnPtr (hwndDlg, filePath.c_str());
+		if (!SaveBufferToFile (reinterpret_cast<const char*> (buffer.data()), filePath.c_str(), (DWORD) entry.size, FALSE, TRUE))
+			return FALSE;
 	}
 
-	return res;
+	return TRUE;
 }
 
 // Proper flush for Windows systems. Returns TRUE if successful.
@@ -14012,7 +14061,8 @@ BOOL RemoveDeviceWriteProtection (HWND hwndDlg, wchar_t *devicePath)
 	// into diskpart. Nothing is staged in a user-writable location (such as %TEMP%) that
 	// another process could replace between being written and being run elevated. The
 	// only variable content is the two validated integers.
-	if (!GetSystemDirectoryW (systemDir, ARRAYSIZE (systemDir)))
+	UINT systemDirLength = GetSystemDirectoryW (systemDir, ARRAYSIZE (systemDir));
+	if (!systemDirLength || systemDirLength >= ARRAYSIZE (systemDir))
 	{
 		handleWin32Error (hwndDlg, SRC_POS);
 		return FALSE;
@@ -14032,11 +14082,19 @@ BOOL RemoveDeviceWriteProtection (HWND hwndDlg, wchar_t *devicePath)
 		L"echo select disk %d&echo attributes disk clear readonly&echo exit", driveNumber)))
 		return FALSE;
 
-	// cmd.exe /c removes the outermost pair of quotes and keeps the inner ones.
-	if (FAILED (StringCbPrintfW (parameters, sizeof (parameters), L"/c \"(%s)|\"%s\\diskpart.exe\"&pause\"", diskpartCommands, systemDir)))
+	// Disable shell startup commands and explicitly strip the command's enclosing quotes.
+	if (FAILED (StringCbPrintfW (parameters, sizeof (parameters), L"/d /s /c \"(%s)|\"%s\\diskpart.exe\"&pause\"", diskpartCommands, systemDir)))
 		return FALSE;
 
-	if ((INT_PTR) ShellExecuteW (NULL, (!IsAdmin() && IsUacSupported()) ? L"runas" : L"open", cmdPath, parameters, systemDir, SW_SHOW) <= 32)
+	SHELLEXECUTEINFOW launch = {0};
+	launch.cbSize = sizeof (launch);
+	launch.hwnd = hwndDlg;
+	launch.lpVerb = (!IsAdmin() && IsUacSupported()) ? L"runas" : L"open";
+	launch.lpFile = cmdPath;
+	launch.lpParameters = parameters;
+	launch.lpDirectory = systemDir;
+	launch.nShow = SW_SHOW;
+	if (!ShellExecuteExW (&launch))
 	{
 		// A declined elevation prompt is not an error.
 		if (GetLastError () != ERROR_CANCELLED)

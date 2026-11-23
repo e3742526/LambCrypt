@@ -1785,6 +1785,9 @@ void ReopenBootVolumeHeader (PIRP irp)
 
 		Dump ("Header reopened\n");
 
+		// The header-only read does not recompute the mounted master-key warning.
+		newHeaderCryptoInfo->bVulnerableMasterKey = headerCryptoInfo->bVulnerableMasterKey;
+
 		// Replace the contents in place: concurrent status queries keep a valid pointer,
 		// and protected keys are bound to the address of their context.
 		memcpy (headerCryptoInfo, newHeaderCryptoInfo, sizeof (*headerCryptoInfo));

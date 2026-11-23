@@ -181,11 +181,10 @@ namespace VeraCrypt
 		static BOOL ReadConfigValue (char* configContent, const char *configKey, char *configValue, int maxValueSize);
 		static int ReadConfigInteger (char* configContent, const char *configKey, int defaultValue);
 		static char *ReadConfigString (char* configContent, const char *configKey, char *defaultValue, char *str, int maxLen);
-		static BOOL WriteConfigString (FILE* configFile, char* configContent, const char *configKey, const char *configValue);
-		static BOOL WriteConfigInteger (FILE* configFile, char* configContent, const char *configKey, int configValue);
 		BOOL Load (const wchar_t* fileName);
 		void Load (char* configContent);
 		BOOL Save (const wchar_t* fileName, HWND hwnd);
+		void Serialize (string &output, char* configContent = nullptr);
 		static BOOL IsPostExecFileField (const string& szFieldValue, string& filePath);
 		static BOOL IsPostExecFileField (const string& szFieldValue, wstring& filePath);
 	};

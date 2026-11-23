@@ -441,7 +441,7 @@ namespace VeraCrypt
 					return combinedPath;
 				}
 			}
-		} else if (IsExecutable(currentPath)) {
+		} else if (requireTrustedPath ? IsTrustedSystemExecutable(currentPath) : IsExecutable(currentPath)) {
 			return currentPath;
 		}
 
@@ -754,40 +754,5 @@ namespace VeraCrypt
 		return !appDir.empty() && executablePath.rfind (appDir + "/", 0) == 0;
 	}
 
-	string Process::GetTrustedAppImagePath ()
-	{
-		if (GetAppImageMountDirectory().empty())
-			return string();
-
-		const char* appImageEnv = getenv ("APPIMAGE");
-		if (!appImageEnv || appImageEnv[0] != '/')
-			return string();
-
-		char resolved[PATH_MAX];
-		if (!realpath (appImageEnv, resolved))
-			return string();
-
-		// The privilege helper executes this file, so it must be a regular executable that
-		// only its owner can change, and that owner must be root or the requesting user.
-		struct stat info;
-		const uid_t realUserId = getuid();
-		if (stat (resolved, &info) != 0 || !S_ISREG (info.st_mode)
-			|| (info.st_uid != 0 && info.st_uid != realUserId)
-			|| (info.st_mode & (S_IWGRP | S_IWOTH)) != 0
-			|| (info.st_mode & S_IXUSR) == 0)
-			return string();
-
-		// AppImage type 1 and 2 files carry "AI" plus the type byte at offset 8 of their ELF header.
-		int fd = open (resolved, O_RDONLY | O_CLOEXEC);
-		if (fd == -1)
-			return string();
-		unsigned char header[11];
-		const bool appImageMagic = pread (fd, header, sizeof (header), 0) == (ssize_t) sizeof (header)
-			&& memcmp (header, "\x7f" "ELF", 4) == 0
-			&& header[8] == 'A' && header[9] == 'I' && (header[10] == 1 || header[10] == 2);
-		close (fd);
-
-		return appImageMagic ? string (resolved) : string();
-	}
 #endif
 }

@@ -75,6 +75,11 @@ GlobalSign. This is the case for IDRIX's certificate. If yours is issued by
 another CA, then you should put its intermediate certificates in the "Signing"
 folder and modify sign.bat accordingly.
 
+Release Setup and Portable packages verify Authenticode against the release
+certificate fingerprint compiled into `src/Common/Dlgcode.c`. When using a
+different release certificate, update the fingerprint and verify the final
+signed packages in Windows.
+
 To generate MSI packages, WiX Toolset v3.11 must be installed.
 
 ## VeraCrypt EFI Boot Loader:
@@ -147,6 +152,11 @@ built using the 'NOGUI' parameter:
 `$ make NOGUI=1 WXSTATIC=1`
 
 On MacOSX, building a console-only executable is not supported.
+
+On Linux, an AppImage or a user-local build needs a matching LambCrypt
+installation in a trusted system directory for operations that require
+elevation. The elevated service executable and its path components must be
+root-owned and protected from group and other-user writes.
 
 ## Arch Linux package build:
 

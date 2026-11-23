@@ -14,7 +14,7 @@
 #include "Platform/Finally.h"
 #include "Platform/ForEach.h"
 #include <devguid.h>
-#include <io.h>
+#include <memory>
 #include <shlobj.h>
 #include <atlbase.h>
 #include "BootEncryption.h"
@@ -2444,43 +2444,29 @@ namespace VeraCrypt
 		return string (quotedValue.data());
 	}
 
-	BOOL EfiBootConf::WriteConfigString (FILE* configFile, char* configContent, const char *configKey, const char *configValue)
+	static void AppendConfigString (string &output, char* configContent, const char *configKey, const char *configValue)
 	{
-		
-		BOOL bRet = FALSE;
-		if (configFile)
+		// Mark the old value so the merge only copies entries we did not update.
+		if (configContent)
 		{
-			char *c;
-			// Mark previous config value as updated
-			if (configContent != NULL)
-			{
-				c = XmlFindElementByAttributeValue (configContent, "config", "key", configKey);
-				if (c != NULL)
-					c[1] = '!';
-			}
-
-			string quotedValue = XmlQuoteConfigValue (configValue);
-			if (fprintf (
-					configFile, "\r\n\t\t<config key=\"%s\">%s</config>",
-					configKey, quotedValue.c_str()) > 0)
-			{
-				bRet = TRUE;
-			}
+			char *entry = XmlFindElementByAttributeValue (configContent, "config", "key", configKey);
+			if (entry)
+				entry[1] = '!';
 		}
-		return bRet;
+
+		output += "\r\n\t\t<config key=\"";
+		output += configKey;
+		output += "\">";
+		output += XmlQuoteConfigValue (configValue);
+		output += "</config>";
 	}
 
-	BOOL EfiBootConf::WriteConfigInteger (FILE* configFile, char* configContent, const char *configKey, int configValue)
+	static void AppendConfigInteger (string &output, char* configContent, const char *configKey, int configValue)
 	{
-		BOOL bRet = FALSE;
-		if (configFile)
-		{
-			char val[32];
-			StringCbPrintfA (val, sizeof(val), "%d", configValue);
-			bRet = WriteConfigString (configFile, configContent, configKey, val);
-			burn (val, sizeof (val));
-		}
-		return bRet;
+		char val[32];
+		StringCbPrintfA (val, sizeof(val), "%d", configValue);
+		AppendConfigString (output, configContent, configKey, val);
+		burn (val, sizeof (val));
 	}
 
 	BOOL EfiBootConf::Load (const wchar_t* fileName)
@@ -2522,35 +2508,41 @@ namespace VeraCrypt
 
 	BOOL EfiBootConf::Save (const wchar_t* fileName, HWND hwnd)
 	{
-
-		BOOL bRet = FALSE;
 		DWORD size = 0;
 		char* configContent = LoadFile (fileName, &size);
+		finally_do_arg2 (char*, configContent, DWORD, size, { if (finally_arg) { burn (finally_arg, finally_arg2); free (finally_arg); } });
+
+		string output;
+		finally_do_arg (string*, &output, { if (!finally_arg->empty()) burn (&(*finally_arg)[0], finally_arg->size()); });
+		Serialize (output, configContent);
 
 		FILE *configFile = _wfopen (fileName, L"wb");
-		if (configFile == NULL) {
-			burn (configContent, size);
-			free (configContent);
+		if (!configFile)
 			return FALSE;
-		}
-		
 
-		XmlWriteHeaderUtf8 (configFile);
-		fputs ("\r\n\t<configuration>", configFile);
+		BOOL wroteConfig = fwrite (output.data(), 1, output.size(), configFile) == output.size();
+		BOOL flushedConfig = TCFlushFile (configFile);
+		BOOL streamOK = CheckFileStreamWriteErrors (hwnd, configFile, fileName);
+		return fclose (configFile) == 0 && wroteConfig && flushedConfig && streamOK;
+	}
 
-		WriteConfigInteger (configFile, configContent, "PasswordType", passwordType);
-		WriteConfigString (configFile, configContent, "PasswordMsg", passwordMsg.c_str());
-		WriteConfigString (configFile, configContent, "PasswordPicture", passwordPicture.c_str());
-		WriteConfigString (configFile, configContent, "HashMsg", hashMsg.c_str());
-		WriteConfigInteger (configFile, configContent, "Hash", hashAlgo);
-		WriteConfigInteger (configFile, configContent, "HashRqt", requestHash);
-		WriteConfigString (configFile, configContent, "PimMsg", pimMsg.c_str());
-		WriteConfigInteger (configFile, configContent, "Pim", pim);
-		WriteConfigInteger (configFile, configContent, "PimRqt", requestPim);
-		WriteConfigInteger (configFile, configContent, "AuthorizeVisible", authorizeVisible);
-		WriteConfigInteger (configFile, configContent, "AuthorizeRetry", authorizeRetry);
-		WriteConfigInteger (configFile, configContent, "DcsBmlLockFlags", bmlLockFlags);
-		WriteConfigInteger (configFile, configContent, "DcsBmlDriver", bmlDriverEnabled);
+	void EfiBootConf::Serialize (string &output, char* configContent)
+	{
+		output = "\xEF\xBB\xBF<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<VeraCrypt>\r\n\t<configuration>";
+
+		AppendConfigInteger (output, configContent, "PasswordType", passwordType);
+		AppendConfigString (output, configContent, "PasswordMsg", passwordMsg.c_str());
+		AppendConfigString (output, configContent, "PasswordPicture", passwordPicture.c_str());
+		AppendConfigString (output, configContent, "HashMsg", hashMsg.c_str());
+		AppendConfigInteger (output, configContent, "Hash", hashAlgo);
+		AppendConfigInteger (output, configContent, "HashRqt", requestHash);
+		AppendConfigString (output, configContent, "PimMsg", pimMsg.c_str());
+		AppendConfigInteger (output, configContent, "Pim", pim);
+		AppendConfigInteger (output, configContent, "PimRqt", requestPim);
+		AppendConfigInteger (output, configContent, "AuthorizeVisible", authorizeVisible);
+		AppendConfigInteger (output, configContent, "AuthorizeRetry", authorizeRetry);
+		AppendConfigInteger (output, configContent, "DcsBmlLockFlags", bmlLockFlags);
+		AppendConfigInteger (output, configContent, "DcsBmlDriver", bmlDriverEnabled);
 
 		string fieldValue;
 		if (IsPostExecFileField(actionSuccessValue, fieldValue) && (0 == _stricmp(fieldValue.c_str(), "\\EFI\\Microsoft\\Boot\\bootmgfw.efi")))
@@ -2580,7 +2572,7 @@ namespace VeraCrypt
 				actionSuccessValue = "postexec file(EFI\\Microsoft\\Boot\\bootmgfw_ms.vc)";
 		}
 
-		WriteConfigString (configFile, configContent, "ActionSuccess", actionSuccessValue.c_str());
+		AppendConfigString (output, configContent, "ActionSuccess", actionSuccessValue.c_str());
 
 		// Write unmodified values
 		char* xml = configContent;
@@ -2590,27 +2582,11 @@ namespace VeraCrypt
 			XmlGetAttributeText (xml, "key", key, sizeof (key));
 			XmlGetNodeText (xml, value, sizeof (value));
 
-			string quotedValue = XmlQuoteConfigValue (value);
-			fprintf (configFile, "\r\n\t\t<config key=\"%s\">%s</config>", key, quotedValue.c_str());
+			AppendConfigString (output, NULL, key, value);
 			xml++;
 		}
 
-		fputs ("\r\n\t</configuration>", configFile);
-		XmlWriteFooterUtf8 (configFile);
-
-		TCFlushFile (configFile);
-
-		bRet = CheckFileStreamWriteErrors (hwnd, configFile, fileName);
-
-		fclose (configFile);
-
-		if (configContent != NULL)
-		{
-			burn (configContent, size);
-			free (configContent);
-		}
-
-		return bRet;
+		output += "\r\n\t</configuration>\r\n</VeraCrypt>";
 	}
 
 	BOOL EfiBootConf::IsPostExecFileField (const string& fieldValue, string& filePath)
@@ -5698,26 +5674,22 @@ namespace VeraCrypt
 				throw ParameterIncorrect (SRC_POS);
 #endif
 
-			WCHAR szTmpPath[MAX_PATH + 1], szTmpFilePath[MAX_PATH + 1];
-			if (!GetTempPathW (MAX_PATH, szTmpPath))
-				throw SystemException (SRC_POS);
-			if (!GetTempFileNameW (szTmpPath, L"_vrd", 0, szTmpFilePath))
-				throw SystemException (SRC_POS);
+			// Keep these buffers alive until the archive finishes reading its entries.
+			Buffer volHeader (TC_BOOT_ENCRYPTION_VOLUME_HEADER_SIZE);
+			std::vector<uint8> fileBuf;
+			string dcsProp;
+			zip_error_t zipError;
+			zip_error_init (&zipError);
+			finally_do_arg (zip_error_t*, &zipError, { zip_error_fini (finally_arg); });
+			zip_source_t* zipBuffer = zip_source_buffer_create (NULL, 0, 0, &zipError);
+			if (!zipBuffer)
+				throw ParameterIncorrect (SRC_POS);
+			finally_do_arg (zip_source_t*, zipBuffer, { zip_source_free (finally_arg); });
 
-			finally_do_arg (WCHAR*, szTmpFilePath,  { DeleteFileW (finally_arg);});
-
-			int ierr;
-
-			// convert szTmpFilePath to UTF-8 since this is what zip_open expected
-			char szUtf8Path[2*MAX_PATH + 1];
-			int utf8Len = WideCharToMultiByte (CP_UTF8, 0, szTmpFilePath, -1, szUtf8Path, sizeof (szUtf8Path), NULL, NULL);
-			if (utf8Len <= 0)
-				throw SystemException (SRC_POS);
-
-			zip_t* z = zip_open (szUtf8Path, ZIP_CREATE | ZIP_TRUNCATE | ZIP_CHECKCONS, &ierr);
+			zip_t* z = zip_open_from_source (zipBuffer, ZIP_CREATE | ZIP_TRUNCATE, &zipError);
 			if (!z)
 				throw ParameterIncorrect (SRC_POS);
-
+			zip_source_keep (zipBuffer);
 			finally_do_arg (zip_t**, &z, { if (*finally_arg) zip_discard (*finally_arg);});
 
 			if (!ZipAdd (z, "EFI/Boot/bootx64.efi", efiImages.DcsRescue, efiImages.SizeDcsRescue))
@@ -5737,8 +5709,6 @@ namespace VeraCrypt
 			if (!ZipAdd (z, "EFI/VeraCrypt/DcsInfo.dcs", efiImages.DcsInfo, efiImages.SizeDcsInfo))
 				throw ParameterIncorrect (SRC_POS);
 
-			Buffer volHeader(TC_BOOT_ENCRYPTION_VOLUME_HEADER_SIZE);
-
 			// Volume header
 			if (initialSetup)
 			{
@@ -5752,14 +5722,14 @@ namespace VeraCrypt
 				Device bootDevice (GetSystemDriveConfiguration().DevicePath, true);
 				bootDevice.CheckOpened (SRC_POS);
 				bootDevice.SeekAt (TC_BOOT_VOLUME_HEADER_SECTOR_OFFSET);
-				bootDevice.Read (volHeader.Ptr (), TC_BOOT_ENCRYPTION_VOLUME_HEADER_SIZE);
+				if (bootDevice.Read (volHeader.Ptr (), TC_BOOT_ENCRYPTION_VOLUME_HEADER_SIZE) != TC_BOOT_ENCRYPTION_VOLUME_HEADER_SIZE)
+					throw ParameterIncorrect (SRC_POS);
 			}
 
 			if (!ZipAdd (z, "EFI/VeraCrypt/svh_bak", volHeader.Ptr (), TC_BOOT_ENCRYPTION_VOLUME_HEADER_SIZE))
 				throw ParameterIncorrect (SRC_POS);
 
 			// Original system loader
-			std::vector<uint8> fileBuf;
 			bool bLoadAdded = false;
 			try
 			{
@@ -5781,63 +5751,33 @@ namespace VeraCrypt
 				throw ParameterIncorrect (SRC_POS);			
 
 			EfiBootConf conf;
-			Buffer propBuf (0);
-			// GetTempFileNameW creates a new, uniquely named empty file, so neither a
-			// pre-planted file nor a concurrent rescue disk creation supplies the content
-			// that Save() merges and that is read back below.
-			WCHAR szPropTmpPath[MAX_PATH + 1], szPropFilePath[MAX_PATH + 1];
-			if (!GetTempPathW (MAX_PATH, szPropTmpPath))
-				throw SystemException (SRC_POS);
-			if (!GetTempFileNameW (szPropTmpPath, L"_vdp", 0, szPropFilePath))
-				throw SystemException (SRC_POS);
-			wstring dcsPropFileName = szPropFilePath;
-			finally_do_arg (wstring, dcsPropFileName, { DeleteFileW (finally_arg.c_str()); });
-			if (conf.Save(dcsPropFileName.c_str(), ParentWindow))
-			{
-				DWORD fileSize = 0;
-				File propFile (dcsPropFileName, true, false);
-				propFile.CheckOpened (SRC_POS);
-				propFile.GetFileSize(fileSize);
-				// DcsProp is a small XML file; never size a buffer from an unexpected length.
-				if (fileSize == 0 || fileSize > 1024 * 1024)
-					throw ParameterIncorrect (SRC_POS);
-				propBuf.Resize (fileSize);
-				DWORD sizeDcsProp = propFile.Read (propBuf.Ptr (), fileSize);
-				if (sizeDcsProp != fileSize)
-					throw ParameterIncorrect (SRC_POS);
-
-				if (!ZipAdd (z, "EFI/VeraCrypt/DcsProp", propBuf.Ptr (), sizeDcsProp))
-					throw ParameterIncorrect (SRC_POS);
-			}
-			else
+			conf.Serialize (dcsProp);
+			if (dcsProp.empty() || dcsProp.size() > 1024 * 1024
+				|| !ZipAdd (z, "EFI/VeraCrypt/DcsProp", reinterpret_cast<const uint8*> (dcsProp.data()), (DWORD) dcsProp.size()))
 				throw ParameterIncorrect (SRC_POS);
 
-			// flush the zip content to the temporary file
 			if (zip_close (z) < 0)
 				throw ParameterIncorrect (SRC_POS);
-
 			z = NULL;
 
-			// read the zip data from the temporary file
-			FILE* ftmpFile = _wfopen (szTmpFilePath, L"rb");
-			if (!ftmpFile)
+			zip_stat_t archiveStats;
+			if (zip_source_stat (zipBuffer, &archiveStats) < 0 || !(archiveStats.valid & ZIP_STAT_SIZE)
+				|| archiveStats.size == 0 || archiveStats.size > MAXDWORD || zip_source_open (zipBuffer) < 0)
+				throw ParameterIncorrect (SRC_POS);
+			finally_do_arg (zip_source_t*, zipBuffer, { zip_source_close (finally_arg); });
+
+			unsigned long zipSize = (unsigned long) archiveStats.size;
+			std::unique_ptr<uint8[]> zipData (new uint8[zipSize]);
+			if (zip_source_read (zipBuffer, zipData.get(), zipSize) != zipSize)
 				throw ParameterIncorrect (SRC_POS);
 
-			finally_do_arg (FILE*, ftmpFile, { fclose (finally_arg); });
-
-			unsigned long ulZipSize = (unsigned long) _filelength (_fileno (ftmpFile));
-			RescueZipData = new uint8[ulZipSize];
-			if (!RescueZipData)
-				throw bad_alloc();
-
-			if (ulZipSize != fread (RescueZipData, 1, ulZipSize, ftmpFile))
+			if (RescueZipData)
 			{
+				burn (RescueZipData, RescueZipSize);
 				delete [] RescueZipData;
-				RescueZipData = NULL;
-				throw ParameterIncorrect (SRC_POS);
 			}
-
-			RescueZipSize = ulZipSize;
+			RescueZipData = zipData.release();
+			RescueZipSize = zipSize;
 
 			if (!isoImagePath.empty())
 			{
@@ -5937,7 +5877,8 @@ namespace VeraCrypt
 				Device bootDevice (GetSystemDriveConfiguration().DevicePath, true);
 				bootDevice.CheckOpened (SRC_POS);
 				bootDevice.SeekAt (TC_BOOT_VOLUME_HEADER_SECTOR_OFFSET);
-				bootDevice.Read (image + TC_CD_BOOTSECTOR_OFFSET + TC_BOOT_VOLUME_HEADER_SECTOR_OFFSET, TC_BOOT_ENCRYPTION_VOLUME_HEADER_SIZE);
+				if (bootDevice.Read (image + TC_CD_BOOTSECTOR_OFFSET + TC_BOOT_VOLUME_HEADER_SECTOR_OFFSET, TC_BOOT_ENCRYPTION_VOLUME_HEADER_SIZE) != TC_BOOT_ENCRYPTION_VOLUME_HEADER_SIZE)
+					throw ParameterIncorrect (SRC_POS);
 			}
 
 			// Original system loader
@@ -6612,193 +6553,89 @@ namespace VeraCrypt
 
 #endif // SETUP
 
-	static void AppendToMultiString (char* mszDest, DWORD dwMaxDesSize, DWORD& dwDestSize, const char* input)
-	{
-		// find the index of the end of the last string
-		DWORD dwInputSize = (DWORD) strlen (input) + 1;
-		DWORD index = dwDestSize;
-		while (index > 0 && mszDest[index - 1] == 0)
-			index--;
-
-		if (dwMaxDesSize > (index + 1 + dwInputSize + 1))
-		{
-			if (index == 0)
-			{
-				StringCchCopyA ((char *) mszDest, dwMaxDesSize, input);
-				mszDest [dwInputSize] = 0;
-				dwDestSize = dwInputSize + 1;
-			}
-			else
-			{
-				mszDest[index] = 0;
-				StringCchCopyA ((char *) &mszDest[index + 1], dwMaxDesSize - index - 1, input);
-				mszDest [index + 1 + dwInputSize] = 0;
-				dwDestSize = index + 1 + dwInputSize + 1;
-			}
-		}
-	}
-
-	// msz is guaranteed to be double zero terminated
-	static bool MultiStringContains (const char* msz, const char* input)
-	{
-		while (msz && *msz)
-		{
-			if (_stricmp (msz, input) == 0)
-				return true;
-			msz += strlen (msz) + 1;
-		}
-		return false;
-	}
-
-	// mszDest is guaranteed to be double zero terminated
-	static bool RemoveFromMultiString (char* mszDest, DWORD& dwDestSize, const char* input)
-	{
-		bool bRet = false;
-		if (mszDest && input)
-		{
-			DWORD offset, remainingSize = dwDestSize;
-			while (*mszDest)
-			{
-				if (_stricmp (mszDest, input) == 0)
-				{
-					offset = (DWORD) strlen (input) + 1;
-					memmove (mszDest, mszDest + offset, remainingSize - offset);
-					dwDestSize -= offset;
-					bRet = true;
-					break;
-				}
-				offset = (DWORD) strlen (mszDest) + 1;
-				mszDest += offset;
-				remainingSize -= offset;
-			}
-		}
-
-		return bRet;
-	}
-
 	void BootEncryption::RegisterFilter (bool registerFilter, FilterType filterType, const GUID *deviceClassGuid)
 	{
-		string filter;
-		string filterReg;
+		const wchar_t *filter;
+		const wchar_t *filterReg;
 		HKEY regKey;
 
 		switch (filterType)
 		{
 		case DriveFilter:
 		case VolumeFilter:
-			filter = "veracrypt";
-			filterReg = "UpperFilters";
+			filter = L"veracrypt";
+			filterReg = L"UpperFilters";
 			regKey = OpenDeviceClassRegKey (deviceClassGuid);
 			throw_sys_if (regKey == INVALID_HANDLE_VALUE);
-
 			break;
 
 		case DumpFilter:
-			filter = "veracrypt.sys";
-			filterReg = "DumpFilters";
+			filter = L"veracrypt.sys";
+			filterReg = L"DumpFilters";
 			SetLastError (RegOpenKeyEx (HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Control\\CrashControl", 0, KEY_READ | KEY_WRITE, &regKey));
 			throw_sys_if (GetLastError() != ERROR_SUCCESS);
-
 			break;
 
 		default:
 			throw ParameterIncorrect (SRC_POS);
 		}
-
 		finally_do_arg (HKEY, regKey, { RegCloseKey (finally_arg); });
+
+		const DWORD maxValueSize = 65536;
+		vector<wchar_t> current (maxValueSize / sizeof (wchar_t));
+		DWORD valueSize = maxValueSize;
+		DWORD type = 0;
+		LONG status = RegQueryValueExW (regKey, filterReg, NULL, &type, reinterpret_cast<BYTE*> (current.data()), &valueSize);
+		if (status == ERROR_FILE_NOT_FOUND)
+			valueSize = 0;
+		else
+		{
+			SetLastError (status);
+			throw_sys_if (status != ERROR_SUCCESS);
+			if (type != REG_MULTI_SZ || valueSize > maxValueSize || valueSize % sizeof (wchar_t) != 0)
+				throw ParameterIncorrect (SRC_POS);
+		}
+
+		wstring updated;
+		bool alreadyPresent = false;
+		const wchar_t *entry = current.data();
+		const wchar_t *end = entry + valueSize / sizeof (wchar_t);
+		while (entry < end && *entry)
+		{
+			const wchar_t *terminator = std::find (entry, end, L'\0');
+			if (terminator == end)
+				throw ParameterIncorrect (SRC_POS);
+			if (_wcsicmp (entry, filter) == 0)
+				alreadyPresent = true;
+			else
+				updated.append (entry, terminator + 1);
+			entry = terminator + 1;
+		}
+		if (std::find_if (entry, end, [] (wchar_t character) { return character != L'\0'; }) != end)
+			throw ParameterIncorrect (SRC_POS);
+
+		if (registerFilter == alreadyPresent)
+			return;
 
 		if (registerFilter)
 		{
-			if (filterType != DumpFilter)
-			{
-				// Register class filter below all other filters in the stack
-
-				size_t strSize = filter.size() + 1;
-				uint8 regKeyBuf[65536];
-				DWORD size = (DWORD) (sizeof (regKeyBuf) - strSize);
-
-				// SetupInstallFromInfSection() does not support prepending of values so we have to modify the registry directly
-				StringCchCopyA ((char *) regKeyBuf, ARRAYSIZE(regKeyBuf), filter.c_str());
-
-				if (RegQueryValueExA (regKey, filterReg.c_str(), NULL, NULL, regKeyBuf + strSize, &size) != ERROR_SUCCESS)
-					size = 1;
-
-				SetLastError (RegSetValueExA (regKey, filterReg.c_str(), 0, REG_MULTI_SZ, regKeyBuf, (DWORD) strSize + size));
-				throw_sys_if (GetLastError() != ERROR_SUCCESS);
-			}
+			// Keep the class filter first and the dump filter last.
+			wstring newEntry (filter);
+			newEntry.push_back (L'\0');
+			if (filterType == DumpFilter)
+				updated.append (newEntry);
 			else
-			{
-				// Append the filter to the value directly. The registry is updated in this
-				// (elevated) process, so no setup file is staged where another process
-				// could replace it.
-				DWORD strSize = (DWORD) filter.size() + 1, valueSize;
-				Buffer regKeyBuf (65536);
-				uint8* pbRegKeyBuf = regKeyBuf.Ptr ();
-
-				valueSize = (DWORD) (regKeyBuf.Size() - strSize - 2);
-				LONG queryStatus = RegQueryValueExA (regKey, filterReg.c_str(), NULL, NULL, pbRegKeyBuf, &valueSize);
-				if (queryStatus != ERROR_SUCCESS && queryStatus != ERROR_FILE_NOT_FOUND)
-				{
-					// Never replace a value that could not be read.
-					SetLastError (queryStatus);
-					throw_sys_if (true);
-				}
-
-				if (queryStatus == ERROR_FILE_NOT_FOUND || valueSize <= 2)
-				{
-					StringCchCopyA ((char *) pbRegKeyBuf, regKeyBuf.Size(), filter.c_str());
-					pbRegKeyBuf [strSize] = 0;
-					valueSize = strSize + 1;
-				}
-				else
-				{
-					// Guarantee double zero termination
-					pbRegKeyBuf [valueSize] = 0;
-					pbRegKeyBuf [valueSize + 1] = 0;
-
-					if (MultiStringContains ((const char *) pbRegKeyBuf, filter.c_str()))
-						return;
-
-					AppendToMultiString ((char *) pbRegKeyBuf, (DWORD) regKeyBuf.Size(), valueSize, filter.c_str());
-				}
-
-				SetLastError (RegSetValueExA (regKey, filterReg.c_str(), 0, REG_MULTI_SZ, pbRegKeyBuf, valueSize));
-				throw_sys_if (GetLastError() != ERROR_SUCCESS);
-			}
+				updated.insert (0, newEntry);
 		}
-		else
-		{
-			// Remove the filter from the value directly (no setup file is staged).
-			Buffer regKeyBuf(65536);
-			uint8* pbRegKeyBuf = regKeyBuf.Ptr ();
+		if (updated.empty())
+			updated.push_back (L'\0');
+		updated.push_back (L'\0');
+		if (updated.size() > maxValueSize / sizeof (wchar_t))
+			throw ParameterIncorrect (SRC_POS);
 
-			DWORD initialSize = (DWORD) regKeyBuf.Size() - 2;				
-
-			if (		(RegQueryValueExA (regKey, filterReg.c_str(), NULL, NULL, pbRegKeyBuf, &initialSize) == ERROR_SUCCESS)
-					&& (initialSize >= ((DWORD) filter.size()))
-				)
-			{
-				// append two \0 at the end if they are missing
-				if (pbRegKeyBuf [initialSize - 1] != 0)
-				{
-					pbRegKeyBuf [initialSize] = 0;
-					pbRegKeyBuf [initialSize + 1] = 0;
-					initialSize += 2;
-				}
-				else if (pbRegKeyBuf [initialSize - 2] != 0)
-				{
-					pbRegKeyBuf [initialSize] = 0;
-					initialSize ++;
-				}
-
-				if (RemoveFromMultiString ((char*) pbRegKeyBuf, initialSize, filter.c_str()))
-				{
-					// Set value manually
-					SetLastError (RegSetValueExA (regKey, filterReg.c_str(), 0, REG_MULTI_SZ, pbRegKeyBuf, initialSize));
-					throw_sys_if (GetLastError() != ERROR_SUCCESS);
-				}
-			}
-		}
+		SetLastError (RegSetValueExW (regKey, filterReg, 0, REG_MULTI_SZ,
+			reinterpret_cast<const BYTE*> (updated.data()), (DWORD) (updated.size() * sizeof (wchar_t))));
+		throw_sys_if (GetLastError() != ERROR_SUCCESS);
 	}
 
 	void BootEncryption::RegisterFilterDriver (bool registerDriver, FilterType filterType)

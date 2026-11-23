@@ -1675,28 +1675,18 @@ namespace VeraCrypt
 				{
 					std::string errorMsg;
 					string appPath = request.ApplicationExecutablePath;
-					// if appPath is empty or not absolute, use FindSystemBinary to get the full path of veracrpyt executable
+#if defined(TC_LINUX)
+					// An AppImage mount or a user-installed program cannot supply an elevation target.
+					// Keep using the current program when its entire executable path is trusted.
+					if (!appPath.empty() && appPath[0] == '/')
+						appPath = Process::FindSystemBinary (appPath.c_str(), errorMsg);
+#endif
 					if (appPath.empty() || appPath[0] != '/')
 					{
-						appPath = Process::FindSystemBinary("lambcrypt", errorMsg);
+						appPath = Process::FindSystemBinary ("lambcrypt", errorMsg);
 						if (appPath.empty())
-							throw SystemException(SRC_POS, errorMsg);
+							throw SystemException (SRC_POS, errorMsg);
 					}
-
-#if defined(TC_LINUX)
-					// AppImage specific handling: root may not be able to enter the user's FUSE
-					// mount, so the privilege helper runs the AppImage file itself. It is used only
-					// when the running executable (/proc/self/exe) is inside a real AppImage mount
-					// and the file passes ownership, permission and format checks; environment
-					// variables alone cannot select the elevation target.
-					if (Process::IsRunningUnderAppImage (appPath))
-					{
-						string appImagePath = Process::GetTrustedAppImagePath();
-						if (appImagePath.empty())
-							throw SystemException (SRC_POS, "The AppImage file could not be verified for elevation.");
-						appPath = appImagePath;
-					}
-#endif
 					bool useDoasAuthTerminal = privilegeHelper.IsDoas() && !useCallerDoasTerminal;
 #if defined (TC_OPENBSD) || defined (TC_FREEBSD)
 					// OpenBSD doas and FreeBSD opendoas require stderr to be

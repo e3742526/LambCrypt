@@ -412,9 +412,24 @@ int main(int argc, char **argv) {
 #else
         ExpectNoNixLookup();
 #endif
-        Files["/opt/explicit/helper"] = executable;
-        ExpectPath("/opt/explicit/helper", "/opt/explicit/helper");
         std::string error;
+        for (const char *path : {"/", "/opt", "/opt/explicit"})
+            Files[path] = Entry(S_IFDIR | 0755);
+        Files["/opt/explicit/lambcrypt"] = executable;
+        ExpectPath("/opt/explicit/lambcrypt", "/opt/explicit/lambcrypt");
+        Files["/opt/explicit/lambcrypt"].Owner = 1000;
+        ExpectPath("/opt/explicit/lambcrypt", "");
+        Require(Process::FindUserBinary("/opt/explicit/lambcrypt", error) == "/opt/explicit/lambcrypt",
+            "unprivileged explicit path lookup changed");
+        Files["/opt/explicit/lambcrypt"].Owner = 0;
+        Files["/opt/explicit"].Mode |= S_IWGRP;
+        ExpectPath("/opt/explicit/lambcrypt", "");
+        Files["/opt/explicit"].Mode = S_IFDIR | 0755;
+        Files["/opt/explicit/lambcrypt"] = Entry(S_IFLNK | 0777, 0, "/usr/bin/lambcrypt");
+        Files["/usr/bin/lambcrypt"] = executable;
+        ExpectPath("/opt/explicit/lambcrypt", "/opt/explicit/lambcrypt");
+        Files["/usr/bin/lambcrypt"].Mode |= S_IWOTH;
+        ExpectPath("/opt/explicit/lambcrypt", "");
         Require(Process::FindSystemBinary(nullptr, error).empty() && errno == EINVAL,
             "null name handling changed");
 
