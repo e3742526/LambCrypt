@@ -631,6 +631,19 @@ namespace VeraCrypt
 			const string groupDirectory = ApplicationGroupDirectory ();
 			const int volumeReservation = ReserveVolume (groupDirectory, volume->GetFile()->GetSystemHandle());
 			finally_do_arg (int, volumeReservation, { close (finally_arg); });
+			if (volume->GetProtectionType() != VolumeProtection::ReadOnly)
+			{
+				// Check the backing store before publishing an image we might
+				// otherwise have to retain after an unsupported final flush.
+				try { volume->GetFile()->FlushToStableStorage (true); }
+				catch (const SystemException &error)
+				{
+					const int code = error.GetErrorCode();
+					if (code == ENOTSUP || code == ENOTTY || code == EINVAL)
+						throw ExternalException (SRC_POS, L"The backing storage does not support the full sync required for a writable FSKit mount. Try opening this volume read-only.");
+					throw;
+				}
+			}
 			const string resource = WorkerDirectory (groupDirectory, mountPoint);
 			const string endpoint = resource + "/io";
 			throw_sys_sub_if (mkdir (resource.c_str(), 0700) != 0, resource);

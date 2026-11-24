@@ -320,7 +320,7 @@ namespace VeraCrypt
 				if (operation == FlushImage)
 				{
 					if (volume.GetProtectionType() != VolumeProtection::ReadOnly)
-						volume.GetFile()->Flush();
+						volume.GetFile()->FlushToStableStorage (true);
 					Reply (connection, 0);
 					return;
 				}

@@ -87,9 +87,9 @@ namespace VeraCrypt
 		static void Copy (const FilePath &sourcePath, const FilePath &destinationPath, bool preserveTimestamps = true);
 		void Delete ();
 		void Flush () const;
-		// Like Flush, and on macOS also forces the drive to commit its write cache.
-		// For metadata whose loss makes a volume unopenable, such as volume headers.
-		void FlushToStableStorage () const;
+		// On macOS, asks the drive to flush its write cache. Callers that require
+		// the device flush receive its error instead of falling back to fsync.
+		void FlushToStableStorage (bool requireDeviceFlush = false) const;
 		uint32 GetDeviceSectorSize () const;
 		static size_t GetOptimalReadSize () { return OptimalReadSize; }
 		static size_t GetOptimalWriteSize ()  { return OptimalWriteSize; }

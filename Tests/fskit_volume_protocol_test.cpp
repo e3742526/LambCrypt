@@ -9,7 +9,9 @@
 #include "Crypto/cpu.h"
 #include "Volume/Pkcs5Kdf.h"
 #include <algorithm>
+#include <cstdarg>
 #include <errno.h>
+#include <fcntl.h>
 #include <iostream>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -22,15 +24,24 @@ static WriteFault nextWriteFault = WriteFault::None;
 static bool interruptNextRead = false;
 static int nextSyncError = 0;
 
-extern "C" int TestFileSync (int fd)
+extern "C" int TestFileControl (int fd, int command, ...)
 {
-	if (nextSyncError != 0)
+	if (command == F_FULLFSYNC && nextSyncError != 0)
 	{
 		errno = nextSyncError;
 		nextSyncError = 0;
 		return -1;
 	}
-	return fsync (fd);
+	if (command == F_GETFD || command == F_FULLFSYNC)
+		return fcntl (fd, command, 0);
+
+	va_list args;
+	va_start (args, command);
+	const int result = command == F_SETFD
+		? fcntl (fd, command, va_arg (args, int))
+		: fcntl (fd, command, va_arg (args, struct flock *));
+	va_end (args);
+	return result;
 }
 
 extern "C" ssize_t TestPositionedRead (int fd, void *data, size_t length, off_t offset)
@@ -123,6 +134,7 @@ int main (int argc, char **argv)
 		else if (mode == "write-full") nextWriteFault = WriteFault::ShortThenFull;
 		else if (mode == "sync-interrupted") nextSyncError = EINTR;
 		else if (mode == "sync-error") nextSyncError = EIO;
+		else if (mode == "sync-unsupported") nextSyncError = ENOTSUP;
 		else if (mode != "write") return 2;
 	}
 

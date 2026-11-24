@@ -328,7 +328,7 @@ def build(build_dir, work):
     # Inject faults only in the production file implementation. Successful
     # reads, writes, and syncs still use real system calls.
     subprocess.run([
-        *compiler, "-Dpread=TestPositionedRead", "-Dpwrite=TestPositionedWrite", "-Dfsync=TestFileSync",
+        *compiler, "-Dpread=TestPositionedRead", "-Dpwrite=TestPositionedWrite", "-Dfcntl=TestFileControl",
         "-c", source / "Platform/Unix/File.cpp", "-o", work / "file-io-test.o",
     ], check=True)
     subprocess.run([
@@ -417,7 +417,8 @@ def check_long_socket_path(work):
 
 
 def check_sync_failures(work):
-    for mode, expected_error in (("sync-interrupted", 0), ("sync-error", errno.EIO)):
+    for mode, expected_error in (("sync-interrupted", 0), ("sync-error", errno.EIO),
+                                 ("sync-unsupported", errno.ENOTSUP)):
         with serve(work, 3, mode=mode):
             _, _, generation, read_only = inspect_worker(work)
             assert read_only == 0

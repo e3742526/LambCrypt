@@ -140,16 +140,8 @@ namespace VeraCrypt
 		}
 	}
 
-	static void SyncDescriptor (int fd, bool stableStorage, const wstring &path)
+	static void SyncDescriptor (int fd, const wstring &path)
 	{
-#ifdef TC_MACOSX
-		// On macOS, fsync() can leave the data in the drive's volatile write cache.
-		// Some filesystems, such as SMB, reject F_FULLFSYNC; fsync() is the best they offer.
-		if (stableStorage && fcntl (fd, F_FULLFSYNC) == 0)
-			return;
-#else
-		(void) stableStorage;
-#endif
 		while (fsync (fd) != 0)
 		{
 			const int error = errno;
@@ -192,13 +184,29 @@ namespace VeraCrypt
 	void File::Flush () const
 	{
 		if_debug (ValidateState());
-		SyncDescriptor (FileHandle, false, wstring (Path));
+		SyncDescriptor (FileHandle, wstring (Path));
 	}
 
-	void File::FlushToStableStorage () const
+	void File::FlushToStableStorage (bool requireDeviceFlush) const
 	{
 		if_debug (ValidateState());
-		SyncDescriptor (FileHandle, true, wstring (Path));
+#ifdef TC_MACOSX
+		while (fcntl (FileHandle, F_FULLFSYNC, 0) != 0)
+		{
+			const int error = errno;
+			if (error == EINTR)
+				continue;
+			if (requireDeviceFlush)
+				throw SystemException (SRC_POS, wstring (Path), error);
+			// Header maintenance historically falls back on filesystems that
+			// cannot honor the device flush.
+			Flush();
+			return;
+		}
+#else
+		(void) requireDeviceFlush;
+		Flush();
+#endif
 	}
 
 	void File::WriteDurably (const FilePath &path, const ConstBufferPtr &data, bool replaceExisting)
