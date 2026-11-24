@@ -112,9 +112,19 @@ namespace VeraCrypt
 		return canonicalPath;
 	}
 
-	// Walk a "system-entities" array (from hdiutil attach/info). Prefer the entity
-	// that carries a mount-point; otherwise fall back to the first dev-entry.
-	static bool ExtractDeviceAndMountPointFromEntities (CFArrayRef entities, DevicePath &device, DirectoryPath &mountPoint)
+	struct DiskImageLayout
+	{
+		DevicePath WholeDevice;
+		bool IsApfs = false;
+		bool Complete = false;
+		bool Unsupported = false;
+	};
+
+	// The attach reply and the live inventory can order the APFS entities
+	// differently. Use their content hints to distinguish the physical disk
+	// image from the synthesized container and its mountable volumes.
+	static bool ExtractDeviceAndMountPointFromEntities (CFArrayRef entities, DevicePath &device, DirectoryPath &mountPoint,
+		DiskImageLayout *layout = nullptr)
 	{
 		if (!entities || CFGetTypeID (entities) != CFArrayGetTypeID())
 			return false;
@@ -122,6 +132,9 @@ namespace VeraCrypt
 		string firstDevice;
 		string mountedDevice;
 		string mountedPath;
+		string wholeDevice;
+		string apfsVolume;
+		size_t wholeDisks = 0, apfsStores = 0, apfsContainers = 0, apfsVolumes = 0, mountedFilesystems = 0;
 
 		CFIndex count = CFArrayGetCount (entities);
 		for (CFIndex i = 0; i < count; ++i)
@@ -139,15 +152,55 @@ namespace VeraCrypt
 			if (firstDevice.empty())
 				firstDevice = devEntry;
 
+			if (layout)
+			{
+				const string hint = CFDictionaryGetStdString (entryDict, "content-hint");
+				if (hint == "GUID_partition_scheme")
+				{
+					wholeDevice = devEntry;
+					++wholeDisks;
+				}
+				else if (hint == "Apple_APFS" || hint == "7C3457EF-0000-11AA-AA11-00306543ECAC")
+					++apfsStores;
+				else if (hint == "EF57347C-0000-11AA-AA11-00306543ECAC")
+					++apfsContainers;
+				else if (hint == "41504653-0000-11AA-AA11-00306543ECAC"
+					|| CFDictionaryGetStdString (entryDict, "volume-kind") == "apfs")
+				{
+					apfsVolume = devEntry;
+					++apfsVolumes;
+				}
+			}
+
 			string currentMountPoint = CFDictionaryGetStdString (entryDict, "mount-point");
 			if (!currentMountPoint.empty())
 			{
-				mountedDevice = devEntry;
-				mountedPath = currentMountPoint;
-				break;
+				if (mountedDevice.empty())
+				{
+					mountedDevice = devEntry;
+					mountedPath = currentMountPoint;
+				}
+				++mountedFilesystems;
+				if (!layout)
+					break;
 			}
 		}
 
+		if (layout && (apfsStores || apfsContainers || apfsVolumes))
+		{
+			layout->IsApfs = true;
+			if (wholeDisks != 1)
+				throw ExternalException (SRC_POS, L"macOS did not identify the physical disk of the APFS disk image.");
+			layout->WholeDevice = wholeDevice;
+			layout->Complete = apfsStores == 1 && apfsContainers == 1 && apfsVolumes == 1;
+			layout->Unsupported = apfsStores > 1 || apfsContainers > 1 || apfsVolumes > 1
+				|| mountedFilesystems > 1 || (mountedFilesystems == 1 && mountedDevice != apfsVolume);
+			if (!layout->Complete || layout->Unsupported || mountedDevice.empty())
+			{
+				device = layout->WholeDevice;
+				return true;
+			}
+		}
 		if (!mountedDevice.empty())
 		{
 			device = mountedDevice;
@@ -166,7 +219,7 @@ namespace VeraCrypt
 
 	// Parse "hdiutil attach -plist" output (top-level dict with "system-entities").
 	static bool ExtractDiskImageDeviceAndMountPoint (const string &attachXml, DevicePath &device, DirectoryPath &mountPoint,
-		bool requireSingleEntity = false)
+		bool requireSingleEntity = false, DiskImageLayout *layout = nullptr)
 	{
 		CFHolder plist (ParsePropertyList (attachXml));
 		if (!plist.Get() || CFGetTypeID (plist.Get()) != CFDictionaryGetTypeID())
@@ -178,7 +231,7 @@ namespace VeraCrypt
 		if (requireSingleEntity && CFArrayGetCount ((CFArrayRef) entities) != 1)
 			return false;
 
-		return ExtractDeviceAndMountPointFromEntities ((CFArrayRef) entities, device, mountPoint);
+		return ExtractDeviceAndMountPointFromEntities ((CFArrayRef) entities, device, mountPoint, layout);
 	}
 
 	static string GetDiskImageInventory ()
@@ -190,7 +243,7 @@ namespace VeraCrypt
 	}
 
 	static bool FindDiskImageInfoByImagePath (const string &xml, const string &imagePath, DevicePath &device, DirectoryPath &mountPoint,
-		bool imagePathIsCanonical = false, bool requireCompleteInventory = false)
+		bool imagePathIsCanonical = false, bool requireCompleteInventory = false, DiskImageLayout *layout = nullptr)
 	{
 		CFHolder plist (ParsePropertyList (xml));
 		if (!plist.Get() || CFGetTypeID (plist.Get()) != CFDictionaryGetTypeID())
@@ -216,6 +269,7 @@ namespace VeraCrypt
 		bool uncertain = false;
 		DevicePath matchedDevice;
 		DirectoryPath matchedMount;
+		DiskImageLayout matchedLayout;
 		for (CFIndex i = 0; i < imageCount; ++i)
 		{
 			CFTypeRef image = CFArrayGetValueAtIndex (imageArray, i);
@@ -251,15 +305,18 @@ namespace VeraCrypt
 			CFTypeRef entities = CFDictionaryGetValue (imageDict, CFSTR ("system-entities"));
 			DevicePath currentDevice;
 			DirectoryPath currentMount;
+			DiskImageLayout currentLayout;
 			if (!entities || CFGetTypeID (entities) != CFArrayGetTypeID()
-				|| !ExtractDeviceAndMountPointFromEntities ((CFArrayRef) entities, currentDevice, currentMount))
+				|| !ExtractDeviceAndMountPointFromEntities ((CFArrayRef) entities, currentDevice, currentMount,
+					layout ? &currentLayout : nullptr))
 				throw ParameterIncorrect (SRC_POS);
-			// Detach acts on the selected device. Conflicting records cannot
-			// establish which attachment is safe to use.
-			if (!matchedDevice.IsEmpty() && (currentDevice != matchedDevice || currentMount != matchedMount))
+			if (!matchedDevice.IsEmpty() && (currentDevice != matchedDevice || currentMount != matchedMount
+				|| currentLayout.WholeDevice != matchedLayout.WholeDevice || currentLayout.IsApfs != matchedLayout.IsApfs
+				|| currentLayout.Complete != matchedLayout.Complete || currentLayout.Unsupported != matchedLayout.Unsupported))
 				throw ExternalException (SRC_POS, L"macOS reported conflicting attachments for the LambCrypt disk image.");
 			matchedDevice = currentDevice;
 			matchedMount = currentMount;
+			matchedLayout = currentLayout;
 		}
 		// Discovery can display a known match from a partial inventory.
 		// Detach needs enough evidence to rule out another matching record.
@@ -269,6 +326,8 @@ namespace VeraCrypt
 		{
 			device = matchedDevice;
 			mountPoint = matchedMount;
+			if (layout)
+				*layout = matchedLayout;
 			return true;
 		}
 		return false;
@@ -287,9 +346,10 @@ namespace VeraCrypt
 	{
 		DevicePath device;
 		DirectoryPath innerMount;
+		DiskImageLayout layout;
 		FindDiskImageInfoByImagePath (GetDiskImageInventory(),
-			string (mountPoint) + FuseService::GetVolumeImagePath(), device, innerMount, false, true);
-		return device;
+			string (mountPoint) + FuseService::GetVolumeImagePath(), device, innerMount, false, true, &layout);
+		return layout.IsApfs ? layout.WholeDevice : device;
 	}
 
 	bool FSKit::IsDiskImageAbsentAfterAuxiliaryUnmount (const DirectoryPath &mountPoint)
@@ -362,21 +422,24 @@ namespace VeraCrypt
 #endif
 		UpdateMountedVolumeInfo (mountedVolume);
 #ifdef VC_MACOSX_FSKIT
-		const uint64 attachedMedia = fskitMount && !mountedVolume->VirtualDevice.IsEmpty()
-			? FSKit::GetMediaIdentity (mountedVolume->VirtualDevice) : 0;
+		const DevicePath detachDevice = fskitMount ? mountedVolume->DiskImageDevice : mountedVolume->VirtualDevice;
+		const uint64 attachedMedia = fskitMount && !detachDevice.IsEmpty()
+			? FSKit::GetMediaIdentity (detachDevice) : 0;
+#else
+		const DevicePath detachDevice = mountedVolume->VirtualDevice;
 #endif
 #ifndef VC_MACOSX_FUSET
 		ValidateMountedVolume (mountedVolume);
 #endif
 
-		const bool hasDevice = !mountedVolume->VirtualDevice.IsEmpty();
-		const bool hasBlockDevice = hasDevice && mountedVolume->VirtualDevice.IsBlockDevice();
+		const bool hasDevice = !detachDevice.IsEmpty();
+		const bool hasBlockDevice = hasDevice && detachDevice.IsBlockDevice();
 #ifdef VC_MACOSX_FSKIT
 		// An attached image with an unusable device still owns its backing mount.
 		// Only confirmed absence permits skipping detach for an FSKit volume.
 		if (fskitMount && hasDevice && !hasBlockDevice)
 			throw DismountServiceCleanupFailed (SRC_POS,
-				L"macOS did not confirm a block device for the attached disk image: " + wstring (mountedVolume->VirtualDevice));
+				L"macOS did not confirm a block device for the attached disk image: " + wstring (detachDevice));
 #endif
 		if (hasBlockDevice
 #ifdef VC_MACOSX_FUSET
@@ -386,7 +449,7 @@ namespace VeraCrypt
 		{
 			list <string> args;
 			args.push_back ("detach");
-			args.push_back (mountedVolume->VirtualDevice);
+			args.push_back (detachDevice);
 
 			if (ignoreOpenFiles)
 				args.push_back ("-force");
@@ -396,7 +459,7 @@ namespace VeraCrypt
 #ifdef VC_MACOSX_FSKIT
 				if (fskitMount)
 				{
-					try { ConfirmDiskImageMedia (mountedVolume->AuxMountPoint, mountedVolume->VirtualDevice, attachedMedia); }
+					try { ConfirmDiskImageMedia (mountedVolume->AuxMountPoint, detachDevice, attachedMedia); }
 					catch (const MountServiceCleanupFailed &)
 					{
 						throw DismountServiceCleanupFailed (SRC_POS, L"macOS could not confirm the identity of the disk image to detach: "
@@ -414,7 +477,7 @@ namespace VeraCrypt
 				// The OS can still be detaching the image. Keep its backing
 				// mount alive and report that teardown could not be confirmed.
 				throw DismountServiceCleanupFailed (SRC_POS,
-					L"macOS did not confirm disk image detach: " + wstring (mountedVolume->VirtualDevice));
+					L"macOS did not confirm disk image detach: " + wstring (detachDevice));
 			}
 #endif
 			catch (ExecutedProcessFailed &e)
@@ -567,6 +630,9 @@ namespace VeraCrypt
 	static void ClearDiskImageInfo (shared_ptr <VolumeInfo> volume)
 	{
 		volume->VirtualDevice = DevicePath();
+#ifdef VC_MACOSX_FSKIT
+		volume->DiskImageDevice = DevicePath();
+#endif
 		volume->MountPoint = DirectoryPath();
 		volume->Discovery = VolumeInfo::DiscoveryUnknown;
 	}
@@ -606,15 +672,25 @@ namespace VeraCrypt
 		if (volume->AuxMountPoint.IsEmpty()) throw ParameterIncorrect (SRC_POS);
 		DevicePath device;
 		DirectoryPath mountPoint;
-		if (!FindDiskImageInfoByImagePath (inventory, string (volume->AuxMountPoint) + FuseService::GetVolumeImagePath(), device, mountPoint))
+		DiskImageLayout layout;
+		DiskImageLayout *detectedLayout = nullptr;
+#ifdef VC_MACOSX_FSKIT
+		if (FSKit::IsAuxiliaryMountPoint (volume->AuxMountPoint))
+			detectedLayout = &layout;
+#endif
+		if (!FindDiskImageInfoByImagePath (inventory, string (volume->AuxMountPoint) + FuseService::GetVolumeImagePath(),
+			device, mountPoint, false, false, detectedLayout))
 		{
 			volume->Discovery = VolumeInfo::ImageAbsent;
 			return;
 		}
 		volume->VirtualDevice = device;
+#ifdef VC_MACOSX_FSKIT
+		volume->DiskImageDevice = layout.IsApfs ? layout.WholeDevice : device;
+#endif
 		volume->MountPoint = mountPoint;
 		volume->Discovery = VolumeInfo::ImageAttached;
-		if (volume->MountPoint.IsEmpty())
+		if (volume->MountPoint.IsEmpty() && !layout.IsApfs)
 		{
 			try
 			{
@@ -1038,11 +1114,52 @@ exit "$status"
 
 		DevicePath virtualDev;
 		DirectoryPath mountPoint;
-		if (!ExtractDiskImageDeviceAndMountPoint (xml, virtualDev, mountPoint, kernelFat)
+		DiskImageLayout *detectedLayout = nullptr;
+#ifdef VC_MACOSX_FSKIT
+		DiskImageLayout layout;
+		detectedLayout = &layout;
+#endif
+		if (!ExtractDiskImageDeviceAndMountPoint (xml, virtualDev, mountPoint, kernelFat, detectedLayout)
 			|| virtualDev.IsEmpty())
 			throw ParameterIncorrect (SRC_POS);
 
 #ifdef VC_MACOSX_FSKIT
+		if (layout.IsApfs)
+		{
+			if (!options.NoFilesystem)
+			{
+				const wstring unsupported = L"Mounting an APFS disk image requires one APFS container and one volume. "
+					L"Use attach-only mode to inspect this layout.";
+				if (!layout.Complete || layout.Unsupported)
+					throw ExternalException (SRC_POS, unsupported);
+				const uint64 wholeMedia = FSKit::GetMediaIdentity (layout.WholeDevice);
+				const uint64 volumeMedia = FSKit::GetMediaIdentity (virtualDev);
+				// Disk Images can publish the inventory after returning its
+				// attach reply. Recheck publication without starting another attach.
+				for (int attempt = 0; wholeMedia && volumeMedia && !mountPoint.IsEmpty() && attempt < 4; ++attempt)
+				{
+					DevicePath currentDevice;
+					DirectoryPath currentMount;
+					DiskImageLayout currentLayout;
+					const bool found = FindDiskImageInfoByImagePath (GetDiskImageInventory(), volImage,
+						currentDevice, currentMount, false, true, &currentLayout);
+					if (found && currentLayout.Unsupported)
+						throw ExternalException (SRC_POS, unsupported);
+					if (found && (!currentLayout.IsApfs || currentLayout.WholeDevice != layout.WholeDevice
+						|| (!currentMount.IsEmpty() && (currentDevice != virtualDev || currentMount != mountPoint))))
+						break;
+					if (FSKit::GetMediaIdentity (layout.WholeDevice) != wholeMedia
+						|| FSKit::GetMediaIdentity (virtualDev) != volumeMedia)
+						break;
+					if (found && currentLayout.Complete && !currentMount.IsEmpty())
+						return layout.WholeDevice;
+					if (attempt < 3)
+						Thread::Sleep (250);
+				}
+				throw ExternalException (SRC_POS, L"macOS did not confirm the APFS volume mounted from the LambCrypt disk image.");
+			}
+			return layout.WholeDevice;
+		}
 		if (kernelFat)
 		{
 			const string device = virtualDev;

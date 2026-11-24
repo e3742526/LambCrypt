@@ -14,6 +14,7 @@ import unittest
 from unittest.mock import patch
 
 import test_macos_gui_lifecycle as lifecycle
+import test_macos_fskit_filesystems as filesystems
 
 
 class FSKitPreflightTests(unittest.TestCase):
@@ -121,6 +122,60 @@ class FSKitTeardownTests(unittest.TestCase):
             lifecycle.confirm_closed(lambda: "", self.root, self.volume, self.active, fskit=True)
         lsof.assert_called_once_with(["/usr/sbin/lsof", "-t", str(self.volume)],
                                      capture_output=True, text=True, timeout=8)
+
+
+class FSKitFormatGuardTests(unittest.TestCase):
+    image = Path("/private/tmp/lambcrypt-fskit.fixture/.veracrypt_aux_mnt/volume.dmg")
+    disk = "/dev/disk60"
+    size = 96 << 20
+
+    def check_target(self, entities, *, previous=None, current=None, image=None, writable=True):
+        records = [{"image-path": str(image or self.image), "system-entities": entities, "writeable": writable}]
+        if current is None:
+            current = {self.disk: {"IORegistryEntryID": 123, "Size": self.size, "Whole": True, "Writable": True}}
+        return filesystems.format_target(records, self.image, previous or {}, current, self.size)
+
+    def test_exact_new_writable_whole_disk(self):
+        self.assertEqual(self.check_target([{"dev-entry": self.disk}]), (self.disk, 123))
+
+    def test_refuses_non_disposable_physical_and_existing_media(self):
+        for disk in ("/dev/disk0", "/dev/disk60s1", "/dev/rdisk60"):
+            with self.subTest(disk=disk), self.assertRaisesRegex(RuntimeError, "Refusing|Disk Images"):
+                self.check_target([{"dev-entry": disk}], previous={"/dev/disk0": {"IORegistryEntryID": 10}})
+        with self.assertRaisesRegex(RuntimeError, "Refusing to format"):
+            self.check_target([{"dev-entry": self.disk}], previous={self.disk: {"IORegistryEntryID": 321}})
+        with self.assertRaisesRegex(RuntimeError, "exactly one"):
+            self.check_target([{"dev-entry": self.disk}], image=Path("/private/tmp/another/volume.dmg"))
+
+    def test_disk_arbitration_must_also_identify_a_virtual_disk_image(self):
+        information = dict(BusProtocol="Disk Image", VirtualOrPhysical="Virtual", WholeDisk=True,
+                           Internal=False, DeviceNode=self.disk)
+        filesystems.require_virtual_whole_disk(self.disk, information)
+        for key, value in (("VirtualOrPhysical", "Physical"), ("Internal", True),
+                           ("WholeDisk", False), ("DeviceNode", self.disk + "s1")):
+            with self.subTest(key=key), self.assertRaisesRegex(RuntimeError, "Disk Arbitration"):
+                filesystems.require_virtual_whole_disk(self.disk, dict(information, **{key: value}))
+
+    def test_refuses_existing_filesystem_multiple_children_and_readonly(self):
+        cases = [
+            [{"dev-entry": self.disk, "mount-point": "/Volumes/Existing"}],
+            [{"dev-entry": self.disk}, {"dev-entry": self.disk + "s1"}],
+            [{"dev-entry": self.disk}, {"dev-entry": self.disk}],
+        ]
+        for entities in cases:
+            with self.subTest(entities=entities), self.assertRaises(RuntimeError):
+                self.check_target(entities)
+        with self.assertRaisesRegex(RuntimeError, "one writable"):
+            self.check_target([{"dev-entry": self.disk}], writable=False)
+
+    def test_refuses_active_user_mounts_and_processes(self):
+        for mounts, processes in (
+            ("foreign on /private/tmp/.veracrypt_aux_mnt (osxfuse, local)\n", ""),
+            ("foreign on /private/tmp/another/aux (lambcryptfs, local)\n", ""),
+            ("", "/Applications/VeraCrypt.app/Contents/MacOS/VeraCrypt\n"),
+        ):
+            with self.subTest(mounts=mounts, processes=processes), self.assertRaises(RuntimeError):
+                filesystems.require_empty_session(mounts, processes)
 
 
 if __name__ == "__main__":

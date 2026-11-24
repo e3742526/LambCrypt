@@ -33,6 +33,21 @@ def main():
         second_device = {"system-entities": [{"dev-entry": "/dev/disk43"}]}
         exact_conflict = dict(exact, **second_device)
         alias_conflict = dict(alias_image, **second_device)
+        apfs_volume = {"dev-entry": "/dev/disk106s12", "content-hint": "41504653-0000-11AA-AA11-00306543ECAC",
+                       "mount-point": "/Volumes/unit-apfs"}
+        apfs_parent = {"dev-entry": "/dev/disk84", "content-hint": "GUID_partition_scheme"}
+        apfs_part = {"dev-entry": "/dev/disk84s9", "content-hint": "7C3457EF-0000-11AA-AA11-00306543ECAC"}
+        apfs_container = {"dev-entry": "/dev/disk106", "content-hint": "EF57347C-0000-11AA-AA11-00306543ECAC"}
+        apfs = [apfs_volume, apfs_part, apfs_container, apfs_parent]
+        apfs_second = {"dev-entry": "/dev/disk106s21", "content-hint": apfs_volume["content-hint"]}
+        disk_layouts = {
+            "apfs": apfs,
+            "apfs-unmounted": [{key: value for key, value in apfs_volume.items() if key != "mount-point"}, *apfs[1:]],
+            "apfs-multiple": [*apfs, apfs_second],
+            "apfs-partial": [apfs_parent, apfs_part, apfs_container],
+            "apfs-orphan": [apfs_volume, apfs_container],
+            "exfat": [{"dev-entry": "/dev/disk68", "content-hint": "ExFAT", "mount-point": "/Volumes/unit-exfat"}],
+        }
         cases = {
             "exact": {"images": [exact]},
             "reattached": {"images": [exact_conflict]},
@@ -58,6 +73,17 @@ def main():
         }
         for name, contents in cases.items():
             (work / name).write_bytes(plistlib.dumps(contents))
+        for name, entities in disk_layouts.items():
+            (work / name).write_bytes(plistlib.dumps({"images": [dict(exact, **{"system-entities": entities})]}))
+            (work / ("attach-" + name)).write_bytes(plistlib.dumps({"system-entities": entities}))
+        independent = work / "independent" / "volume.dmg"
+        independent.parent.mkdir()
+        independent.touch()
+        independent_record = {"image-path": str(independent), "system-entities": disk_layouts["exfat"]}
+        (work / "independent-after-detach").write_bytes(plistlib.dumps({"images": [independent_record]}))
+        (work / "apfs-with-independent").write_bytes(plistlib.dumps({"images": [
+            dict(exact, **{"system-entities": disk_layouts["apfs-multiple"]}), independent_record,
+        ]}))
         (work / "attach").write_bytes(plistlib.dumps({"system-entities": exact["system-entities"]}))
         entities = [{"dev-entry": "/dev/disk42"}]
         (work / "attach-raw").write_bytes(plistlib.dumps({"system-entities": entities}))
@@ -232,6 +258,7 @@ struct StringConverter {
     static std::wstring ToExceptionString(const std::exception &error) { return ToWide(error.what()); }
 };
 static std::string Inventory;
+static list<string> InventorySequence;
 static std::string InventoryAfterDetach;
 static bool ReadPostDetachInventory;
 static int Queries;
@@ -306,6 +333,11 @@ struct Process {
             if (ReadPostDetachInventory) {
                 ReadPostDetachInventory = false;
                 return InventoryAfterDetach;
+            }
+            if (!InventorySequence.empty()) {
+                auto sample = InventorySequence.front();
+                InventorySequence.pop_front();
+                return sample;
             }
             return Inventory;
         }
@@ -406,7 +438,7 @@ struct VolumeInfo {
     enum DiscoveryState { DiscoveryUnknown, ImageAttached, ImageAbsent, ControlUnavailable };
     DiscoveryState Discovery = DiscoveryUnknown;
     DirectoryPath AuxMountPoint, MountPoint;
-    DevicePath VirtualDevice;
+    DevicePath VirtualDevice, DiskImageDevice;
     int Protection = VolumeProtection::None;
     DirectoryPath Path;
     unsigned int ProgramVersion = 0, SlotNumber = 0;
@@ -527,6 +559,7 @@ static void SimulateStartupFailure(StartupFailure failure) {
             auto mountedVolume = make_shared<VolumeInfo>();
             mountedVolume->Discovery = VolumeInfo::ImageAttached;
             mountedVolume->VirtualDevice = mountedVirtualDevice;
+            mountedVolume->DiskImageDevice = mountedVirtualDevice;
 ''' + observation + r'''
         }
         throw runtime_error("startup failed");
@@ -551,7 +584,8 @@ static void Observe(VolumeInfo::DiscoveryState discovery, const DevicePath &disc
     bool needsMediaObservation = true;
     auto mountedVolume = make_shared<VolumeInfo>();
     mountedVolume->Discovery = discovery;
-    mountedVolume->VirtualDevice = discovered;
+    mountedVolume->VirtualDevice = "/dev/disk101s4";
+    mountedVolume->DiskImageDevice = discovered;
     IdentifiedMedia = identity;
 ''' + observation + r'''
 }
@@ -1036,6 +1070,98 @@ static void CheckAttach(CoreMacOSX &core, const DirectoryPath &auxiliary) {
     try { core.MountAuxVolumeImage(auxiliary, options); }
     catch (const ExecutedProcessFailed &) { failed = true; }
     Require(failed && AttachCommands.size() == 2, "repeated option error retried an attach again");
+}
+static void CheckAppleFilesystems(CoreMacOSX &core, const string &image, const string &root) {
+    auto volume = make_shared<VolumeInfo>();
+    volume->AuxMountPoint = image.substr(0, image.rfind('/'));
+    volume->Protection = VolumeProtection::ReadOnly;
+    const string exact = Read(root + "/apfs");
+
+    for (const string name : {"exfat", "apfs", "apfs-unmounted", "apfs-multiple", "apfs-partial"}) {
+        Inventory = Read(root + "/" + name);
+        core.UpdateMountedVolumeInfo(volume);
+        const bool exfat = name == "exfat";
+        const DirectoryPath expectedMount = exfat ? "/Volumes/unit-exfat" : name == "apfs" ? "/Volumes/unit-apfs" : "";
+        const DevicePath expectedDevice = exfat ? "/dev/disk68" : name == "apfs" ? "/dev/disk106s12" : "/dev/disk84";
+        Require(volume->Discovery == VolumeInfo::ImageAttached && volume->VirtualDevice == expectedDevice
+                && volume->MountPoint == expectedMount
+                && FSKit::GetAttachedDiskImageDevice(volume->AuxMountPoint) == (exfat ? "/dev/disk68" : "/dev/disk84"),
+                "the advertised filesystem or whole attachment was resolved incorrectly");
+    }
+    MountOptions options;
+    auto hasOption = [](const string &option) {
+        return find(AttachCommands.front().begin(), AttachCommands.front().end(), option) != AttachCommands.front().end();
+    };
+    for (const string name : {"exfat", "apfs"}) {
+        for (bool readOnly : {false, true}) {
+            for (const DirectoryPath point : {DirectoryPath(root + "/custom-mount"), DirectoryPath("/Volumes/Untitled42")}) {
+                AttachCommands.clear();
+                Commands.clear();
+                options.Protection = readOnly ? VolumeProtection::ReadOnly : VolumeProtection::None;
+                options.MountPoint = make_shared<DirectoryPath>(point);
+                AttachReply = Read(root + "/attach-" + name);
+                Inventory = Read(root + "/" + name);
+                Require(core.MountAuxVolumeImage(volume->AuxMountPoint, options)
+                        == (name == "apfs" ? "/dev/disk84" : "/dev/disk68"), "auto attach returned the wrong media");
+                Require(AttachCommands.size() == 1 && hasOption("-mount") && !hasOption("-nomount")
+                        && hasOption("-readonly") == readOnly && hasOption("-mountpoint") == (point == root + "/custom-mount")
+                        && Commands == vector<pair<string, int>>{{"/usr/bin/hdiutil", 30000}},
+                        "exFAT or APFS did not use the requested Disk Images auto-selection mode");
+            }
+        }
+    }
+    AttachCommands.clear();
+    options.NoFilesystem = true;
+    AttachReply = Read(root + "/attach-apfs-multiple");
+    Require(core.MountAuxVolumeImage(volume->AuxMountPoint, options) == "/dev/disk84"
+            && AttachCommands.size() == 1 && hasOption("-nomount"), "attach-only APFS lost its whole media");
+    options.NoFilesystem = false;
+    AttachReply = Read(root + "/attach-apfs");
+    Inventory = exact;
+    InventorySequence = {Read(root + "/absent"), Read(root + "/apfs-partial")};
+    AttachCommands.clear();
+    Require(core.MountAuxVolumeImage(volume->AuxMountPoint, options) == "/dev/disk84"
+            && AttachCommands.size() == 1 && InventorySequence.empty(), "APFS publication triggered a second attach");
+    MediaReads = {42, 43, 42, 44};
+    bool stale = false;
+    try { core.MountAuxVolumeImage(volume->AuxMountPoint, options); }
+    catch (const ExternalException &) { stale = true; }
+    Require(stale && MediaReads.empty(), "a recycled APFS volume name authorized a successful mount");
+    for (const string name : {"apfs-multiple", "apfs-partial"}) {
+        // Keep the reply valid so an additional unmounted child or incomplete
+        // live publication must be caught by the exact inventory lookup.
+        AttachReply = Read(root + "/attach-apfs");
+        Inventory = Read(root + "/" + name);
+        bool refused = false;
+        try { core.MountAuxVolumeImage(volume->AuxMountPoint, options); }
+        catch (const ExternalException &) { refused = true; }
+        Require(refused, "unsupported live APFS layout was accepted");
+    }
+    for (const string name : {"absent", "unrelated", "unknown_record", "apfs-orphan"}) {
+        Inventory = Read(root + "/" + name);
+        AttachCommands.clear();
+        bool refused = false;
+        try { core.MountAuxVolumeImage(volume->AuxMountPoint, options); }
+        catch (const exception &) { refused = true; }
+        Require(refused && AttachCommands.size() == 1, "unresolved APFS ownership allowed a mount or retry");
+    }
+    DismountMountPoint = volume->AuxMountPoint;
+    Inventory = exact;
+    InventoryAfterDetach = Read(root + "/apfs-orphan");
+    DismountArguments.clear();
+    bool retained = false;
+    try { core.DismountVolume(volume, false, false); }
+    catch (const DismountServiceCleanupFailed &) { retained = true; }
+    Require(retained && DismountArguments == vector<list<string>>{{"detach", "/dev/disk84"}},
+            "a retained APFS child released the worker or targeted unrelated media");
+    Inventory = Read(root + "/apfs-with-independent");
+    InventoryAfterDetach = Read(root + "/independent-after-detach");
+    DismountArguments.clear();
+    core.DismountVolume(volume, false, false);
+    Require(DismountArguments == vector<list<string>>{{"detach", "/dev/disk84"}, {"--", volume->AuxMountPoint}},
+            "APFS teardown did not leave the independent exFAT attachment alone");
+    DismountMountPoint.clear();
+    Inventory = Read(root + "/exact");
 }
 static void CheckKernelFat(CoreMacOSX &core, const DirectoryPath &auxiliary, const string &root) {
     Volume volume;
@@ -1538,6 +1664,8 @@ int main(int argc, char **argv) {
         std::cout << "PASS: FSKit deadlines, busy preservation, ambiguous attachments, cleanup ordering, identity and force\n";
         AttachReply = Read(root + "/attach");
         CheckAttach(core, image.substr(0, image.rfind('/')));
+        CheckAppleFilesystems(core, image, root);
+        cout << "PASS: exFAT and APFS auto-selection, whole-media teardown, and unsupported APFS layouts\n";
         CheckKernelFat(core, image.substr(0, image.rfind('/')), root);
         cout << "PASS: kernel FAT12/16/32 selection, mount directories, access modes, timeouts, and fail-closed identity checks\n";
         std::cout << "PASS: FSKit attach deadline, read-only and attach-only flags, and one compatibility retry\n";

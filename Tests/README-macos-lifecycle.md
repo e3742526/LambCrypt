@@ -162,6 +162,46 @@ python3 Tests/test_macos_gui_lifecycle.py --fskit-external-eject --keep-artifact
   --binary "$VC_FSKIT_BUILD_SRC/Main/LambCrypt-FSKit.app/Contents/MacOS/LambCrypt-FSKit"
 ```
 
+### Signed exFAT and APFS integration gate
+
+Use Python 3.11 or later as an unprivileged user on an isolated Apple Silicon
+macOS 26+ desktop. Use a provisioned scratch app and the team-signed activation
+probe described below. Close other LambCrypt and VeraCrypt instances and
+confirm their mounts are clear. The runner creates its own encrypted fixture,
+accepts only the exact new Disk Images attachment, and keeps its logs and
+fixtures under the printed private directory.
+
+Use a guest or account with its own scratch registration. On a physical test
+Mac where the installed module is enabled, follow the reactivation runbook
+before staging a same-identifier scratch app.
+
+```sh
+for filesystem in exfat apfs; do
+  python3 Tests/test_macos_fskit_filesystems.py "--fskit-$filesystem" \
+    --isolated-host --binary "$VC_FSKIT_CLI" \
+    --activation-probe "$VC_PROBE_DIR/check_fskit_activation" \
+    --build-commit "$(git rev-parse HEAD)" --reader "$VC_UPSTREAM_READER" --finder-eject
+done
+```
+
+Set `VC_FSKIT_CLI` to the scratch app's executable and `VC_UPSTREAM_READER`
+to a read-only reader built against upstream VeraCrypt. The reader accepts
+`VOLUME PASSWORD PIM` and writes AES/SHA-512 plaintext to stdout. The trial
+compares the full decrypted data area, including the APFS partition and
+container, and verifies the encrypted file is unchanged by the independent
+read. Supply the signed build's actual source commit. For an uncommitted build,
+record its base commit and production patch digest.
+
+Eject the named disposable writable volume in Finder when prompted. Omitting
+the reader or Finder check gives a partial result. Use `--fskit-apfs
+--apfs-multiple` in a separate invocation without these two options to test
+the two-volume rejection and ordinary teardown. The trial makes that fixture
+large enough for macOS to create a second APFS volume. A failed trial keeps its
+evidence and stops. Inspect its inventories before dismounting the exact
+disposable container with LambCrypt.
+
+[FSKit reactivation runbook](../fskit-reactivation-runbook.md)
+
 ### Signed FSKit GUI preflight
 
 Query FSKit directly from the login account before the first native test.

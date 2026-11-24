@@ -55,6 +55,11 @@ namespace VeraCrypt
 		// entry whose control metadata is now unreadable has no current counters.
 		enum DiscoveryState { DiscoveryUnknown, ImageAttached, ImageAbsent, ControlUnavailable };
 		DiscoveryState Discovery;
+#ifdef TC_MACOSX
+		// APFS presents a synthesized volume as VirtualDevice. Disk Images
+		// detaches and the worker observes the original whole-image media.
+		DevicePath DiskImageDevice;
+#endif
 
 		// Mount result only, not part of the control file: the volume file was opened
 		// with the credentials of the requesting user (Linux). Its storage may depend

@@ -1063,6 +1063,83 @@ FSClient probe still found a different registered bundle with effective
 enablement false and exited 3. PlugInKit still reported a positive
 election for the module identifier. Host policy was left as found.
 
+## Writable exFAT and APFS integration gate
+
+Disk Images selects Apple's filesystem driver for both formats. For APFS,
+LambCrypt displays the mounted APFS volume and uses the whole-image media for
+teardown and external eject observation. Ordinary mounts accept one GPT-backed
+APFS container with a single volume. The attach-only mode can inspect layouts
+with more than one APFS volume. A rejected ordinary mount goes through the
+existing Disk Images rollback. If macOS cannot confirm detach, the worker
+retains the backing volume and reservations.
+
+### November 23, 2026 verification
+
+The physical test host was an arm64 Mac17,2 running macOS 26.6.2 (25G83).
+The signed baseline was build `1.29.2` from
+`ce521cefb91dc6e68125d17166b9323ff36e54fd`. The signed physical candidate,
+build `1.29.3`, used that commit plus production patch SHA-256
+`e2c8e77988a8829f5076c0806f1731b477f17f371945d2ebb894affab0e7e550`.
+Its executable SHA-256 was
+`3994dada78f1e2671767bef3cc7a57d80a15112f98ea61af5ac961027db816dd`.
+
+| Case | Fixture, driver, and observed result |
+| --- | --- |
+| exFAT on the physical Mac | **PASS** on the baseline, including Finder eject. The candidate passed the same write, busy retry, read-only remount, independent plaintext verification, and Disk Arbitration eject checks. The fixture was 96 MiB, with 100,401,152 decrypted bytes and unpartitioned exFAT. Apple used its FSKit exFAT driver. The writable candidate used `/dev/disk7` at the scratch mount directory. The read-only mount used `/Volumes/LCEXFAT`. |
+| Single-volume APFS on the physical Mac | **PASS** on the baseline, including Finder eject. The candidate passed write, busy retry, read-only remount, binary extended attributes, independent plaintext verification, and Disk Arbitration eject. The candidate's Finder operation was pending when the UI tool lost access. Ordinary teardown then cleared that attachment. The 256 MiB fixture had 268,173,312 decrypted bytes. Its GPT store started at byte 20,480 and occupied 268,132,352 bytes. Apple's APFS driver mounted `/dev/disk8s1` from container `/dev/disk8`. The physical store was `/dev/disk7s1` on `/dev/disk7`. The read-only mount used `/Volumes/LCAPFS`. |
+| Two-volume APFS on the physical Mac | **PASS** for rejection and cleanup. On a fresh 1 GiB fixture, Apple reported `/dev/disk7`, store `/dev/disk7s1`, container `/dev/disk8`, and volumes `/dev/disk8s1` and `/dev/disk8s2`. LambCrypt reported the single-volume restriction and released the image, media, worker, and backing-file reservation. |
+| FAT12, FAT16, FAT32 and HFS+ | **PASS** for the native CLI lifecycle matrix on the physical candidate. FAT16 also dismounted an independent keyfile-backed fixture while its first mount stayed busy. |
+| Tahoe lab guest | **FAIL** at the attach-only mount on macOS 26.6.2 (25G83), arm64. The statically linked signed build `1.29.5` passed strict bundle verification, matched the guest's development profile, and the signed FSClient probe reported the exact scratch module enabled. The APFS fixture was created, but macOS reported “Couldn’t communicate with a helper application” before Disk Images attached. No guest fixture was formatted in that attempt. |
+| Distribution | **NOT TESTED**. Distribution signing, notarization and installation remain separate release gates. |
+
+Both successful physical fixture runs exercised unaligned random writes,
+overwrite, truncate, rename, deletion, timestamps, and fsync. The first
+dismount with an open handle refused and kept the original worker. The
+read-only remount preserved the expected payload SHA-256
+`bc9942a59b08fcd584615a2261b042f1af633c4e762ea3b99651f1b2329f47d6`.
+An independent upstream VeraCrypt reader matched the full decrypted image
+and left ciphertext unchanged. The candidate's exFAT plaintext SHA-256 was
+`35a788ef8cfba7875681756b2eb63670315159ad26a24b707122c44550ea45de`.
+The APFS plaintext, including GPT and container metadata, matched
+`64ede44eda859c484d57f15fcdbff5e8189421662b97d2bb8be34ba8038cb193`.
+
+The candidate evidence is in the private trial directories
+`/private/tmp/lambcrypt-exfat-trial-g48vu4hb`,
+`/private/tmp/lambcrypt-apfs-trial-gqbfmuta`, and
+`/private/tmp/lambcrypt-apfs-trial-xj21_dvm`. The baseline Finder-eject
+inventories are in `/private/tmp/lambcrypt-exfat-trial-v2t55kes` and
+`/private/tmp/lambcrypt-apfs-trial-3nzqsvj_`. The writable exFAT image used
+auxiliary mount parent `lambcrypt-fskit.TqOJOAVw` and registry media
+`0x100003d51`. The writable APFS image used parent
+`lambcrypt-fskit.xm3goxPE`, whole media `0x10000389b`, and volume media
+`0x1000038af`. Each evidence directory contains the exact image path,
+media identities, mount paths, worker identity, backing inode and final
+inventories. No trial attachment or backing holder remained on the Mac.
+
+The standalone protocol harness caught a build-flag mismatch in the new
+`VolumeInfo` field. Declaring the field consistently for macOS fixed the
+harness. The clean signed build `1.29.4` used the same base commit plus
+production patch SHA-256
+`ec29f682ff5dcf3ade6c5ebbf770b6067590c731246406f16cd8cb4e3216ac6c`.
+Its executable SHA-256 was
+`b33562a7b9b3900c4f9791d9d05d5dccddb807868b746b7457faf475b2279a63`.
+The focused protocol, discovery, formatting guard and native worker lifecycle
+tests passed, along with the cryptographic self-tests. After
+the scratch registration was restored to the installed app, the signed
+probe found that app with effective `enabled=false` despite a positive
+PlugInKit election.
+
+The first guest app linked to a Homebrew PCRE2 library that the clean guest
+lacked. The retry linked PCRE2 statically for the scratch build and produced
+executable SHA-256
+`b7b7e8128e05b74088dc3c6c66ad82542cfbd637ed0f32bc23b934634d2bde47`.
+That run reached the FSKit helper error with no trial mount or Disk Images
+attachment in the final guest inventory. Its log archive is
+`guest-result-b1fac6447e60571c.tar.gz` under
+`~/Library/Caches/LambCrypt-FSKit/filesystems-guest.d6XFtzPF`.
+
+See the [reproducible lifecycle commands](Tests/README-macos-lifecycle.md#signed-exfat-and-apfs-integration-gate).
+
 ## Remaining migration gates
 
 The FSKit-only macOS build and local installer passed on the physical arm64

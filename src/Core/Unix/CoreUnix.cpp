@@ -1766,7 +1766,7 @@ namespace VeraCrypt
 #ifdef VC_MACOSX_FSKIT
 			// The attach result and the fresh inventory must identify the same disk.
 			// If either is inconclusive, let the worker retry by exact image path.
-			if (mountedVolume->Discovery == VolumeInfo::ImageAttached && mountedVolume->VirtualDevice == mountedVirtualDevice)
+			if (mountedVolume->Discovery == VolumeInfo::ImageAttached && mountedVolume->DiskImageDevice == mountedVirtualDevice)
 				FSKit::ObserveAttachedMedia (activationChannel, mountedVirtualDevice);
 			else
 				FSKit::ObserveLateAttachedMedia (activationChannel);
