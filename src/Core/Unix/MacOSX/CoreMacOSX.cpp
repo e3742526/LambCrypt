@@ -120,6 +120,8 @@ namespace VeraCrypt
 		bool Unsupported = false;
 	};
 
+	static bool IsPlainDiskDevicePath (const string &path);
+
 	// The attach reply and the live inventory can order the APFS entities
 	// differently. Use their content hints to distinguish the physical disk
 	// image from the synthesized container and its mountable volumes.
@@ -133,8 +135,9 @@ namespace VeraCrypt
 		string mountedDevice;
 		string mountedPath;
 		string wholeDevice;
+		string rawDevice;
 		string apfsVolume;
-		size_t wholeDisks = 0, apfsStores = 0, apfsContainers = 0, apfsVolumes = 0, mountedFilesystems = 0;
+		size_t wholeDisks = 0, rawDisks = 0, apfsStores = 0, apfsContainers = 0, apfsVolumes = 0, mountedFilesystems = 0;
 
 		CFIndex count = CFArrayGetCount (entities);
 		for (CFIndex i = 0; i < count; ++i)
@@ -159,6 +162,12 @@ namespace VeraCrypt
 				{
 					wholeDevice = devEntry;
 					++wholeDisks;
+				}
+				else if (hint.empty() && devEntry.compare (0, 9, "/dev/disk") == 0
+					&& devEntry.find ('s', 9) == string::npos && IsPlainDiskDevicePath (devEntry))
+				{
+					rawDevice = devEntry;
+					++rawDisks;
 				}
 				else if (hint == "Apple_APFS" || hint == "7C3457EF-0000-11AA-AA11-00306543ECAC")
 					++apfsStores;
@@ -189,10 +198,14 @@ namespace VeraCrypt
 		if (layout && (apfsStores || apfsContainers || apfsVolumes))
 		{
 			layout->IsApfs = true;
-			if (wholeDisks != 1)
+			// newfs_apfs on the whole decrypted image produces an unpartitioned
+			// store. Disk Images reports that device without a content hint.
+			const bool rawApfs = wholeDisks == 0 && rawDisks == 1 && apfsStores == 0;
+			const bool partitionedApfs = wholeDisks == 1 && rawDisks == 0;
+			if (!rawApfs && !partitionedApfs)
 				throw ExternalException (SRC_POS, L"macOS did not identify the physical disk of the APFS disk image.");
-			layout->WholeDevice = wholeDevice;
-			layout->Complete = apfsStores == 1 && apfsContainers == 1 && apfsVolumes == 1;
+			layout->WholeDevice = rawApfs ? rawDevice : wholeDevice;
+			layout->Complete = (rawApfs || apfsStores == 1) && apfsContainers == 1 && apfsVolumes == 1;
 			layout->Unsupported = apfsStores > 1 || apfsContainers > 1 || apfsVolumes > 1
 				|| mountedFilesystems > 1 || (mountedFilesystems == 1 && mountedDevice != apfsVolume);
 			if (!layout->Complete || layout->Unsupported || mountedDevice.empty())

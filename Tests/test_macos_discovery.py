@@ -39,9 +39,15 @@ def main():
         apfs_part = {"dev-entry": "/dev/disk84s9", "content-hint": "7C3457EF-0000-11AA-AA11-00306543ECAC"}
         apfs_container = {"dev-entry": "/dev/disk106", "content-hint": "EF57347C-0000-11AA-AA11-00306543ECAC"}
         apfs = [apfs_volume, apfs_part, apfs_container, apfs_parent]
+        raw_apfs_parent = {"dev-entry": "/dev/disk84"}
+        raw_apfs = [raw_apfs_parent, apfs_volume, apfs_container]
         apfs_second = {"dev-entry": "/dev/disk106s21", "content-hint": apfs_volume["content-hint"]}
         disk_layouts = {
             "apfs": apfs,
+            "apfs-raw": [{**raw_apfs_parent, "content-hint": ""}, apfs_container, apfs_volume],
+            "apfs-raw-multiple": [*raw_apfs, apfs_second],
+            "apfs-raw-ambiguous": [*raw_apfs, {"dev-entry": "/dev/disk85"}],
+            "apfs-raw-slice": [{"dev-entry": "/dev/disk84s1"}, apfs_volume, apfs_container],
             "apfs-unmounted": [{key: value for key, value in apfs_volume.items() if key != "mount-point"}, *apfs[1:]],
             "apfs-multiple": [*apfs, apfs_second],
             "apfs-partial": [apfs_parent, apfs_part, apfs_container],
@@ -75,7 +81,9 @@ def main():
             (work / name).write_bytes(plistlib.dumps(contents))
         for name, entities in disk_layouts.items():
             (work / name).write_bytes(plistlib.dumps({"images": [dict(exact, **{"system-entities": entities})]}))
-            (work / ("attach-" + name)).write_bytes(plistlib.dumps({"system-entities": entities}))
+            (work / ("attach-" + name)).write_bytes(plistlib.dumps({
+                "system-entities": raw_apfs if name == "apfs-raw" else entities,
+            }))
         independent = work / "independent" / "volume.dmg"
         independent.parent.mkdir()
         independent.touch()
@@ -116,7 +124,7 @@ def main():
         attach = source[source.index("\tDevicePath CoreMacOSX::MountAuxVolumeImage"):
                         source.index("\tunique_ptr <CoreBase> Core (")]
         attach = "\n#define open OpenKernelMountMedia\n" + attach + "\n#undef open\n"
-        device_name_check = source[source.index("\tstatic bool IsPlainDiskDevicePath"):
+        device_name_check = source[source.index("\tstatic bool IsPlainDiskDevicePath (const string &path)\n"):
                                    source.index("\tstatic int64_t GetDiskMediaRegistryId")]
         unix_source = (ROOT / "src/Core/Unix/CoreUnix.cpp").read_text()
         reservation_start = unix_source.index("\tstatic void ReserveLocalMacVolume")
@@ -1077,12 +1085,13 @@ static void CheckAppleFilesystems(CoreMacOSX &core, const string &image, const s
     volume->Protection = VolumeProtection::ReadOnly;
     const string exact = Read(root + "/apfs");
 
-    for (const string name : {"exfat", "apfs", "apfs-unmounted", "apfs-multiple", "apfs-partial"}) {
+    for (const string name : {"exfat", "apfs", "apfs-raw", "apfs-unmounted", "apfs-multiple", "apfs-partial"}) {
         Inventory = Read(root + "/" + name);
         core.UpdateMountedVolumeInfo(volume);
         const bool exfat = name == "exfat";
-        const DirectoryPath expectedMount = exfat ? "/Volumes/unit-exfat" : name == "apfs" ? "/Volumes/unit-apfs" : "";
-        const DevicePath expectedDevice = exfat ? "/dev/disk68" : name == "apfs" ? "/dev/disk106s12" : "/dev/disk84";
+        const bool mountedApfs = name == "apfs" || name == "apfs-raw";
+        const DirectoryPath expectedMount = exfat ? "/Volumes/unit-exfat" : mountedApfs ? "/Volumes/unit-apfs" : "";
+        const DevicePath expectedDevice = exfat ? "/dev/disk68" : mountedApfs ? "/dev/disk106s12" : "/dev/disk84";
         Require(volume->Discovery == VolumeInfo::ImageAttached && volume->VirtualDevice == expectedDevice
                 && volume->MountPoint == expectedMount
                 && FSKit::GetAttachedDiskImageDevice(volume->AuxMountPoint) == (exfat ? "/dev/disk68" : "/dev/disk84"),
@@ -1092,7 +1101,7 @@ static void CheckAppleFilesystems(CoreMacOSX &core, const string &image, const s
     auto hasOption = [](const string &option) {
         return find(AttachCommands.front().begin(), AttachCommands.front().end(), option) != AttachCommands.front().end();
     };
-    for (const string name : {"exfat", "apfs"}) {
+    for (const string name : {"exfat", "apfs", "apfs-raw"}) {
         for (bool readOnly : {false, true}) {
             for (const DirectoryPath point : {DirectoryPath(root + "/custom-mount"), DirectoryPath("/Volumes/Untitled42")}) {
                 AttachCommands.clear();
@@ -1102,7 +1111,7 @@ static void CheckAppleFilesystems(CoreMacOSX &core, const string &image, const s
                 AttachReply = Read(root + "/attach-" + name);
                 Inventory = Read(root + "/" + name);
                 Require(core.MountAuxVolumeImage(volume->AuxMountPoint, options)
-                        == (name == "apfs" ? "/dev/disk84" : "/dev/disk68"), "auto attach returned the wrong media");
+                        == (name == "exfat" ? "/dev/disk68" : "/dev/disk84"), "auto attach returned the wrong media");
                 Require(AttachCommands.size() == 1 && hasOption("-mount") && !hasOption("-nomount")
                         && hasOption("-readonly") == readOnly && hasOption("-mountpoint") == (point == root + "/custom-mount")
                         && Commands == vector<pair<string, int>>{{"/usr/bin/hdiutil", 30000}},
@@ -1127,7 +1136,7 @@ static void CheckAppleFilesystems(CoreMacOSX &core, const string &image, const s
     try { core.MountAuxVolumeImage(volume->AuxMountPoint, options); }
     catch (const ExternalException &) { stale = true; }
     Require(stale && MediaReads.empty(), "a recycled APFS volume name authorized a successful mount");
-    for (const string name : {"apfs-multiple", "apfs-partial"}) {
+    for (const string name : {"apfs-multiple", "apfs-partial", "apfs-raw-multiple"}) {
         // Keep the reply valid so an additional unmounted child or incomplete
         // live publication must be caught by the exact inventory lookup.
         AttachReply = Read(root + "/attach-apfs");
@@ -1137,7 +1146,7 @@ static void CheckAppleFilesystems(CoreMacOSX &core, const string &image, const s
         catch (const ExternalException &) { refused = true; }
         Require(refused, "unsupported live APFS layout was accepted");
     }
-    for (const string name : {"absent", "unrelated", "unknown_record", "apfs-orphan"}) {
+    for (const string name : {"absent", "unrelated", "unknown_record", "apfs-orphan", "apfs-raw-ambiguous", "apfs-raw-slice"}) {
         Inventory = Read(root + "/" + name);
         AttachCommands.clear();
         bool refused = false;
@@ -1160,6 +1169,11 @@ static void CheckAppleFilesystems(CoreMacOSX &core, const string &image, const s
     core.DismountVolume(volume, false, false);
     Require(DismountArguments == vector<list<string>>{{"detach", "/dev/disk84"}, {"--", volume->AuxMountPoint}},
             "APFS teardown did not leave the independent exFAT attachment alone");
+    Inventory = Read(root + "/apfs-raw");
+    DismountArguments.clear();
+    core.DismountVolume(volume, false, false);
+    Require(DismountArguments == vector<list<string>>{{"detach", "/dev/disk84"}, {"--", volume->AuxMountPoint}},
+            "unpartitioned APFS teardown targeted the wrong device");
     DismountMountPoint.clear();
     Inventory = Read(root + "/exact");
 }

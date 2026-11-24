@@ -1140,6 +1140,42 @@ attachment in the final guest inventory. Its log archive is
 
 See the [reproducible lifecycle commands](Tests/README-macos-lifecycle.md#signed-exfat-and-apfs-integration-gate).
 
+### November 23 exact-source follow-up
+
+Build `1.29.6` was built and Apple Development signed from a fresh archive
+of `34340fb8f7a2ab8475183328628673202b5695d5`. The app and extension linked
+only to macOS system libraries. The development package payload passed
+strict bundle verification. Build `1.29.6` replaced the installed
+development app, and the previous bundle was preserved outside `/Applications`.
+
+Enabling LambCrypt under File System Extensions updated the system's
+enablement store, and FSClient reported the exact installed bundle as
+enabled. A disposable mount still failed. The physical logs show FSKit
+launching the earlier `1.29.3` scratch extension, which raised
+`Invalid bundle record for current process` in ExtensionFoundation.
+The same failure persisted after the forward upgrade and a fresh toggle.
+The host's FSKit agent stayed running while an unrelated exFAT drive
+was mounted. The guest archive records the same user-facing helper error,
+and the guest's underlying error remains unconfirmed.
+
+On a disposable raw image, the app's `newfs_apfs` command produced an
+unpartitioned APFS store. Disk Images reported the physical device with no
+content hint in its attach reply and an empty hint in its live inventory.
+The discovery regression fails against the committed parser and passes with
+the change to recognize that layout. Build `1.29.7` includes this local change
+and passed development signature checks. The native six-filesystem matrix
+and CLI and GUI filesystem creation remain pending a working extension launch.
+
+The production worker passed a two-minute write trial on an 8 GiB container.
+It acknowledged and flushed 48,768 writes. An incomplete request left its
+target range unchanged. After stopping the worker with SIGKILL and reopening
+the container, 25,394 distinct block hashes matched. This trial exercised the
+worker and encrypted backing file. Native filesystem interruption and power
+loss recovery remain pending. The worker's flush currently calls `fsync`,
+so the process-recovery result does not establish persistence through a loss
+of device power. The private build and test evidence is under
+`~/Library/Caches/LambCrypt-FSKit/session-34340fb8.3oiHABrF`.
+
 ## Remaining migration gates
 
 The FSKit-only macOS build and local installer passed on the physical arm64
