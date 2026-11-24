@@ -140,8 +140,29 @@ namespace VeraCrypt
 		}
 	}
 
-	static void SyncDescriptor (int fd, const wstring &path)
+	static void SyncDescriptor (int fd, bool stableStorage, const wstring &path, bool requireDeviceFlush = false)
 	{
+#ifdef TC_MACOSX
+		if (stableStorage)
+		{
+			for (;;)
+			{
+				if (fcntl (fd, F_FULLFSYNC, 0) == 0)
+					return;
+				const int error = errno;
+				if (error == EINTR)
+					continue;
+				if (requireDeviceFlush)
+					throw SystemException (SRC_POS, path, error);
+				// Header maintenance historically falls back on filesystems
+				// that cannot honor the device flush.
+				break;
+			}
+		}
+#else
+		(void) stableStorage;
+		(void) requireDeviceFlush;
+#endif
 		while (fsync (fd) != 0)
 		{
 			const int error = errno;
@@ -184,29 +205,13 @@ namespace VeraCrypt
 	void File::Flush () const
 	{
 		if_debug (ValidateState());
-		SyncDescriptor (FileHandle, wstring (Path));
+		SyncDescriptor (FileHandle, false, wstring (Path));
 	}
 
 	void File::FlushToStableStorage (bool requireDeviceFlush) const
 	{
 		if_debug (ValidateState());
-#ifdef TC_MACOSX
-		while (fcntl (FileHandle, F_FULLFSYNC, 0) != 0)
-		{
-			const int error = errno;
-			if (error == EINTR)
-				continue;
-			if (requireDeviceFlush)
-				throw SystemException (SRC_POS, wstring (Path), error);
-			// Header maintenance historically falls back on filesystems that
-			// cannot honor the device flush.
-			Flush();
-			return;
-		}
-#else
-		(void) requireDeviceFlush;
-		Flush();
-#endif
+		SyncDescriptor (FileHandle, true, wstring (Path), requireDeviceFlush);
 	}
 
 	void File::WriteDurably (const FilePath &path, const ConstBufferPtr &data, bool replaceExisting)
