@@ -6,66 +6,31 @@ VeraCrypt volume format and LambCrypt crypto code. The macFUSE and FUSE-T
 trials below record earlier builds. An existing installation can stay in use
 while its FSKit replacement is verified on the host.
 
-## Integrator checklist
+## Personal-use acceptance
 
-- [ ] Copy [signing.env.example](src/Setup/MacOSX/signing.env.example) to a private
-  `signing.local.env` outside the checkout. Keep the real Apple Team ID, signing
-  identity names or fingerprints, and profile paths there or in CI secrets.
-  The build uses Make, so source the environment file before building.
-- [ ] Sign in to Xcode with an enrolled Apple Developer Program team. For
-  development, make the Apple Development certificate and private key available
-  in the local Keychain and register the test Mac with that team. For a VM, use
-  the guest's Provisioning UDID from System Information and preserve its case
-  exactly as displayed.
-- [ ] Register an explicit App ID for
-  `io.github.e3742526.LambCrypt.fskit.module` and enable the FSKit Module
-  capability. Obtain the matching macOS development provisioning profile for the
-  registered device and certificate. Store the profile outside the checkout
-  and set `VC_FSKIT_PROVISIONING_PROFILE` to its absolute path. Decode the
-  profile with `security cms -D -i "$VC_FSKIT_PROVISIONING_PROFILE"` and verify
-  that `ProvisionedDevices` contains the verbatim identifier reported by the
-  running test Mac. An uppercase variant of a lowercase VM identifier can
-  pass a case-insensitive check and fail at launch.
-- [ ] Set `VC_APP_SIGN_IDENTITY` to the corresponding Keychain identity. In a
-  separate build tree with the build dependencies configured, source the local
-  environment file and run `LOCAL_DEVELOPMENT_BUILD=true make -C src WITHFSKIT=1 prepare`.
-  The recipe reads the Team ID from the profile, builds matching App Group
-  entitlements, and signs the extension before signing the app. For a different
-  Mac or VM, set `VC_FSKIT_TARGET_UDID` to that device's exact Provisioning UDID
-  in the private signing environment before preparing or verifying the app.
-- [ ] When signing successive FSKit candidates with the same marketing
-  version, export an increasing `VC_FSKIT_BUILD_VERSION` before building.
-  Use one to three dot-separated integers. Make writes the value to both
-  the app and extension before signing. The standard app has the preferred
-  Finder handler rank for VeraCrypt containers when both apps are installed.
-- [ ] Run `codesign --verify --deep --strict src/Main/LambCrypt-FSKit.app`.
-  Run `bash src/Setup/MacOSX/verify_fskit_bundle.sh src/Main/LambCrypt-FSKit.app`
-  to check arm64, deployment target, bundle versions, signature and embedded
-  profile expiry, authorized signer and exact target device, App Group
-  entitlements, and the document handler rank for side-by-side installs. The
-  verifier uses the local Mac's Provisioning UDID by default and checks apps
-  extracted from a development package.
-  In System Settings, go to General
-  → Login Items & Extensions → By Category → File System Extensions and
-  enable LambCrypt FSKit. Verify it on disposable internal-drive containers.
-- [ ] At the release gate, set `VC_SIGN_TEAM_ID`, select the team's Developer ID
-  Application and Developer ID Installer identities, and use a matching
-  distribution profile that grants the extension's FSKit capability. Set
-  `VC_NOTARY_PROFILE` to a Keychain credential profile created with
-  `xcrun notarytool store-credentials`. From the release build tree, run
-  `LOCAL_DEVELOPMENT_BUILD=false make -C src WITHFSKIT=1 prepare`, then
-  `bash src/Setup/MacOSX/notarize.sh --fskit --dry-run`. The dry run checks
-  Hardened Runtime and secure timestamps on the app and extension, signs
-  the package, and verifies its expanded payload before cleaning up the
-  scratch installer. It skips the notarization service. Drop `--dry-run` for
-  an authorized release submission. [Apple capability matrix](https://developer.apple.com/help/account/reference/supported-capabilities-macos/),
-  [Apple notarization requirements](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
-- [ ] Before committing, review the staged diff for team-specific values and
-  files. Keep certificates, private keys, profiles, generated entitlements,
-  signing logs, and signed bundles out of source control. The signed scratch
-  extension contains an embedded copy of its provisioning profile.
+The supported local install is `/Applications/LambCrypt-FSKit.app`, built
+natively for Apple Silicon and signed with Apple Development credentials.
+The GUI uses wxWidgets Cocoa. The host app owns the worker and backing file.
+The sandboxed FSKit extension receives access to the private App Group and
+exports the decrypted image to Disk Images.
 
-## Stage gates
+1. A single canonical app must register, enable and launch its own embedded
+   FSKit extension. Confirm the launched path as well as FSClient's response.
+2. Complete repeated disposable write, sync, dismount and read-only remount
+   cycles for FAT12/16/32, HFS+, exFAT and both single-volume APFS layouts.
+   Verify ordinary creation, Finder eject, busy retry and VeraCrypt
+   plaintext compatibility.
+3. Verify interrupted operations preserve attachment ownership, encrypted
+   data and reservations. Exercise personal GUI, external storage, sleep
+   and reboot workflows on the physical Mac.
+4. Rebuild, install and roll back a development-signed app with increasing
+   build numbers. Check signatures, exact device authorization and
+   system-only linkage.
+
+See the [local update and activation procedure](fskit-reactivation-runbook.md)
+and the [current result matrix](#personal-use-verification-november-23-2026).
+
+## Historical rollout gates
 
 These gates record the original opt-in rollout. For new trials, use a separate
 scratch tree and disposable internal-drive containers.
@@ -106,7 +71,7 @@ Finder eject on the FAT route were open. Release packaging has a local
 dry run. Real Developer ID packaging and a loaded macFUSE runtime
 comparison require their respective credentials and driver.
 
-## Current macOS build variants
+## Historical macOS build variants
 
 Fresh Apple Silicon scratch builds with Xcode 27.2 produced the default
 MacFUSE bundle and the opt-in FUSE-T bundle. The default linked the macFUSE
@@ -1063,7 +1028,7 @@ FSClient probe still found a different registered bundle with effective
 enablement false and exited 3. PlugInKit still reported a positive
 election for the module identifier. Host policy was left as found.
 
-## Writable exFAT and APFS integration gate
+## Writable exFAT and APFS integration history
 
 Disk Images selects Apple's filesystem driver for both formats. For APFS,
 LambCrypt displays the mounted APFS volume and uses the whole-image media for
@@ -1090,7 +1055,6 @@ Its executable SHA-256 was
 | Two-volume APFS on the physical Mac | **PASS** for rejection and cleanup. On a fresh 1 GiB fixture, Apple reported `/dev/disk7`, store `/dev/disk7s1`, container `/dev/disk8`, and volumes `/dev/disk8s1` and `/dev/disk8s2`. LambCrypt reported the single-volume restriction and released the image, media, worker, and backing-file reservation. |
 | FAT12, FAT16, FAT32 and HFS+ | **PASS** for the native CLI lifecycle matrix on the physical candidate. FAT16 also dismounted an independent keyfile-backed fixture while its first mount stayed busy. |
 | Tahoe lab guest | **FAIL** at the attach-only mount on macOS 26.6.2 (25G83), arm64. The statically linked signed build `1.29.5` passed strict bundle verification, matched the guest's development profile, and the signed FSClient probe reported the exact scratch module enabled. The APFS fixture was created, but macOS reported “Couldn’t communicate with a helper application” before Disk Images attached. No guest fixture was formatted in that attempt. |
-| Distribution | **NOT TESTED**. Distribution signing, notarization and installation remain separate release gates. |
 
 Both successful physical fixture runs exercised unaligned random writes,
 overwrite, truncate, rename, deletion, timestamps, and fsync. The first
@@ -1176,7 +1140,9 @@ so the process-recovery result does not establish persistence through a loss
 of device power. The private build and test evidence is under
 `~/Library/Caches/LambCrypt-FSKit/session-34340fb8.3oiHABrF`.
 
-## Remaining migration gates
+## Earlier physical-host observations
+
+These observations predate the canonical updater and current test matrix.
 
 The FSKit-only macOS build and local installer passed on the physical arm64
 macOS 26.6.2 host. The build ran with a package-config guard that rejects FUSE
@@ -1212,3 +1178,160 @@ original bundle was restored after the trial.
 
 The macOS build uses FSKit. To return to an earlier app, confirm teardown of
 any active worker and decrypted image before opening the same container again.
+
+## Personal-use verification, November 23, 2026
+
+Started from clean local and fetched `origin/main` at
+`a0372fed7af56352b513509b600699230fab0f0e`. Work is on
+`codex/fskit-personal-use`. The canonical app started at build 1.29.6.
+The signed development app and extension matched, authorized this Mac, and
+passed strict verification. PlugInKit elected the canonical module and a
+team-signed FSClient probe reported its exact URL enabled. There were no
+LambCrypt mounts, workers or attachments at preflight. Unrelated mounted
+filesystems were preserved.
+
+The launchd record for the module in the login user's FSKit agent domain
+still held build 1.29.3 from a scratch app. Apple logs show an attempted
+re-bootstrap using the canonical URL and launchd retaining the older path.
+This explains the earlier ExtensionFoundation crash and the missing
+executable error after archiving the old copy. Launch Services accepted the
+canonical app, and removal of the inactive launchd job was denied.
+The owner deferred restarting the Mac.
+
+The local updater built and installed 1.29.10 and preserved a private
+verified archive of 1.29.6. A team-signed probe confirmed the canonical
+URL again. The disposable FAT12 creation passed, then the mount failed at
+the same stale launchd job. The test released its backing-file handle
+and left no file systems, workers, images or live reservations. A
+background launch with isolated empty preferences exited with the previously
+frontmost application still active.
+
+### Test evidence
+
+All rows use macOS 26.6.2 (25G83) on physical arm64 unless noted. The letter
+in each row identifies the commit, application build and type of evidence.
+
+- **A** is installed Apple Development build 1.29.10, built from
+  `704e98d2a053f00e17f79a47a2c422d66eb98ae1`. Native includes the
+  installer, the failed mount and the background-only launch. Protocol
+  tests use production code with injected syscall results and no extension.
+  Discovery tests use simulated snapshots and a native subprocess harness.
+  The worker drill uses native Disk Images with injected auxiliary events.
+- **B** is historical native build 1.29.2 from
+  `ce521cefb91dc6e68125d17166b9323ff36e54fd` and build 1.29.3 from that
+  base plus production patch SHA-256
+  `e2c8e77988a8829f5076c0806f1731b477f17f371945d2ebb894affab0e7e550`.
+- **C** is installed build 1.29.6 from
+  `34340fb8f7a2ab8475183328628673202b5695d5`, used in the native starting
+  probe and failed FAT mount. The signed archive was verified offline.
+- **D** is `a0372fed7af56352b513509b600699230fab0f0e`, the starting source
+  with the raw APFS discovery fix. Discovery is simulated. Native raw
+  formatting controls and the historical worker-only write trial are
+  recorded in the preceding history.
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Installed extension activation | **FAIL** | A/C native. FSClient enabled, stale 1.29.3 job prevented launch. |
+| Repeated local mount and dismount | **NOT TESTED** | A native stopped at first mount. |
+| FAT12 | **PARTIAL** | A native CLI creation passed and mount failed at activation. B native lifecycle passed. |
+| FAT16 | **PARTIAL** | A simulated routing passed. B native lifecycle passed. |
+| FAT32 | **PARTIAL** | A simulated routing passed. B native lifecycle passed. |
+| HFS+ | **PARTIAL** | B native lifecycle passed. A installed lifecycle pending. |
+| exFAT | **PARTIAL** | B native lifecycle and independent plaintext comparison passed. A installed lifecycle pending. |
+| GPT-backed APFS | **PARTIAL** | B native lifecycle, whole-image detach and multiple-volume rejection passed. A simulated discovery passed. |
+| Unpartitioned APFS | **PARTIAL** | D and A simulated discovery passed. Exact native encrypted creation and mounting pending. |
+| CLI filesystem creation | **PARTIAL** | A native FAT12 creation passed. Ordinary exFAT, APFS and HFS+ creation round trips pending. |
+| GUI filesystem creation | **NOT TESTED** | A source has native CLI and wizard paths for exFAT and APFS. GUI execution pending. |
+| VeraCrypt compatibility | **PASS** | A upstream VeraCrypt matched all 3,932,160 decrypted bytes of a new CLI-created FAT12 container and left its ciphertext unchanged. B independently matched native filesystem test images. |
+| Read-only enforcement | **PARTIAL** | A protocol and provider protection tests passed. B native read-only persisted hash checks passed. |
+| Finder eject | **PARTIAL** | B and earlier native history passed. A pending. |
+| Busy dismount | **PARTIAL** | A simulated refusal and retry passed. B native passed. |
+| Concurrent mounts | **PARTIAL** | A native worker drill retained two attachments independently. B native FAT16 covered an independent read-only keyfile mount while a writable mount stayed busy. |
+| Worker retention | **PASS** | A native worker drill retained sockets and reservations under injected auxiliary loss and released the resources after exact detach. |
+| Interrupted attachment recovery | **PARTIAL** | A native Disk Images drill passed late publication and cleanup under injected auxiliary loss. A discovery simulation covered empty and failed inventories and cancellation. Installed interruption pending. |
+| Native filesystem interruption recovery | **NOT TESTED** | A native inner filesystem could not mount. D historical stress result covers the worker and backing file. |
+| Synchronization durability | **PARTIAL** | A protocol retry, I/O error and unsupported cases passed. Native file full-sync calls succeeded on internal APFS and a disposable exFAT disk image on this Mac. Installed native filesystem interruption and physical power loss pending. |
+| External storage | **NOT TESTED** | A. The unrelated attached external drive was outside the disposable test set. |
+| Sleep and wake | **NOT TESTED** | A. System lifecycle tests pending. |
+| Reboot persistence | **NOT TESTED** | A. Restart deferred by owner. |
+| Local update and rollback | **PARTIAL** | A/C native build, sign, atomic replacement, registration and backup extraction/verification passed. Rollback installation and runnable smoke pending. |
+| macFUSE independence | **PASS** | A source and signed bundle verification. Darwin uses FSKit, Make probes no FUSE packages, and macFUSE checks are excluded from this build. No driver removal was needed. |
+| FUSE-T independence | **PASS** | A source and signed bundle verification. No FUSE-T build selection, linked library or service path in the FSKit executable. |
+| Runtime dependency verification | **PASS** | A installed and staged app and extension. Native arm64, system-only dynamic libraries, valid local profile, App Group and signatures. |
+
+Focused commands included the bundle verifier in `--local` mode,
+`--text --non-interactive --test`, discovery, FSKit volume protocol,
+native worker lifecycle, local updater guards, macOS build-target checks
+with the installed development bundle, lifecycle preflight, and CLI
+header-backup durability. The independent FAT12 image SHA-256 was
+`33eaab4fc8448ee995909d11b1ee071dc46694926353aa39f5f8a165938ffed6`.
+The archived app was extracted privately and
+verified by the same local verifier. The other personal workflows still
+need the physical native gate. These include favorites, explicit GUI
+mounts, inactivity with active containers, unavailable external storage,
+logout and shutdown.
+
+### Synchronization contract
+
+An image write acknowledgment follows the worker's encrypted positioned
+write. The single worker dispatch loop serializes requests per volume,
+including unaligned read-modify-write, and it receives a complete request
+body before writing. The backing-file loop retries `EINTR` and short writes.
+An I/O failure can leave an already-written prefix. The sector path
+does not supply transactional rollback.
+
+FSKit's volume synchronization and last writable file close send a
+generation-bound flush. After ordinary Disk Images detach, explicit
+teardown and external eject cleanup also flush before releasing the
+writable worker. The worker requests `F_FULLFSYNC` on the backing
+descriptor, retries interruption, and reports unsupported and I/O errors
+to its caller. It checks the backing store before publishing a writable
+mount. A successful acknowledgment means the filesystem and device have
+accepted that sync request for writes already processed by the worker.
+The forwarding of an inner filesystem application's sync through Disk
+Images and device behavior under power loss still require native evidence.
+
+[Apple's fsync manual](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/fsync.2.html)
+
+### Focused security and privacy review
+
+The worker channel trusts the login user. The sandboxed FSKit extension
+and signed host share an App Group, with owner-only resources and sockets.
+
+| Boundary | Observed guard and disposition |
+| --- | --- |
+| Extension or host → decrypted worker read/write | The client validates private resource directories, endpoint owner and socket type. The worker checks peer UID, bounds, generation and read/write protection. Same-UID processes are within the existing trust boundary. [Client](src/Driver/FSKit/VolumeConnection.swift), [worker](src/Driver/FSKit/VolumeProtocol.cpp) |
+| Backing file or hard-link alias → mount reservation | Reservations bind to the opened file's device and inode, or the device number for raw volumes. The private regular lock file is held through worker teardown. Discovery rejects an unresolved control record while its auxiliary mount is visible. A forcibly killed worker with a missing auxiliary mount and a surviving attachment still needs controlled recovery. [Worker](src/Driver/FSKit/FSKitService.mm), [discovery](src/Core/Unix/CoreUnix.cpp) |
+| Disk Images inventory → mount or detach argument | Matching uses canonical image path and IOKit media identity. Kernel FAT holds the identified raw descriptor through its mount. The last detach handoff still uses a BSD name and macOS can recycle it. No wrong-device detach was observed. [Mount and dismount](src/Core/Unix/MacOSX/CoreMacOSX.cpp) |
+| Volume creation → native formatter | CLI and GUI use fixed native formatter paths and construct arguments from the disposable target. The elevated APFS helper validates a device-node path and numeric ownership arguments. Native GUI and formatter handoff remain pending on the installed build. [CLI](src/Main/TextUserInterface.cpp), [GUI](src/Main/Forms/VolumeCreationWizard.cpp), [helper](src/Core/Unix/CoreService.cpp) |
+| Write or key material → production diagnostics | Protocol payloads and partial-sector plaintext use secure buffers. The worker inherits the open crypto context and closes it on normal exit. The focused inspection found no password, keyfile content or private key in the reviewed snapshots and production worker diagnostics. Use the normal password prompt for real volumes, since command-line arguments are visible to the login user. [Worker and buffers](src/Driver/FSKit/VolumeProtocol.cpp), [worker lifetime](src/Driver/FSKit/FSKitService.mm) |
+
+Three tracked files under `.fskit-preboot-snapshot-23NOV2026/` need
+redaction before publication. `profile-decoded.plist` contains a provisioned
+device identifier and the public signing certificate. `system-state.txt`
+contains machine metadata. `app-group-inventory.txt` contains local paths.
+Replace the tracked diagnostic snapshot with a scrubbed summary, store raw
+evidence privately, and assess prior access separately. Git history and
+repository visibility were left in place.
+
+CSEC coverage was limited to this FSKit slice. Object, function and actor
+scope (001–006) were reviewed against the above trust boundaries. Shell
+argument construction (015), diagnostics (041–045), worker generations
+(047–049), and retry and lifecycle state (066–069, 073–074) were reviewed
+for these paths. Local file and resource constraints (033–034, 037) were
+checked, with the detach handoff recorded as residual. Protocol and plist
+parsing were reviewed for bounds and ownership. Database and web-specific
+checks (011–014, 021–025, 035–036, 050–051, 061–063) do not apply to
+these paths. General cryptographic/KDF analysis and unrelated repository
+surfaces (052, 055–057) were outside the focused review. Physical
+interruption, revoked access during a mount, and Finder interactions
+require native validation. See [machine-readable findings](Tests/fskit-security-findings.json).
+
+### Readiness
+
+The installed 1.29.10 app should remain out of routine use until the canonical
+mount smoke passes after the approved restart. Follow with the native
+filesystem matrix and controlled interruption checks, then validate
+external storage and normal sleep, wake and reboot. The personal-use
+migration is incomplete. LambCrypt's macOS build uses FSKit without
+macFUSE or FUSE-T.

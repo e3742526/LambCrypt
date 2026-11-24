@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.0",
+  "project": "LambCrypt",
+  "mode": "patch-advisory",
+  "generated_at": "2026-11-23",
+  "findings": [
+    {
+      "id": "SEC-FSKIT-001",
+      "title": "Tracked provisioning and host metadata in diagnostic snapshots",
+      "observation_class": "hygiene-issue",
+      "severity": "low",
+      "confidence": "high",
+      "affected_surface": "Git diagnostic snapshots",
+      "affected_objects": [
+        ".fskit-preboot-snapshot-23NOV2026/profile-decoded.plist",
+        ".fskit-preboot-snapshot-23NOV2026/system-state.txt",
+        ".fskit-preboot-snapshot-23NOV2026/app-group-inventory.txt"
+      ],
+      "evidence_type": "lexical",
+      "evidence": [
+        "The profile contains one authorized device entry and one public signing certificate.",
+        "The system and App Group inventories contain local identifying metadata."
+      ],
+      "why_it_matters": "The files expose host, account and certificate metadata to repository readers.",
+      "safe_verification_steps": ["Inspect plist key names and count matching paths without displaying values."],
+      "remediation": ["Replace raw files with a scrubbed summary and keep authenticated evidence in private storage."],
+      "regression_tests": ["Review staged diagnostic files for private signing inputs and unredacted device or account fields."],
+      "mappings": ["CSEC-043", "CSEC-045"],
+      "discovered_by": ["lexical-pass"],
+      "status": "open"
+    },
+    {
+      "id": "SEC-FSKIT-002",
+      "title": "Explicit detach crosses a reusable BSD device-name boundary",
+      "observation_class": "design-risk",
+      "severity": "medium",
+      "confidence": "medium",
+      "affected_surface": "Disk Images explicit detach",
+      "affected_objects": ["src/Core/Unix/MacOSX/CoreMacOSX.cpp"],
+      "evidence_type": "semantic",
+      "evidence": [
+        "The teardown validates the exact attachment and media identity.",
+        "The native detach command still takes a device name after that validation."
+      ],
+      "why_it_matters": "A platform-side device reuse during the handoff could invalidate the proof of ownership.",
+      "safe_verification_steps": ["Run the existing discovery test with simulated media replacement and verify native busy retry on disposable images."],
+      "remediation": ["Investigate a documented identity-bound detach interface. Keep ordinary detach and pre- and post-operation checks."],
+      "regression_tests": ["Preserve the simulated media-replacement and incomplete-inventory refusal cases."],
+      "mappings": ["CSEC-066", "CSEC-073"],
+      "discovered_by": ["semantic-pass"],
+      "status": "needs-human-validation"
+    },
+    {
+      "id": "SEC-FSKIT-003",
+      "title": "The encrypted backing worker previously acknowledged ordinary fsync",
+      "observation_class": "design-risk",
+      "severity": "medium",
+      "confidence": "high",
+      "affected_surface": "Writable FSKit synchronization",
+      "affected_objects": [
+        "src/Driver/FSKit/VolumeProtocol.cpp",
+        "src/Driver/FSKit/FSKitService.mm",
+        "src/Platform/Unix/File.cpp"
+      ],
+      "evidence_type": "semantic",
+      "evidence": [
+        "The worker now requires Darwin F_FULLFSYNC and propagates its errors.",
+        "The writable mount checks support before exposing a decrypted image."
+      ],
+      "why_it_matters": "Ordinary fsync can leave writes in a device cache. Stronger flush requests and successful call propagation are prerequisites for the durability test.",
+      "safe_verification_steps": ["Run the protocol fault tests and confirm full-sync requests on disposable backing files."],
+      "remediation": ["Retain the strict worker flush policy and validate native inner-filesystem process interruption."],
+      "regression_tests": ["Inject EINTR, EIO and ENOTSUP and assert the expected status from the worker."],
+      "mappings": ["CSEC-066", "CSEC-073"],
+      "discovered_by": ["semantic-pass", "runtime-check"],
+      "status": "fixed"
+    }
+  ]
+}

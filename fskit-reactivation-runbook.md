@@ -1,180 +1,155 @@
-# FSKit Reactivation Runbook — 23 NOV 2026
+# Local FSKit maintenance and activation
 
-Prepared from live-machine diagnosis on the physical Mac (macOS 26.6.2, 25G83).
-Companion evidence: `.fskit-preboot-snapshot-23NOV2026/` (pre-reboot state baseline).
+Use the logged-in account on Apple Silicon macOS 26 or later. Keep the
+canonical bundle at `/Applications/LambCrypt-FSKit.app`. The application ID
+is `io.github.e3742526.LambCrypt.fskit` and its embedded extension appends
+`.module`.
 
-## Diagnosis recap (one paragraph)
+## Build, sign and install
 
-Signature, profile, device authorization, app group, TCC and Finder association all
-verified GREEN on this machine. The block is two machine-local state layers:
-(1) fskitd's authoritative enablement record (written only via System Settings'
-File System Extensions **category sheet**) has never been committed — 30h of
-fskitd logs contain zero `setEnabledState` events; every "positive election"
-observed so far is a non-authoritative PlugInKit record. (2) The appex's
-ExtensionKit adoption was broken by the registration surgery + the
-1.29.1 → 1.27.1 version downgrade-restore (missing
-`~/Library/Application Scripts/io.github.e3742526.LambCrypt.fskit.module`
-artifact, absent from fskit_agent's inventory). Reference precedent:
-FUSE-T issue #104 (same OS family, same symptom, closed — category sheet is the
-authoritative toggle; the "By App" view is unreliable).
+1. Use Xcode with the macOS 26 SDK or later and Python 3.11 or later. Prepare
+   a native static wxWidgets 3.2.10 build with built-in dependencies. The
+   existing macOS makefile builds it with this command. Use absolute source
+   and build paths without spaces.
 
-## Phase 1 — NOW (before reboot; all user-level, safe with other processes running)
+   ```sh
+   make -C src WXSTATIC=FULL WX_ROOT="$WX_SRC" WX_BUILD_DIR="$WX_BUILD" \
+     WX_CONFIGURE_EXTRA_FLAGS=--with-regex=builtin wxbuild
+   ```
 
-### 1.1 Quarantine stale container state (reversible)
-No LambCrypt processes are running, so all of this is dead state:
-```bash
-GC=~/Library/Group\ Containers/4K5Z4MZ8ZU.lambcrypt-fskit
-Q=_quarantine-preboot-20261123
-mkdir -p "$GC/$Q/mount-locks"
-# stale mount-point dirs (4, Nov 21-22):
-mv "$GC"/lambcrypt-fskit.???????? "$GC/$Q/" 2>/dev/null
-# stale UUID worker/session dirs (6, Nov 21-22; identify by names NOT in Library/mount-locks):
-for d in "$GC"/*/; do case "$(basename "$d")" in
-  [0-9a-f][0-9a-f][0-9a-f][0-9a-f]-*) mv "$d" "$GC/$Q/";; esac; done
-# stale flock identity locks (145 files, all attached to dead processes):
-mv "$GC"/mount-locks/file-* "$GC/$Q/mount-locks/" 2>/dev/null
-# verify container is now clean:
-ls -la "$GC" && ls "$GC/mount-locks" | wc -l    # expect: Library/ + mount-locks/ + quarantine dir only
-```
-Why: these are untouched residue from two days of failed activation trials. A clean
-container makes the post-reboot trial unambiguous — any new artifact you see afterward
-came from THIS attempt. (Longer-term fix remains code: add the startup stale-worker
-sweep this residue proves is missing.)
+2. Keep the Apple Development private key in Keychain. Copy
+   [signing.env.example](src/Setup/MacOSX/signing.env.example) to a private
+   file outside the repository. Set `VC_APP_SIGN_IDENTITY` to the Keychain
+   identity or fingerprint and `VC_FSKIT_PROVISIONING_PROFILE` to the exact
+   Apple-issued macOS development profile for this Mac. Source the private
+   file before invoking the updater.
 
-### 1.2 Build and sign the probe (measurement hardening)
-Unsigned/ad-hoc probes can be silently filtered by fskitd (`getTeamIDForToken` —
-observed live). Compile and sign ONCE now:
-```bash
-cd /Users/eric/Work/vscode/VeraCrypt
-swiftc Tests/check_fskit_activation.swift -o build/fskit-probe
-codesign -s "Apple Development: <your identity>" --entitlements <(cat <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict/></plist>
-EOF
-) build/fskit-probe
-# sanity: exit 2/3/1 interpretations remain as documented; absence-of-module from a
-# SIGNED probe is now trustworthy.
-```
-(If the sandbox-free entitlement step fights you, a plain `codesign -s` without
-entitlements still gives fskitd a team-mappable token — that's what matters.)
+3. Dismount LambCrypt volumes normally and close LambCrypt and VeraCrypt.
+   Keep them closed through the update. Run from the repository root.
 
-### 1.3 Build the reinstall package — forward-only versioning
-Bump the SAME number pair you used for the 1.29.1 trial to **1.29.2 or higher**
-(both app and appex `CFBundleVersion`, matching numbers). Rule for this machine
-going forward: the same bundle ID must NEVER see a lower version than any version
-previously registered on it. Build + sign + run your normal
-`make prepare`-equivalent and `src/Setup/MacOSX/verify_fskit_bundle.sh`, and stage
-the productized pkg — do not install yet.
+   ```sh
+   python3 -B src/Setup/MacOSX/local_fskit_update.py --wx-build-dir "$WX_BUILD"
+   ```
 
-## Phase 2 — REBOOT
-Plain restart. No other prep needed. `/private/tmp` residue clears on boot;
-launchd restarts fskitd; the login session gets a fresh fskit_agent.
+   The updater builds the committed Git ref, verifies the profile and
+   signatures, reserves an increasing build number, and checks the
+   application and extension's linkage. It rechecks workers, active
+   reservations, mount points and Disk Images inventory immediately before
+   publishing the bundle. On an update it verifies a private ZIP of the
+   previous bundle before atomically swapping the application. It reports
+   Launch Services, PlugInKit and effective FSClient status.
 
-## Phase 3 — POST-REBOOT (in this exact order)
+   Add `--smoke` to run a disposable FAT12 lifecycle. Add `--build-only` to
+   sign and verify in the private cache. For the first run after older
+   experiments, use `--build-version` above every previous FSKit candidate.
+   Subsequent runs use the saved counter and installed build number.
 
-```bash
-# 3.1 Registration survived the reboot?
-pluginkit -mDAvv | grep -A3 e3742526                     # expect the module line w/ correct path
-ls ~/Library/Application\ Scripts/ | grep LambCrypt.fskit.module   # may be absent until install
+   A registration or smoke failure after publishing preserves the installed
+   bundle and its rollback ZIP. The terminal prints the private evidence
+   locations. Keep the test fixture and logs if a mount or cleanup failed.
 
-# 3.2 Install the staged 1.29.2 pkg (normal installer flow).
+## Renew provisioning
 
-# 3.3 Adoption artifact check (the thing broken today):
-ls ~/Library/Application\ Scripts/ | grep LambCrypt.fskit.module   # expect it to EXIST now
+1. In Apple Developer, select the existing extension App ID and verify the
+   FSKit Module capability. Register this Mac using the exact **Provisioning
+   UDID** from System Information.
+2. Choose a valid Apple Development signing identity with its private key in
+   Keychain. Regenerate the extension's macOS development profile with that
+   certificate and the physical Mac selected. Update the private environment.
+3. Run the updater. It rejects an expired profile, an unauthorized
+   certificate or Mac, a wrong team or bundle ID, and mismatched App Group
+   metadata. The bundle verifier warns when the profile or certificate is
+   within 30 days of expiry.
 
-# 3.4 Stream while you flip the authorize toggle:
-/usr/bin/log stream --style compact --predicate 'process == "fskitd"'
-# 3.5 In System Settings → General → Login Items & Extensions →
-#     by-category File System Extensions → ⓘ → toggle "LambCrypt FSKit" ON.
-# 3.6 In the stream you EXPECT:
-#   "Call fskit_agent to set enabled state of identifier io.github.e3742526.LambCrypt.fskit.module to (1)"
-```
+[Apple provisioning profile guidance](https://developer.apple.com/help/account/provisioning-profiles/create-a-development-provisioning-profile/)
 
-### Branch A — the setEnabledState line appears
-Verify with the signed probe:
-```bash
-build/fskit-probe /Applications/LambCrypt-FSKit.app; echo "exit=$?"   # 0 = enabled
-```
-Then run migration gate 1 (disposable container: mount, write, sync, dismount,
-read-only remount). If the probe says disabled despite the log line, save the
-next ~20 fskitd lines after it — that subset names the persist failure.
+## Roll back to a working FSKit revision
 
-### Branch B — the line NEVER appears when you flip the toggle
-The sheet refused silently. Re-run 3.4–3.5 once after a logout/login (not full
-reboot). If still nothing, capture BOTH streams during the attempt:
-```bash
-/usr/bin/log stream --style compact --info --predicate \
- 'process == "fskitd" OR process == "fskit_agent" OR process == "FSKitModuleManagement"' \
- > /tmp/enablement-attempt.log
-```
-…and stop. That file contains the refusal reason; don't churn further state.
+Run the updater with `--ref <last-known-good-commit> --smoke` and the current
+development profile. This rebuilds the earlier source with a higher bundle
+version and the same identities. Use the verified ZIP in
+`~/Library/Application Support/LambCrypt-FSKit/Local Updates/` as recovery
+evidence or for inspection. Keep it archived while the installed app is
+registered.
 
-## Evidence diff (optional, after the module works)
-```bash
-SNAP=.fskit-preboot-snapshot-23NOV2026
-diff <(pluginkit -mDAvv | grep -A9 e3742526) <(grep -A9 e3742526 $SNAP/pluginkit-full.txt)
-```
+## Diagnose or recover activation
 
-## Hardening backlog surfaced by this incident (code, not state)
-1. Startup sweep for stale worker dirs / mount-locks in the app-group container
-   (this runbook's Phase 1 had to do manually what `FSKitService` never does).
-2. `verify_fskit_bundle.sh`: add (a) signed-probe build+check, (b) an
-   enumeration assertion (module listed AND `isEnabled`), (c) a version
-   monotonicity precheck against the machine's highest-registered version.
-3. Mount-time diagnostic (FSKitService.mm " is disabled!" path): distinguish
-   not-registered vs registered-disabled vs enabled, and point the user at the
-   *category sheet* specifically, where the current message points at the pane.
-4. Migration notes should record fskitd enablement state (not PlugInKit
-   elections) as the gate metric — today's notes tracked the wrong store for
-   three sessions.
+1. Verify the bundle with
+   `bash src/Setup/MacOSX/verify_fskit_bundle.sh --local /Applications/LambCrypt-FSKit.app`.
+   Query only the LambCrypt extension in PlugInKit.
 
-## ADDENDUM (2026-11-23 17:25) — authoritative store located and verified
+   ```sh
+   pluginkit -m -A -D -v -i io.github.e3742526.LambCrypt.fskit.module
+   ```
 
-Cross-checking an external disassembly-based theory against this OS build
-(25G83) located the authoritative enablement store verified in the dyld
-shared cache and on disk:
+2. Compile and sign the probe with the same Apple Development identity.
+   Use the normal login session and keep the probe out of the checkout.
 
-`~/Library/Group Containers/group.com.apple.fskit.settings/enabledModules.plist`
+   ```sh
+   probe_dir="$(mktemp -d)"
+   xcrun swiftc Tests/check_fskit_activation.swift -o "$probe_dir/check_fskit_activation"
+   codesign --force --sign "$VC_APP_SIGN_IDENTITY" "$probe_dir/check_fskit_activation"
+   "$probe_dir/check_fskit_activation" --register /Applications/LambCrypt-FSKit.app
+   ```
 
-Contents right now: apfs, exfat, msdos, ntafs, ftp — **Apple IDs only**.
-`io.github.e3742526.LambCrypt.fskit.module` is absent, and so is
-`org.fuset.fskit-srv.module`. Neighbor `probeOrder.plist` DOES contain the
-LambCrypt ID (index 0), proving fskit_agent detected the module — discovery
-worked, enablement never persisted.
+   Probe codes 1, 2, 3, 4 and 5 mean disabled, absent, a different extension
+   path, FSClient query failure, and Launch Services failure or duplicate
+   app respectively. A positive PlugInKit election and FSClient code 0
+   establish registration and effective enablement.
 
-### Phase 3 additions (supersedes log-line-only verification)
-3.6. Immediately before flipping the category-sheet toggle:
-```bash
-plutil -p ~/Library/Group\ Containers/group.com.apple.fskit.settings/enabledModules.plist
-```
-3.7. Flip the toggle, wait 5s, re-run 3.6. SUCCESS = the LambCrypt bundle ID
-now appears in the array. This is the single most direct verification signal
-on the machine — stronger than any log line, and it needs no log privileges.
-3.8. If it does NOT appear, the dual-predicate stream (Branch B above, which
-already watches fskitd OR fskit_agent OR FSKitModuleManagement) carries the
-refusal reason.
+3. If disabled, enable LambCrypt in **System Settings → General → Login Items
+   & Extensions → By Category → File System Extensions**, then run the
+   signed probe again. Archive verified same-identifier scratch applications
+   outside discoverable `.app` paths. If an obsolete path is still registered,
+   target that exact old bundle in Launch Services or PlugInKit. Avoid
+   global reset commands and leave the canonical path in place.
+4. Run the [disposable FAT12 smoke](Tests/README-macos-lifecycle.md#ordinary-fskit-fat-routing).
+   Check the extension log promptly after mounting to confirm the actual
+   executable path. On Tahoe this records the launch for each mount.
 
-### Two implications for interpretation, honestly stated
-- `enabledModules.plist` was **born 2026-11-22 23:29:53** (birth == mod, whole
-  store recreated that second). Any enablement record that ever existed
-  before 23:29:53 was destroyed at that moment — consistent with the
-  FSModuleHost "strip replaced/unregistered instances from the enabled list"
-  theory, and equally consistent with the record never having been written.
-  The 30h-log "zero setEnabledState events" evidence is therefore
-  *supportive, not conclusive*: logging must include fskit_agent (the
-  delegation hop), which Branch B already does.
-- The FUSE-T anomaly: its module is absent from enabledModules.plist on this
-  machine too. After the reboot, one discriminator check settles whether
-  this list gates third-party mounting at all: if a FUSE-T FSKit mount works
-  while absent from the list (FUSE-T's primary path is NFS-based), then
-  `enabledModules.plist` may not be the gate for LambCrypt either, and the
-  ExtensionKit adoption layer (`~/Library/Application Scripts/`, where
-  LambCrypt is uniquely missing) is the operative blocker. Both branches
-  still start with the same Phase 1–3, so this only affects interpretation.
+   ```sh
+   log show --last 10m --style compact --predicate \
+     'process == "LambCryptFSKit" AND eventMessage CONTAINS[c] "launched"'
+   ```
 
-### Policy this locks in (regardless of which theory is right)
-Never again run pluginkit unregister/remove against this bundle ID, and never
-reinstall the same-or-lower version over it. Every unregister or
-equal-ID-different-instance replacement is an opportunity for the provider
-list diff to strip the enabled entry (if it ever exists). Forward-only.
+   The path must point inside the canonical app. If launchd reports a
+   re-bootstrap conflict, inspect its exact read-only job record using the
+   login-session `fskit_agent` PID.
+
+   ```sh
+   launchctl print "pid/<agent-pid>/io.github.e3742526.LambCrypt.fskit.module"
+   ```
+
+5. If launchd retains an old path and macOS denies removal of that inactive
+   job, arrange a normal restart with the owner's authorization. Prepare
+   the canonical app and archive the old bundle before restarting. Keep
+   unrelated filesystem services and mounted drives under the owner's
+   control. After restart, verify effective enablement, the actual binary
+   launch path, two successful mounts and final cleanup before broader use.
+
+   On November 23, launchd preferred an already bootstrapped scratch job at
+   an obsolete path while both PlugInKit and FSClient selected the installed
+   app. Before archiving the scratch bundle, the old executable ran and
+   ExtensionFoundation rejected its bundle record. After archiving it,
+   launchd still selected the old program and reported it missing. Scoped
+   removal was denied. Registering the signed app and raising its build
+   number left the live job in place.
+
+[Apple's FSKit settings API](https://developer.apple.com/documentation/fskit/fsclient/openfilesystemextensionssettings())
+
+## Recover an interrupted mount or teardown
+
+Close open files and try ordinary dismount through LambCrypt. If the worker
+still serves an attached image, keep it running. Inspect the mount table,
+`hdiutil info -plist`, and the worker's private App Group directory. A
+pending marker or unavailable inventory requires investigation even when the
+volume has disappeared from Finder.
+
+If the worker was killed and an image remains, stop using the mount and keep
+the encrypted backing file closed in LambCrypt. Match the image path, whole
+media and any APFS child volume to the failed session before requesting an
+ordinary eject. Never select a device solely by its previous BSD number. If
+ownership or detachment is uncertain, preserve the inventory and obtain a
+controlled restart before reopening the container. Check the recovered
+filesystem read-only first. Use filesystem verification on a disposable copy
+or a verified backup with the filesystem offline.

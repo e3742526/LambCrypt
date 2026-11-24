@@ -1,8 +1,9 @@
 <!-- Modified for LambCrypt by the LambCrypt contributors. Changes from VeraCrypt are in the git history; see UPSTREAM.md. -->
 # macOS lifecycle regression checks
 
-Run these checks on macOS with Xcode Command Line Tools and Python 3. They do not
-require administrator privileges, mounted containers, or an installed test app.
+Run the standalone checks with Xcode Command Line Tools and Python 3. Use
+the canonical development-signed app and the normal login account for
+the installed FSKit tests.
 
 LambCrypt asks each user to accept its license on first use. Tests that run the
 `lambcrypt` binary need `export LAMBCRYPT_LICENSE_ACCEPTED=1` first, which
@@ -162,45 +163,42 @@ python3 Tests/test_macos_gui_lifecycle.py --fskit-external-eject --keep-artifact
   --binary "$VC_FSKIT_BUILD_SRC/Main/LambCrypt-FSKit.app/Contents/MacOS/LambCrypt-FSKit"
 ```
 
-### Signed exFAT and APFS integration gate
+### Signed exFAT and APFS integration
 
-Use Python 3.11 or later as an unprivileged user on an isolated Apple Silicon
-macOS 26+ desktop. Use a provisioned scratch app and the team-signed activation
-probe described below. Close other LambCrypt and VeraCrypt instances and
-confirm their mounts are clear. The runner creates its own encrypted fixture,
-accepts only the exact new Disk Images attachment, and keeps its logs and
-fixtures under the printed private directory.
-
-Use a guest or account with its own scratch registration. On a physical test
-Mac where the installed module is enabled, follow the reactivation runbook
-before staging a same-identifier scratch app.
+Use Python 3.11 or later on the Apple Silicon Mac with the canonical
+development-signed app. Close LambCrypt and VeraCrypt and check for retained
+mounts, images or workers. Run one trial at a time. The runner records the
+FSClient URL, source commit, build and binary digest, then creates its own
+private fixture. Test ordinary creation for exFAT and raw single-volume APFS,
+and use fixture formatting to cover a GPT-backed import.
 
 ```sh
-for filesystem in exfat apfs; do
-  python3 Tests/test_macos_fskit_filesystems.py "--fskit-$filesystem" \
-    --isolated-host --binary "$VC_FSKIT_CLI" \
-    --activation-probe "$VC_PROBE_DIR/check_fskit_activation" \
-    --build-commit "$(git rev-parse HEAD)" --reader "$VC_UPSTREAM_READER" --finder-eject
-done
+export LAMBCRYPT_LICENSE_ACCEPTED=1
+VC_FSKIT_CLI=/Applications/LambCrypt-FSKit.app/Contents/MacOS/LambCrypt-FSKit
+python3 -B Tests/test_macos_fskit_filesystems.py --fskit-exfat --cli-create \
+  --isolated-host --binary "$VC_FSKIT_CLI" --activation-probe "$VC_PROBE_DIR/check_fskit_activation" \
+  --build-commit "$VC_FSKIT_TESTED_COMMIT" --reader "$VC_UPSTREAM_READER" --finder-eject
+python3 -B Tests/test_macos_fskit_filesystems.py --fskit-apfs --cli-create \
+  --isolated-host --binary "$VC_FSKIT_CLI" --activation-probe "$VC_PROBE_DIR/check_fskit_activation" \
+  --build-commit "$VC_FSKIT_TESTED_COMMIT" --reader "$VC_UPSTREAM_READER" --finder-eject
+python3 -B Tests/test_macos_fskit_filesystems.py --fskit-apfs \
+  --isolated-host --binary "$VC_FSKIT_CLI" --activation-probe "$VC_PROBE_DIR/check_fskit_activation" \
+  --build-commit "$VC_FSKIT_TESTED_COMMIT" --reader "$VC_UPSTREAM_READER" --finder-eject
 ```
 
-Set `VC_FSKIT_CLI` to the scratch app's executable and `VC_UPSTREAM_READER`
-to a read-only reader built against upstream VeraCrypt. The reader accepts
-`VOLUME PASSWORD PIM` and writes AES/SHA-512 plaintext to stdout. The trial
-compares the full decrypted data area, including the APFS partition and
-container, and verifies the encrypted file is unchanged by the independent
-read. Supply the signed build's actual source commit. For an uncommitted build,
-record its base commit and production patch digest.
+Set `VC_FSKIT_TESTED_COMMIT` to the commit used by the local updater, recorded
+in its private build directory. The upstream VeraCrypt reader takes
+`VOLUME PASSWORD PIM` and writes the AES/SHA-512 plaintext data area to stdout.
+The runner compares the complete plaintext image and verifies that the
+independent reader leaves the ciphertext unchanged.
 
-Eject the named disposable writable volume in Finder when prompted. Omitting
-the reader or Finder check gives a partial result. Use `--fskit-apfs
---apfs-multiple` in a separate invocation without these two options to test
-the two-volume rejection and ordinary teardown. The trial makes that fixture
-large enough for macOS to create a second APFS volume. A failed trial keeps its
-evidence and stops. Inspect its inventories before dismounting the exact
-disposable container with LambCrypt.
+Eject the named writable disposable volume in Finder when prompted. Use
+`--fskit-apfs --apfs-multiple` separately to verify multi-volume rejection
+and whole-image teardown. Omit `--cli-create`, `--reader` and
+`--finder-eject` for that case. If a failure leaves an attachment, retain its
+logs and inspect the exact image before using ordinary dismount.
 
-[FSKit reactivation runbook](../fskit-reactivation-runbook.md)
+[Local installation and activation procedure](../fskit-reactivation-runbook.md)
 
 ### Signed FSKit GUI preflight
 
@@ -211,18 +209,19 @@ to the probe. The ad hoc probe returned only system modules. Keep the
 signed probe and the test bundle outside the checkout.
 
 ```sh
-VC_FSKIT_APP="$VC_FSKIT_BUILD_SRC/Main/LambCrypt-FSKit.app"
+VC_FSKIT_APP=/Applications/LambCrypt-FSKit.app
 VC_PROBE_DIR="$(mktemp -d)"
 xcrun swiftc Tests/check_fskit_activation.swift -o "$VC_PROBE_DIR/check_fskit_activation"
 codesign --force --sign "$VC_APP_SIGN_IDENTITY" "$VC_PROBE_DIR/check_fskit_activation"
 date
 pluginkit -m -A -D -v -i io.github.e3742526.LambCrypt.fskit.module
-"$VC_PROBE_DIR/check_fskit_activation" "$VC_FSKIT_APP"
+"$VC_PROBE_DIR/check_fskit_activation" --register "$VC_FSKIT_APP"
 ```
 
 The probe returns 0 for the intended enabled module, 1 for the intended
 disabled module, 2 for a missing module, 3 for a different registered copy,
-and 4 for an unavailable FSKit query. PlugInKit's `+` records a user election.
+4 for an unavailable FSKit query, and 5 for unsuccessful Launch Services
+registration or duplicate app paths. PlugInKit's `+` records a user election.
 FSKit supplies the effective state for its own module lookup. An enablement
 change belongs in System Settings under General → Login Items & Extensions
 → By Category → File System Extensions. Open the intended signed app on an
@@ -234,14 +233,14 @@ disposable write, sync, dismount and read-only remount. Its two mounts
 exercise the actual extension. Confirm the final mount table, Disk Images
 inventory and worker cleanup before running the rest of the matrix.
 
-Launch and close a freshly registered signed scratch app before mounting
+Launch and close the canonical development-signed app before mounting
 anything for the GUI trial. Use empty, isolated preferences so the app
 cannot mount saved favorites or devices during this check. Leave `TMPDIR`
 at its ordinary session value. The background app should exit on its own
 with these preferences when there are no mounted volumes.
 
 ```sh
-VC_FSKIT_CLI="$VC_FSKIT_BUILD_SRC/Main/LambCrypt-FSKit.app/Contents/MacOS/LambCrypt-FSKit"
+VC_FSKIT_CLI=/Applications/LambCrypt-FSKit.app/Contents/MacOS/LambCrypt-FSKit
 VC_GUI_PREFS="$(mktemp -d)"
 mkdir "$VC_GUI_PREFS/LambCrypt"
 cat >"$VC_GUI_PREFS/LambCrypt/Configuration.xml" <<'EOF'
@@ -261,18 +260,15 @@ runner reports a retained image, preserve its logs and identify it in
 preflights stop before creating a fixture when a prior diagnostic image is
 still attached or the inventory is incomplete.
 
-For a signed development replacement trial, build two scratch bundles with
-ascending `VC_FSKIT_BUILD_VERSION` values and the same marketing version.
-Verify each with `codesign --verify --deep --strict`. Install the first into
-the scratch location, launch the empty GUI, then run a writable FAT12
-lifecycle. Confirm the inner mount, image, auxiliary mount, and worker
-are gone before replacing the app at the same location. Launch the newer
-bundle before repeating the FAT and HFS+ checks. Keep the previous
-bundle outside the app's registration path during the replacement.
+For a local update smoke test, use the
+[canonical updater](../fskit-reactivation-runbook.md#build-sign-and-install)
+with `--smoke`. Confirm the inner mount, image, auxiliary mount and
+worker disappear before repeating. The updater keeps the previous
+version archived outside the registration path.
 
-### Default macFUSE rollback check
+### Historical macFUSE rollback check
 
-For macFUSE rollback validation, use a separate physical Mac with the
+For reproducing historical macFUSE trials, use a separate physical Mac with the
 matching macFUSE driver already loaded. Dismount the FSKit fixture and
 confirm its image and worker are gone. Keep the original disposable
 container and use a copy for the rollback test. Verify the prior macFUSE
@@ -316,13 +312,13 @@ Native Finder eject has its own smoke check.
 ### Ordinary FSKit FAT routing
 
 Use Python 3.11 or later and a dedicated, logged-in Apple Silicon Tahoe
-test system with a provisioned scratch bundle. Run each case separately
+test system with the canonical development-signed bundle. Run each case separately
 so a retained image stops the next trial. This mode uses an ordinary
 LambCrypt mount and checks that the app selected the kernel FAT driver.
 It checks the exact device, expected FAT width and requested access mode.
 
 ```sh
-VC_FSKIT_CLI="$VC_FSKIT_BUILD_SRC/Main/LambCrypt-FSKit.app/Contents/MacOS/LambCrypt-FSKit"
+VC_FSKIT_CLI=/Applications/LambCrypt-FSKit.app/Contents/MacOS/LambCrypt-FSKit
 python3 -B Tests/test_macos_gui_lifecycle.py --isolated-host --fskit-routed-fat 12 --binary "$VC_FSKIT_CLI"
 python3 -B Tests/test_macos_gui_lifecycle.py --isolated-host --fskit-routed-fat 16 --fat-default-directory --binary "$VC_FSKIT_CLI"
 python3 -B Tests/test_macos_gui_lifecycle.py --isolated-host --fskit-routed-fat 32 --binary "$VC_FSKIT_CLI"
@@ -403,3 +399,23 @@ container, the candidate writes and syncs data, and the released client remounts
 it read-only and verifies the payload. Both dismounts are checked for cleanup.
 Point both arguments at the installed release to check the test setup before
 building a candidate. Do not use an existing container as test input.
+
+## Full synchronization and interruption evidence
+
+`test_fskit_volume_protocol.py` exercises the encrypted worker against real
+backing files and injects interruption, unsupported full-sync and I/O errors.
+It requires the worker to retry interruption and return the original failures.
+The installed FSKit build requests full synchronization before publishing a
+writable attachment, when receiving a sync, on last writer close and during
+final writable teardown. A write acknowledgment follows encrypted backing
+writes. It carries no device-flush result.
+
+Run the native Disk Images worker drill separately. The disk attachments and
+worker sockets in that drill are real. Auxiliary loss and publication timing
+are injected. For installed native crash validation, create a disposable
+container, record acknowledged file syncs, interrupt only the intended test
+process, confirm attachment ownership and finally verify a read-only remount
+and payload hashes. Verify the inner filesystem offline on a copy if needed.
+Record each process and interruption point tested. The protocol and worker
+drills cannot establish native filesystem crash or physical power-loss
+recovery.
