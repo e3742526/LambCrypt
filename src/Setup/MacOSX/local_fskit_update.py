@@ -162,13 +162,12 @@ def extension_registrations():
     return paths
 
 
-def publish(candidate, work, had_app, team):
+def publish(candidate, backup, team):
     with tempfile.TemporaryDirectory(prefix=".lambcrypt-update-", dir=APP.parent) as staging:
         staged = Path(staging) / "candidate.bundle"
         subprocess.run(["/usr/bin/ditto", candidate, staged], check=True)
         subprocess.run(["/bin/bash", ROOT / "src/Setup/MacOSX/verify_fskit_bundle.sh", "--local", staged], check=True)
-        if had_app:
-            backup = work / "previous-app.zip"
+        if backup is not None:
             subprocess.run(["/usr/bin/ditto", "-c", "-k", "--keepParent", APP, backup], check=True)
             subprocess.run(["/usr/bin/unzip", "-tq", backup], check=True)
             print(f"Previous app archived at {backup}", flush=True)
@@ -179,7 +178,7 @@ def publish(candidate, work, had_app, team):
         rename = ctypes.CDLL(None, use_errno=True).renamex_np
         rename.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
         rename.restype = ctypes.c_int
-        flag = 0x00000002 if had_app else 0x00000004  # RENAME_SWAP / RENAME_EXCL
+        flag = 0x00000002 if backup is not None else 0x00000004  # RENAME_SWAP / RENAME_EXCL
         if rename(os.fsencode(staged), os.fsencode(APP), flag) != 0:
             error = ctypes.get_errno()
             raise OSError(error, os.strerror(error), str(APP))
@@ -198,10 +197,13 @@ def update(args, state):
                    version(old_info["CFBundleVersion"]) if old_info else (1, 0, 0))
     build = next_version(previous, args.build_version)
     commit = run("/usr/bin/git", "-C", ROOT, "rev-parse", "--verify", "--end-of-options", args.ref + "^{commit}").decode().strip()
-    work = Path(tempfile.mkdtemp(prefix=f"{build}-", dir=state))
+    cache = Path.home() / "Library/Caches/LambCrypt-FSKit/LocalUpdates"
+    private_directory(cache)
+    work = Path(tempfile.mkdtemp(prefix=f"{build}-", dir=cache))
     (work / "source-commit").write_text(commit + "\n")
-    (work / "allocated-version").write_text(build + "\n")
-    (work / "allocated-version").replace(counter)
+    allocated = state / "allocated-version"
+    allocated.write_text(build + "\n")
+    allocated.replace(counter)
     source = work / "source"
     source.mkdir()
     archive = work / "source.tar"
@@ -240,7 +242,12 @@ def update(args, state):
     subprocess.run(["/usr/bin/codesign", "--force", "--sign", identity, probe], check=True)
     if application_info() != old_info:
         raise RuntimeError("The canonical application changed while building. Start the update again.")
-    publish(candidate, work, old_info is not None, team)
+    backup = None
+    if old_info is not None:
+        backup_dir = state / work.name
+        private_directory(backup_dir)
+        backup = backup_dir / "previous-app.zip"
+    publish(candidate, backup, team)
     print(f"Installed {build} at {APP}.", flush=True)
     result = subprocess.run([probe, "--register", APP], timeout=12)
     if result.returncode:
