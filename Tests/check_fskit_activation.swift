@@ -5,20 +5,46 @@
  distribution packages.
 */
 
+import AppKit
+import CoreServices
 import FSKit
 import Foundation
 
-let identifier = "io.github.e3742526.LambCrypt.fskit.module"
-guard CommandLine.arguments.count == 2 else {
-    print("Usage: check_fskit_activation /path/to/LambCrypt-FSKit.app")
+let appIdentifier = "io.github.e3742526.LambCrypt.fskit"
+let identifier = appIdentifier + ".module"
+var arguments = Array(CommandLine.arguments.dropFirst())
+let register = arguments.first == "--register"
+if register { arguments.removeFirst() }
+guard arguments.count == 1 else {
+    print("Usage: check_fskit_activation [--register] /path/to/LambCrypt-FSKit.app")
     exit(64)
 }
-let extensionURL = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
+let appURL = URL(fileURLWithPath: arguments[0], isDirectory: true).resolvingSymlinksInPath()
+let extensionURL = appURL
     .appendingPathComponent("Contents/Extensions/LambCryptFSKit.appex", isDirectory: true)
     .resolvingSymlinksInPath()
 guard Bundle(url: extensionURL)?.bundleIdentifier == identifier else {
     print("Expected \(identifier) at \(extensionURL.path)")
     exit(64)
+}
+if register {
+    guard Bundle(url: appURL)?.bundleIdentifier == appIdentifier else {
+        print("Unexpected application identifier at \(appURL.path)")
+        exit(64)
+    }
+    let status = LSRegisterURL(appURL as CFURL, true)
+    guard status == noErr else {
+        print("Launch Services registration failed with status \(status)")
+        exit(5)
+    }
+    let copies = NSWorkspace.shared.urlsForApplications(withBundleIdentifier: appIdentifier)
+        .map { $0.resolvingSymlinksInPath() }
+        .filter { Bundle(url: $0)?.bundleIdentifier == appIdentifier }
+    guard Set(copies) == [appURL] else {
+        for copy in copies { print("Launch Services app: \(copy.path)") }
+        print("Launch Services did not resolve the canonical app exclusively.")
+        exit(5)
+    }
 }
 
 DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(5)) {

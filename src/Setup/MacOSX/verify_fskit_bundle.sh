@@ -7,12 +7,14 @@
 set -euo pipefail
 
 distribution=false
-if [[ "${1:-}" == --distribution ]]; then
-    distribution=true
+local_install=false
+if [[ "${1:-}" == --distribution || "${1:-}" == --local ]]; then
+    [[ "$1" != --distribution ]] || distribution=true
+    [[ "$1" != --local ]] || local_install=true
     shift
 fi
 if [[ "$#" -ne 1 ]]; then
-    echo "Usage: ${0##*/} [--distribution] /path/to/LambCrypt-FSKit.app" >&2
+    echo "Usage: ${0##*/} [--distribution|--local] /path/to/LambCrypt-FSKit.app" >&2
     exit 2
 fi
 
@@ -68,23 +70,32 @@ for executable in "$bundle/Contents/MacOS/LambCrypt-FSKit" "$extension/Contents/
     if grep -Eiq '/(lib(fuse|osxfuse|macfuse)[^/[:space:]]*\.dylib|(fuse-t|macfuse|osxfuse)\.framework/)' <<< "$dependencies"; then
         fail "The FSKit executable links a third-party FUSE library: $executable"
     fi
+    if $local_install &&
+        ! awk 'NR > 1 && $1 !~ /^\/(usr\/lib|System\/Library)\// {exit 1}' <<< "$dependencies"; then
+        fail "The FSKit executable has a non-system library dependency: $executable"
+    fi
 done
 
 codesign --verify --deep --strict "$bundle"
 work=$(mktemp -d "${TMPDIR:-/tmp}/lambcrypt-verify-fskit.XXXXXX")
-trap 'rm -f "$work/profile.plist" "$work/entitlements.plist" "$work"/signing-certificate*; rmdir "$work"' EXIT
+trap 'rm -f "$work/profile.plist" "$work/entitlements.plist" "$work"/*-certificate*; rmdir "$work"' EXIT
 security cms -D -i "$profile" -o "$work/profile.plist" 2>/dev/null ||
     fail "The embedded FSKit profile could not be decoded."
 expiry=$(plist_value ExpirationDate "$work/profile.plist" 2>/dev/null) &&
     expiry_epoch=$(/bin/date -ju -f '%Y-%m-%dT%H:%M:%SZ' "$expiry" +%s 2>/dev/null) ||
     fail "The FSKit profile has no valid expiration date."
-[[ "$expiry_epoch" -gt "$(/bin/date +%s)" ]] || fail "The FSKit provisioning profile has expired."
+now_epoch=$(/bin/date +%s)
+[[ "$expiry_epoch" -gt "$now_epoch" ]] || fail "The FSKit provisioning profile has expired."
+if $local_install && (( expiry_epoch - now_epoch < 30 * 86400 )); then
+    echo "Warning: the FSKit provisioning profile expires within 30 days." >&2
+fi
 
 if [[ "$(plist_value ProvisionsAllDevices "$work/profile.plist" 2>/dev/null)" != true ]]; then
     if $distribution; then
         fail "Prepare the FSKit app with a Developer ID distribution profile."
     fi
     target_device=${VC_FSKIT_TARGET_UDID:-}
+    if $local_install; then target_device=; fi
     if [[ -z "$target_device" ]]; then
         target_device=$(/usr/sbin/system_profiler -json SPHardwareDataType |
             plutil -extract SPHardwareDataType.0.provisioning_UDID raw -o - - 2>/dev/null) ||
@@ -95,6 +106,8 @@ if [[ "$(plist_value ProvisionsAllDevices "$work/profile.plist" 2>/dev/null)" !=
         fail "The FSKit development profile does not list any provisioned devices."
     awk -v id="$target_device" 'NF == 1 && $1 == id { found = 1 } END { exit !found }' <<< "$devices" ||
         fail "The FSKit development profile does not authorize the target Mac's exact Provisioning UDID."
+elif $local_install; then
+    fail "Use a development provisioning profile for this Mac."
 fi
 team=$(entitlement Entitlements:com.apple.developer.team-identifier "$work/profile.plist" 2>/dev/null || true)
 profile_id=$(entitlement Entitlements:com.apple.application-identifier "$work/profile.plist" 2>/dev/null || true)
@@ -115,11 +128,26 @@ while certificate=$(plist_value "DeveloperCertificates.$certificate_index" "$wor
     certificate_index=$((certificate_index + 1))
 done
 $authorized || fail "The FSKit profile does not authorize the extension's signing certificate."
+if $local_install; then
+    /usr/bin/openssl x509 -inform DER -in "$work/signing-certificate0" -checkend 0 -noout >/dev/null ||
+        fail "The FSKit signing certificate has expired or cannot be read."
+    if ! /usr/bin/openssl x509 -inform DER -in "$work/signing-certificate0" -checkend 2592000 -noout >/dev/null; then
+        echo "Warning: the FSKit signing certificate expires within 30 days." >&2
+    fi
+fi
 
 for component in "$bundle" "$extension"; do
     signature=$(codesign --display --verbose=4 "$component" 2>&1)
     grep -Fxq "TeamIdentifier=$team" <<< "$signature" ||
         fail "The FSKit code-signing team differs from the embedded profile."
+    if $local_install; then
+        grep -q '^Authority=Apple Development:' <<< "$signature" ||
+            fail "The local FSKit app and extension must use Apple Development signing."
+        [[ "$component" == "$extension" ]] || {
+            codesign --display --extract-certificates="$work/app-certificate" "$component" 2>/dev/null &&
+                cmp -s "$work/app-certificate0" "$work/signing-certificate0"
+        } || fail "The app and extension use different Apple Development certificates."
+    fi
     codesign --display --entitlements - --xml "$component" > "$work/entitlements.plist" 2>/dev/null
     [[ "$(entitlement com.apple.security.application-groups:0 "$work/entitlements.plist" 2>/dev/null)" == "$team.lambcrypt-fskit" ]] ||
         fail "The app and extension must use the provisioned FSKit App Group."
