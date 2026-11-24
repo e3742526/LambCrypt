@@ -129,8 +129,10 @@ def main():
         app = binary.parents[2]
         if fat_trial:
             extension = app / "Contents/Extensions/LambCryptFSKit.appex/Contents"
-            if Path("/Applications") in app.parents or not (extension / "embedded.provisionprofile").is_file():
-                parser.error("the kernel FAT trial requires a provisioned scratch FSKit bundle")
+            installed = app == Path("/Applications/LambCrypt-FSKit.app")
+            if ((Path("/Applications") in app.parents and (not installed or args.fskit_kernel_fat))
+                    or not (extension / "embedded.provisionprofile").is_file()):
+                parser.error("use a provisioned scratch app, or the canonical app for a routed FAT trial")
         subprocess.run(["/usr/bin/codesign", "--verify", "--deep", "--strict", app], check=True, timeout=10)
     elif is_fskit(binary) or is_fskit(release):
         parser.error("select an explicit FSKit mode for the signed app")

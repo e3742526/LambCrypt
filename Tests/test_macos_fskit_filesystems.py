@@ -293,22 +293,29 @@ class Trial:
                     "Unexpected unpartitioned exFAT layout")
             return attachment, whole, (whole,), None
 
-        whole, = (dev for dev, entry in entities.items() if entry.get("content-hint") == "GUID_partition_scheme")
-        require(WHOLE.fullmatch(whole) and devices[whole]["Size"] == self.image_size,
-                "Unexpected APFS GUID whole-disk geometry")
-        partitions = {dev for dev in entities if dev.startswith(whole + "s")}
-        require(partitions, "No physical GPT partitions were reported")
-        for dev in partitions:
-            start, size = devices[dev]["Base"], devices[dev]["Size"]
-            require(0 < start < start + size <= self.image_size, f"Partition exceeds fixture geometry: {dev}")
         containers = plistlib.loads(command("/usr/sbin/diskutil", "apfs", "list", "-plist"))["Containers"]
-        container, = (entry for entry in containers if any("/dev/" + store["DeviceIdentifier"] in partitions
+        if self.args.cli_create:
+            stores = {dev for dev in entities if WHOLE.fullmatch(dev) and devices[dev]["Size"] == self.image_size
+                      and devices[dev]["IOObjectClass"] != "AppleAPFSMedia"}
+            whole, = stores
+            partitions = set()
+        else:
+            whole, = (dev for dev, entry in entities.items() if entry.get("content-hint") == "GUID_partition_scheme")
+            require(WHOLE.fullmatch(whole) and devices[whole]["Size"] == self.image_size,
+                    "Unexpected APFS GUID whole-disk geometry")
+            partitions = {dev for dev in entities if dev.startswith(whole + "s")}
+            require(partitions, "No physical GPT partitions were reported")
+            for dev in partitions:
+                start, size = devices[dev]["Base"], devices[dev]["Size"]
+                require(0 < start < start + size <= self.image_size, f"Partition exceeds fixture geometry: {dev}")
+            stores = partitions
+        container, = (entry for entry in containers if any("/dev/" + store["DeviceIdentifier"] in stores
                       for store in entry["PhysicalStores"]))
         store, = container["PhysicalStores"]
         children = tuple("/dev/" + volume["DeviceIdentifier"] for volume in container["Volumes"])
         physical = "/dev/" + store["DeviceIdentifier"]
         synthesized = "/dev/" + container["ContainerReference"]
-        require(len(children) == volume_count and physical in partitions
+        require(len(children) == volume_count and physical in stores
                 and set(entities) == {whole, *partitions, synthesized, *children}
                 and devices[synthesized]["IOObjectClass"] == "AppleAPFSMedia"
                 and all(devices[child]["IOObjectClass"] == "AppleAPFSVolume" for child in children),
@@ -437,20 +444,24 @@ class Trial:
 
     def execute(self):
         require(not self.volume.exists(), "Refusing to overwrite a fixture")
+        filesystem = {"apfs": "APFS", "exfat": "exFAT"}[self.filesystem] if self.args.cli_create else "none"
         self.vc("create", "--create", self.volume, f"--size={self.size}", "--volume-type=normal", "--encryption=AES",
-                "--hash=sha512", "--filesystem=none", "--password=" + PASSWORD, "--pim=0",
+                "--hash=sha512", "--filesystem=" + filesystem, "--password=" + PASSWORD, "--pim=0",
                 "--keyfiles=", "--random-source=/dev/urandom")
         self.backing = fixture_identity(self.volume, self.root, self.size)
-        active = self.mount("attach-blank", attach_only=True)
-        whole, identity = self.format(active)
-        def formatted_layout():
-            records, devices = inventory(), media()
-            _, detected_whole, _, _ = self.layout(active, records, devices, 2 if self.args.apfs_multiple else 1)
-            require(detected_whole == whole and devices[whole]["IORegistryEntryID"] == identity,
-                    "Formatting did not preserve the disposable image's whole-media identity")
-            self.evidence("formatted", mount_table(), records, devices)
-        wait_for(formatted_layout)
-        self.unmount(active, "detach-formatted")
+        if not self.args.cli_create:
+            active = self.mount("attach-blank", attach_only=True)
+            whole, identity = self.format(active)
+
+            def formatted_layout():
+                records, devices = inventory(), media()
+                _, detected_whole, _, _ = self.layout(active, records, devices, 2 if self.args.apfs_multiple else 1)
+                require(detected_whole == whole and devices[whole]["IORegistryEntryID"] == identity,
+                        "Formatting did not preserve the disposable image's whole-media identity")
+                self.evidence("formatted", mount_table(), records, devices)
+
+            wait_for(formatted_layout)
+            self.unmount(active, "detach-formatted")
         if self.args.apfs_multiple:
             self.reject_multiple_volumes()
             return
@@ -513,9 +524,11 @@ def main():
     parser.add_argument("--finder-eject", action="store_true", help="Wait for native Finder eject of a writable mount")
     parser.add_argument("--apfs-multiple", action="store_true",
                         help="Create two disposable APFS volumes and verify ordinary mount rejection")
+    parser.add_argument("--cli-create", action="store_true",
+                        help="Format with ordinary LambCrypt CLI creation (unpartitioned for APFS)")
     parser.add_argument("--build-commit", required=True, help="Source commit or base commit and patch digest of the signed app")
     args = parser.parse_args()
-    if args.apfs_multiple and (args.filesystem != "apfs" or args.finder_eject or args.reader):
+    if args.apfs_multiple and (args.filesystem != "apfs" or args.finder_eject or args.reader or args.cli_create):
         parser.error("--apfs-multiple requires --fskit-apfs and runs the layout rejection trial alone")
     if not __debug__ or sys.platform != "darwin" or os.uname().machine != "arm64" or os.geteuid() == 0:
         parser.error("Run as a regular user on Apple Silicon macOS with Python checks enabled")
@@ -528,9 +541,10 @@ def main():
     app = args.binary.parents[2]
     extension = app / "Contents/Extensions/LambCryptFSKit.appex"
     require(app.suffix == ".app" and args.binary.parent.name == "MacOS" and is_fskit(args.binary)
-            and Path("/Applications") not in app.parents and Path("/System") not in app.parents
+            and (Path("/Applications") not in app.parents or app == Path("/Applications/LambCrypt-FSKit.app"))
+            and Path("/System") not in app.parents
             and (extension / "Contents/embedded.provisionprofile").is_file(),
-            "Use a provisioned scratch FSKit app outside the installed app locations")
+            "Use the canonical installed app or a provisioned FSKit scratch app")
     command("/usr/bin/codesign", "--verify", "--deep", "--strict", str(app))
     command("/usr/bin/codesign", "--verify", "--strict", str(args.activation_probe))
     require(signing_team(app) == signing_team(extension) == signing_team(args.activation_probe),
@@ -543,9 +557,11 @@ def main():
     require(result.returncode == 0 and f"enabled=true {extension}" in activation,
             "FSClient did not confirm the exact scratch module. " + activation.strip())
     trial = Trial(args, args.filesystem)
+    app_version = plistlib.loads((app / "Contents/Info.plist").read_bytes())["CFBundleVersion"]
     (trial.root / "host-build.txt").write_text(
         command("/usr/bin/sw_vers").decode() + f"Architecture: {os.uname().machine}\n"
-        f"Reported source commit: {args.build_commit}\nBinary: {args.binary}\nSHA-256: {file_hash(args.binary)}\n"
+        f"Reported source commit: {args.build_commit}\nBuild: {app_version}\n"
+        f"Binary: {args.binary}\nSHA-256: {file_hash(args.binary)}\n"
         f"{activation}")
     try:
         trial.execute()
