@@ -109,7 +109,12 @@ int main (int argc, char **argv)
 		else
 		{
 #if defined (TC_MACOSX) && !defined (TC_NO_GUI)
-			if (argc > 1 && !(argc == 2 && strstr (argv[1], "-psn_") == argv[1]))
+			bool activateGui = argc > 1 && !(argc == 2 && strstr (argv[1], "-psn_") == argv[1]);
+			// Keep the current app focused when starting only the background task.
+			for (int i = 1; activateGui && i < argc && strcmp (argv[i], "--") != 0; ++i)
+				activateGui = strcmp (argv[i], "--background-task") != 0;
+
+			if (activateGui)
 			{
 				ProcessSerialNumber p;
 				if (GetCurrentProcess (&p) == noErr)
